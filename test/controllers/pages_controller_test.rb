@@ -123,12 +123,23 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "a.cta:not([href='#{onboarding_path}'])", 0
   end
 
-  test "signed-in pages link to the FAQ, in the account menu and the footer" do
+  test "signed-in pages link to the FAQ in the footer, but not in the account menu" do
     sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
     get project_path
 
-    assert_select "#top-bar-account a.top-bar__faq[href='#{about_path}#faq']"
+    assert_select "#top-bar-account a.top-bar__faq", 0
+    assert_select "#top-bar-account a[href*='#faq']", 0
     assert_select "footer a[href='#{about_path}#faq']", text: "FAQ"
+  end
+
+  test "the landing page footer has no FAQ link, since the page shows the FAQ" do
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+    get about_path
+
+    assert_select "#faq"
+    assert_select "footer a", text: "Security"
+    assert_select "footer a[href*='#faq']", 0
+    assert_select "#top-bar-account a[href*='#faq']", 0
   end
 
   test "signed-out pages don't show the FAQ link" do

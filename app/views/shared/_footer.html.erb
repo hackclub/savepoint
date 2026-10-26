@@ -1,8 +1,9 @@
 <%# locals: (plain: false) %>
 <%# The footer on every participant page. The landing page's is a dark zone (footer.css) under the FAQ's slanted foot. On the
-    other pages (plain: true) it is just the two lines on the page's own background. %>
+    other pages (plain: true) it is just the two lines on the page's own background, and only those link to the FAQ (the
+    landing page shows it inline). %>
 <% links = capture do %>
-  <p><a href="https://hackclub.com">Hack Club</a> · <a href="https://hackclub.com/privacy-and-terms">Terms &amp; Privacy</a> · <a href="https://forms.hackclub.com/bounty">Fulfillment</a> · <a href="https://security.hackclub.com">Security</a><% if signed_in? %> · <%= link_to "FAQ", about_path(anchor: "faq") %><% end %><% if NpsResponse.participant?(current_user) %> · <%= link_to "Feedback", nps_path %><% end %></p>
+  <p><a href="https://hackclub.com">Hack Club</a> · <a href="https://hackclub.com/privacy-and-terms">Terms &amp; Privacy</a> · <a href="https://forms.hackclub.com/bounty">Fulfillment</a> · <a href="https://security.hackclub.com">Security</a><% if plain && signed_in? %> · <%= link_to "FAQ", about_path(anchor: "faq") %><% end %><% if NpsResponse.participant?(current_user) %> · <%= link_to "Feedback", nps_path %><% end %></p>
   <p class="muted">made with &lt;3 by <a target="_blank" rel="noopener" href="https://hackclub.enterprise.slack.com/team/U07ABEP916X">@armand</a></p>
 <% end %>
 <% if plain %>

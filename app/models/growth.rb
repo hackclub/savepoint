@@ -1,29 +1,31 @@
 # Who's building, day by day, after Duolingo's growth model (as Stardance runs it): every builder, every day of
-# Save Point, in one state by when they last built, and how many moved from each state one day to each state the
-# next. Built on a day means ACTIVE_SECONDS or more on Hackatime that day (their synced streak day, StreakActivity):
-# one minute, well short of a streak's twenty, since this asks who showed up, not who did their bit (D-075).
+# Save Point, in one state by what they did on and before that day, and how many moved from each state one day to each
+# state the next. Built on a day means ACTIVE_SECONDS or more on Hackatime that day (their synced streak day,
+# StreakActivity): one minute, well short of a streak's twenty, since this asks who showed up, not who did their bit (D-075).
+#
+# Save Point runs about 10 days, so Duolingo's month-scale states (reactivated after 7 to 29 days away, resurrected after
+# 30, at-risk MAU, dormant) never happen here and are gone. The states are the ones a 10-day program can have: three
+# that built that day (new, built the day before too, back after days off) and two that didn't (skipped just today,
+# gone two days or more). The three that built are the groups the admin and stats charts stack, and always sum to DAU.
 #
 # Only finished days are modelled (today's still filling in), and the whole thing is small enough to work out from
 # the streak days each time, so nothing's snapshotted. PublicStats caches it with the rest of the page.
 class Growth
   ACTIVE_SECONDS = 60
-  # Duolingo's states: the four that built that day, then the three that didn't, by how long it's been. A week is
-  # the day and the six before it, a month the day and the 29 before it.
-  STATES = %w[new current reactivated resurrected at_risk_wau at_risk_mau dormant].freeze
-  ACTIVE_STATES = STATES.first(4).freeze
-  # Rate => [state yesterday, state today], named as Duolingo names them.
+  # new: first day building. current: built the day before too. returning: built before, but not the day before.
+  # at_risk: didn't build today, did yesterday. lapsed: didn't build today or yesterday, but did before.
+  STATES = %w[new current returning at_risk lapsed].freeze
+  ACTIVE_STATES = STATES.first(3).freeze
+  # Rate => [state yesterday, state today]. NURR, CURR and RURR are Duolingo's names; the two ways back after days
+  # off are named for what they are.
   RATES = {
     "nurr" => %w[new current],
     "curr" => %w[current current],
-    "rurr" => %w[reactivated current],
-    "surr" => %w[resurrected current],
-    "iwaurr" => %w[at_risk_wau current],
-    "reactivation" => %w[at_risk_mau reactivated],
-    "resurrection" => %w[dormant resurrected],
-    "wau_loss" => %w[at_risk_wau at_risk_mau],
-    "mau_loss" => %w[at_risk_mau dormant]
+    "rurr" => %w[returning current],
+    "day_off" => %w[at_risk returning],
+    "days_off" => %w[lapsed returning]
   }.freeze
-  # Daily rates are noisy with a program this size, so the rates shown pool a week.
+  # Daily rates are noisy with a program this size, so the rates shown pool several days.
   RATE_WINDOW = 7
 
   # One day: how many builders sat in each state, and how many moved from each state the day before into each
@@ -31,8 +33,6 @@ class Growth
   Day = Data.define(:date, :counts, :transitions) do
     def count_for(state) = counts.fetch(state, 0)
     def dau = ACTIVE_STATES.sum { |state| count_for(state) }
-    def wau = dau + count_for("at_risk_wau")
-    def mau = wau + count_for("at_risk_mau")
 
     # Builders who were in `from` yesterday, or nil if there were none.
     def users_leaving(from) = transitions.fetch(from, {}).values.sum.nonzero?
@@ -88,7 +88,7 @@ class Growth
       days: Program::DATES.map { |date| row(date, days.find { |day| day.date == date }) },
       today: (row(@today, today_so_far) if Program::DATES.cover?(@today)),
       rates: Program::DATES.map { |date| rates.find { |row| row[:date] == date } || { date: } },
-      latest: latest && { date: latest.date, dau: latest.dau, wau: latest.wau, mau: latest.mau, curr: rates.last[:curr] },
+      latest: latest && { date: latest.date, dau: latest.dau, curr: rates.last[:curr] },
       projections: Simulator::SIGNUPS.to_h { |signups| [ signups, projection(signups) ] }
     }
   end
@@ -97,20 +97,19 @@ class Growth
   def self.state_on(active_dates, day)
     first = active_dates.first
     return if first.nil? || first > day
-    return "new" if first == day
 
-    last_before = active_dates.reverse_each.find { |date| date < day }
+    built_yesterday = active_dates.include?(day - 1)
     if active_dates.include?(day)
-      last_before >= day - 6 ? "current" : last_before >= day - 29 ? "reactivated" : "resurrected"
+      first == day ? "new" : built_yesterday ? "current" : "returning"
     else
-      last_before >= day - 6 ? "at_risk_wau" : last_before >= day - 29 ? "at_risk_mau" : "dormant"
+      built_yesterday ? "at_risk" : "lapsed"
     end
   end
 
   private
     # The days each builder built ACTIVE_SECONDS or more, sorted.
     def active_dates_by_user
-      activities = StreakActivity.where(activity_date: Program::FIRST_STREAK_DATE.., coded_seconds: ACTIVE_SECONDS..)
+      activities = StreakActivity.where(activity_date: Program::HACKATIME_START.., coded_seconds: ACTIVE_SECONDS..)
       activities = activities.where(user_id: User.participants.select(:id)) if @participants_only
       @active_dates_by_user ||= activities.order(:activity_date).pluck(:user_id, :activity_date)
                                               .group_by(&:first).transform_values { |rows| rows.map(&:last) }
@@ -129,7 +128,7 @@ class Growth
 
     # A day's numbers, or nil for each until the day's done.
     def row(date, day)
-      { date:, future: day.nil?, dau: day&.dau, wau: day&.wau, mau: day&.mau, **STATES.to_h { |state| [ state.to_sym, day&.count_for(state) ] } }
+      { date:, future: day.nil?, dau: day&.dau, **STATES.to_h { |state| [ state.to_sym, day&.count_for(state) ] } }
     end
 
     def pooled_rate(window, rate)

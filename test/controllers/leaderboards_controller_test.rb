@@ -13,6 +13,9 @@ class LeaderboardsControllerTest < ActionDispatch::IntegrationTest
     get leaderboard_path(sort: "today")
 
     assert_response :success
+    assert_select "tr[data-you]", count: 0, message: "not ranked last: the board shows the top three and a friendly line"
+    assert_select ".leaderboard__nudge"
+    get leaderboard_path(sort: "today", all: 1)
     assert_select "tr[data-you] td", "—"
     assert_select ".leaderboard__sort[aria-current=page]", "Today"
     assert_select ".leaderboard__you-rank", "—"
@@ -77,6 +80,21 @@ class LeaderboardsControllerTest < ActionDispatch::IntegrationTest
     get leaderboard_path(sort: "today")
     assert_select "th[data-sorted]", "Hours today"
     assert_select ".leaderboard__change", false, "arrows are for the total board"
+  end
+
+  test "someone not set up sees the top three and a friendly line, and can ask for everyone" do
+    users(:ana).update!(hackatime_uid: "9999", hackatime_access_token: "token-ana")
+    projects(:ana).update!(hackatime_projects: [ "heidis-game" ])
+    mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS")
+    post "/auth/hackclub"
+    follow_redirect!
+    get leaderboard_path
+
+    assert_select "tr[data-you]", count: 0
+    assert_select ".leaderboard__nudge"
+    get leaderboard_path(all: 1)
+    assert_select "tr[data-you]", 1
+    assert_select ".leaderboard__nudge", false
   end
 
   test "with no sort the board opens on Today, and Total stays reachable" do

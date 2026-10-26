@@ -463,7 +463,9 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       get project_path
       assert_select ".pg-project[data-controller=first-heartbeat][data-first-heartbeat-url-value='#{first_heartbeat_project_path}']"
       assert_select ".project__heartbeat[data-state=waiting] .project__heartbeat-title", "Waiting for your first heartbeat"
-      assert_select ".project__heartbeat a[href='https://hackatime.hackclub.com/']"
+      assert_select ".project__heartbeat a[href='https://hackatime.hackclub.com/']", "set up hackatime"
+      assert_select ".project__heartbeat-note", /We haven't seen any time tracked yet, have you set up hackatime yet\?/
+      assert_select ".project__heartbeat-status[hidden]", 1, "no checking line while it waits"
       assert_select ".pg-project[data-controller~=hackatime-watch]", count: 0, message: "one poller, not two"
 
       get first_heartbeat_project_path

@@ -115,8 +115,8 @@ module Nudge::Copy
     # coding %{sticker_minutes} minutes in the next 24 hours, so it only goes to someone who can have one; the second doesn't.
     "comeback_stickers" => [
       "we missed you yesterday! code %{sticker_minutes} minutes on %{title} in the next 24 hours and a free sticker pack is yours :yayayayayay:",
-      "come back to %{title} for %{sticker_minutes} minutes in the next 24 hours and we'll send you free hack club stickers :)",
-      "%{title} misses you! %{sticker_minutes} minutes on it in the next 24 hours gets you a free sticker pack :yay:"
+      "if you come back to %{title} in the next 24 hours and we'll send you free stickers!!! :)",
+      "%{title} misses you! If you spend just %{sticker_minutes} minutes on it in the next 24 hours we'll send you a free sticker pack :yay:"
     ],
     "comeback" => [
       "we missed you yesterday! %{title} is ready when you are, even a few minutes counts :)",

@@ -55,7 +55,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
     assert_equal at_slot.to_date - 1, nudge.built_on, "the day they missed"
     assert nudge.delivered
     assert_match(/sticker/, nudge.text)
-    assert_match(/5 minutes/, nudge.text)
+    assert_no_match(/%\{/, nudge.text, "every placeholder is filled")
     assert_equal 1, @sent.size
     button = @sent.sole[2].find { it[:type] == "actions" }[:elements].first
     assert_equal "come back for stickers", button[:text][:text]
@@ -130,7 +130,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
 
     assert_equal %w[comeback_stickers_1], @user.rewards.pluck(:key)
     assert_equal at_slot(10, hour: 13), nudge.reload.stickers_earned_at
-    assert_equal "Stickers!! You came back and worked on your game, so free Hack Club stickers are yours :yayayayayay: Tell us where to send them.",
+    assert_equal "YAYY!!! You came back and worked on your game! Where should we send them??",
                  enqueued_jobs.find { it[:job] == SlackMessageJob }[:args].second
 
     travel_to(at_slot(10, hour: 14)) { Reward.award_comeback_stickers!(@user.reload) }

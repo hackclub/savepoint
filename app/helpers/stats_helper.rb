@@ -1,28 +1,20 @@
 module StatsHelper
   # The growth charts' series: the row key, its legend label and the page's colour token for it. The hues are in a
   # fixed order (green, blue, orange, violet, yellow) that stays apart with colour blindness, and the stack order
-  # is the legend order.
+  # is the legend order. The three groups are the ones that built that day (Growth::ACTIVE_STATES).
   GROWTH_STATE_SERIES = [
-    { key: :current, label: "Current", color: "series-1" },
-    { key: :new, label: "New", color: "series-2" },
-    { key: :reactivated, label: "Reactivated", color: "series-3" },
-    { key: :resurrected, label: "Resurrected", color: "series-4" }
-  ].freeze
-  GROWTH_AUDIENCE_SERIES = [
-    { key: :dau, label: "DAU", color: "series-1" },
-    { key: :wau, label: "WAU", color: "series-2" },
-    { key: :mau, label: "MAU", color: "series-3" }
+    { key: :new, label: "New", color: "mint-line" },
+    { key: :current, label: "Built yesterday too", color: "royal" },
+    { key: :returning, label: "Back after days off", color: "copper" }
   ].freeze
   GROWTH_RATE_LABELS = {
-    "curr" => "CURR", "nurr" => "NURR", "rurr" => "RURR", "surr" => "SURR", "iwaurr" => "iWAURR",
-    "reactivation" => "Reactivation", "resurrection" => "Resurrection"
+    "nurr" => "NURR", "curr" => "CURR", "rurr" => "RURR", "day_off" => "Back after 1 day off", "days_off" => "Back after 2+ days off"
   }.freeze
   GROWTH_RATE_SERIES = [
     { key: :curr, label: "CURR", color: "series-1" },
     { key: :nurr, label: "NURR", color: "series-2" },
     { key: :rurr, label: "RURR", color: "series-3" },
-    { key: :iwaurr, label: "iWAURR", color: "series-4" },
-    { key: :surr, label: "SURR", color: "series-5" }
+    { key: :day_off, label: "Back after 1 day off", color: "series-4" }
   ].freeze
   GROWTH_SIGNUP_LABELS = { "word_of_mouth" => "Word of mouth", "flat" => "Flat" }.freeze
   GROWTH_PROJECTION_COLORS = %w[series-2 series-3 series-4].freeze
@@ -38,8 +30,8 @@ module StatsHelper
     ]
   end
 
-  # Only the series with anything in them, so a legend never lists what hasn't happened (resurrected builders
-  # need a month away). Each series keeps its own colour either way.
+  # Only the series with anything in them, so a legend never lists what hasn't happened (back after days off
+  # needs a day missed). Each series keeps its own colour either way.
   def growth_series_present(series, rows)
     series.select { |one| rows.any? { |row| row[one[:key]].to_f.positive? } }
   end

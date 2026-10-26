@@ -5,7 +5,7 @@
 # New builders either hold at their recent daily average (flat) or scale with yesterday's DAU (word of mouth).
 # With word of mouth, every builder a better rate keeps also brings friends, so gains compound. Starting an
 # improvement a couple of days later costs builder-days over the rest of Save Point that never come back (the
-# last day's DAU alone barely notices: with our rates, who built a week ago hardly tells on it).
+# last day's DAU alone barely notices: with our rates, who built early on hardly tells on it).
 class Growth::Simulator
   # The days the rates are pooled over.
   WINDOW = 7
@@ -13,17 +13,15 @@ class Growth::Simulator
   LIFT = 0.1
   DELAY_DAYS = 2
   SIGNUPS = %w[word_of_mouth flat].freeze
-  LEVERS = %w[nurr curr rurr surr iwaurr reactivation resurrection].freeze
+  LEVERS = %w[nurr curr rurr day_off days_off].freeze
   PROJECTED_LEVERS = 3
   # Where a state's builders go when the window saw nobody leave it.
   DECAY = {
-    "new" => "at_risk_wau",
-    "current" => "at_risk_wau",
-    "reactivated" => "at_risk_wau",
-    "resurrected" => "at_risk_wau",
-    "at_risk_wau" => "at_risk_mau",
-    "at_risk_mau" => "dormant",
-    "dormant" => "dormant"
+    "new" => "at_risk",
+    "current" => "at_risk",
+    "returning" => "at_risk",
+    "at_risk" => "lapsed",
+    "lapsed" => "lapsed"
   }.freeze
 
   # `daily_dau` is the projected DAU for each day, starting the day after the latest; `lift` is what the lever

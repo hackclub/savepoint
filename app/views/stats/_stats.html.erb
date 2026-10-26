@@ -65,7 +65,7 @@
         </details>
       </section>
 
-      <%# Who's building each day (Growth): everyone in one of Duolingo's states by when they last built, day by day. %>
+      <%# Who's building each day (Growth): everyone who built, in three groups, day by day. %>
       <% growth = @stats[:growth] %>
       <% latest = growth[:latest] %>
       <% columns = growth[:days].map { |row| row[:date] == growth.dig(:today, :date) ? growth[:today].merge(so_far: true) : row } %>
@@ -75,7 +75,7 @@
       <section class="stats__card sp-panel" aria-labelledby="stats-growth-heading" id="stats-growth">
         <h2 class="stats__heading sp-ribbon" id="stats-growth-heading"><span><%= sp_icon "user-3-fill" %>Who's building each day</span></h2>
         <p class="stats__note">
-          Everyone who built <%= pluralize(growth[:active_minutes], "minute") %> or more that day, sorted by when they last built, after
+          Everyone who built <%= pluralize(growth[:active_minutes], "minute") %> or more that day, in three groups: new, built the day before too, or back after days off. After
           <a href="https://blog.duolingo.com/growth-model-duolingo/" target="_blank" rel="noopener">Duolingo's growth model</a>.
           A day counts once it's over; today's column is how far it's got.
         </p>
@@ -83,15 +83,12 @@
         <% if latest %>
           <div class="stats__tiles stats__tiles--small stats__tiles--row">
             <div class="stats__tile"><span>Built yesterday <abbr title="Daily active builders">DAU</abbr></span><strong><%= stat(latest[:dau]) %></strong></div>
-            <div class="stats__tile"><span>Built this week <abbr title="Weekly active builders">WAU</abbr></span><strong><%= stat(latest[:wau]) %></strong></div>
-            <div class="stats__tile"><span>Built this month <abbr title="Monthly active builders">MAU</abbr></span><strong><%= stat(latest[:mau]) %></strong></div>
-            <div class="stats__tile"><span>DAU ÷ MAU</span><strong><%= stat_percent(latest[:mau].positive? ? latest[:dau].fdiv(latest[:mau]) : nil) %></strong></div>
             <div class="stats__tile"><span>Came back the next day <abbr title="Current user retention rate">CURR</abbr>, last <%= Growth::RATE_WINDOW %> days</span><strong><%= stat_percent(latest[:curr]) %></strong></div>
           </div>
         <% end %>
 
         <div class="stats__panel">
-          <h3 class="stats__subheading">Building each day, by when they last built</h3>
+          <h3 class="stats__subheading">Building each day, new and returning</h3>
           <div class="stats__columns" style="--axis-max: <%= growth_axis %>">
             <div class="stats__grid" aria-hidden="true">
               <% [ growth_axis, growth_axis / 2.0, 0 ].each do |tick| %>
@@ -125,10 +122,10 @@
             <summary><%= sp_icon "down-fill" %>Show as a table</summary>
             <div class="stats__scroll">
               <table class="leaderboard__table">
-                <thead><tr><th scope="col">Day</th><th class="leaderboard__number" scope="col">DAU</th><% states.each do |one| %><th class="leaderboard__number" scope="col"><%= one[:label] %></th><% end %><th class="leaderboard__number" scope="col">WAU</th><th class="leaderboard__number" scope="col">MAU</th></tr></thead>
+                <thead><tr><th scope="col">Day</th><th class="leaderboard__number" scope="col">DAU</th><% states.each do |one| %><th class="leaderboard__number" scope="col"><%= one[:label] %></th><% end %></tr></thead>
                 <tbody>
                   <% columns.reject { |row| row[:future] && !row[:so_far] }.each do |row| %>
-                    <tr><th scope="row"><%= row[:date].strftime("%b %-d") %><%= " so far" if row[:so_far] %></th><td class="leaderboard__number"><%= stat(row[:dau]) %></td><% states.each do |one| %><td class="leaderboard__number"><%= stat(row[one[:key]]) %></td><% end %><td class="leaderboard__number"><%= stat(row[:wau]) %></td><td class="leaderboard__number"><%= stat(row[:mau]) %></td></tr>
+                    <tr><th scope="row"><%= row[:date].strftime("%b %-d") %><%= " so far" if row[:so_far] %></th><td class="leaderboard__number"><%= stat(row[:dau]) %></td><% states.each do |one| %><td class="leaderboard__number"><%= stat(row[one[:key]]) %></td><% end %></tr>
                   <% end %>
                 </tbody>
               </table>
@@ -137,17 +134,10 @@
         </div>
 
         <% if latest %>
-          <div class="stats__pair stats__panels">
-            <div class="stats__panel">
-              <h3 class="stats__subheading">Daily, weekly and monthly</h3>
-              <p class="stats__note">WAU built in the last 7 days, MAU in the last 30: so far, that's nearly everyone who's built at all.</p>
-              <%= render "stats/lines", rows: growth[:days], series: StatsHelper::GROWTH_AUDIENCE_SERIES %>
-            </div>
-            <div class="stats__panel">
-              <h3 class="stats__subheading">Who comes back</h3>
-              <p class="stats__note">Of the builders in each state one day, the share building the next. Pooled over <%= Growth::RATE_WINDOW %> days.</p>
-              <%= render "stats/lines", rows: growth[:rates], series: growth_series_present(StatsHelper::GROWTH_RATE_SERIES, growth[:rates]), percent: true %>
-            </div>
+          <div class="stats__panel">
+            <h3 class="stats__subheading">Who comes back</h3>
+            <p class="stats__note">Of the builders in each group one day, the share building the next. Pooled over <%= Growth::RATE_WINDOW %> days.</p>
+            <%= render "stats/lines", rows: growth[:rates], series: growth_series_present(StatsHelper::GROWTH_RATE_SERIES, growth[:rates]), percent: true %>
           </div>
 
           <% projection = growth[:projections][@signups] %>
@@ -214,22 +204,18 @@
         <% end %>
 
         <details class="stats__table-view">
-          <summary><%= sp_icon "down-fill" %>States and rates</summary>
+          <summary><%= sp_icon "down-fill" %>Groups and rates</summary>
           <dl class="stats__definitions">
             <dt>New</dt><dd>First day building is today.</dd>
-            <dt>Current</dt><dd>Building today, and on at least one of the previous 6 days.</dd>
-            <dt>Reactivated</dt><dd>Building today, last built 7 to 29 days ago.</dd>
-            <dt>Resurrected</dt><dd>Building today, last built 30 or more days ago.</dd>
-            <dt>At-risk WAU</dt><dd>Not building today, but on one of the previous 6 days.</dd>
-            <dt>At-risk MAU</dt><dd>Last built 7 to 29 days ago.</dd>
-            <dt>Dormant</dt><dd>Last built 30 or more days ago.</dd>
+            <dt>Built yesterday too</dt><dd>Building today, and built yesterday as well.</dd>
+            <dt>Back after days off</dt><dd>Building today, built on an earlier day, but not yesterday.</dd>
+            <dt>Skipped today</dt><dd>Not building today, but built yesterday.</dd>
+            <dt>Gone</dt><dd>Not building today or yesterday, but built before.</dd>
             <dt>NURR</dt><dd>New user retention rate: the share of yesterday's new builders building again today.</dd>
-            <dt>CURR</dt><dd>Current user retention rate: the share of yesterday's current builders building again today.</dd>
-            <dt>RURR</dt><dd>Reactivated user retention rate: the share of yesterday's reactivated builders building again today.</dd>
-            <dt>SURR</dt><dd>Resurrected user retention rate: the share of yesterday's resurrected builders building again today.</dd>
-            <dt>iWAURR</dt><dd>At-risk WAU retention rate: the share of yesterday's at-risk WAU builders back today.</dd>
-            <dt>Reactivation</dt><dd>The share of yesterday's at-risk MAU builders back today.</dd>
-            <dt>Resurrection</dt><dd>The share of yesterday's dormant builders back today.</dd>
+            <dt>CURR</dt><dd>Current user retention rate: the share of yesterday's builders who had also built the day before, building again today.</dd>
+            <dt>RURR</dt><dd>Returning user retention rate: the share of yesterday's back-after-days-off builders building again today.</dd>
+            <dt>Back after 1 day off</dt><dd>The share of yesterday's skipped builders back today.</dd>
+            <dt>Back after 2+ days off</dt><dd>The share of yesterday's gone builders back today.</dd>
           </dl>
         </details>
       </section>

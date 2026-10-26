@@ -1,0 +1,56 @@
+<% content_for :title, "Admin · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/admin-home" %>
+<%# The sign-ups section's lazy frame: the newest written NPS answers (NpsStats), then where sign-ups come from (UtmStats, D-043).
+    Folded in from the old Numbers page (D-073). %>
+<div class="pg-admin-home"><div class="sp-container">
+<%= turbo_frame_tag "admin-signups" do %>
+  <h3 class="pg-admin-home__sub">The latest answers <span>newest first, admins left out</span></h3>
+  <% if !@nps.any? %>
+    <p class="admin-chart admin-chart__empty">Nobody has answered yet. Participants answer when they ship, and the project page asks every 12 hours.</p>
+  <% else %>
+    <% answers = @nps.latest.to_a %>
+    <ol class="admin-answers" aria-label="The latest NPS answers">
+      <% answers.first(5).each do |answer| %><%= render "admin/home/nps_answer", answer: %><% end %>
+    </ol>
+    <% if answers.size > 5 %>
+      <details class="admin-more">
+        <summary><%= sp_icon "down-fill" %>Show <%= answers.size - 5 %> more answers</summary>
+        <ol class="admin-answers" aria-label="More NPS answers">
+          <% answers.drop(5).each do |answer| %><%= render "admin/home/nps_answer", answer: %><% end %>
+        </ol>
+      </details>
+    <% end %>
+  <% end %>
+
+  <h3 class="pg-admin-home__sub">Where sign-ups come from <span>landing visits and sign-ups for each UTM tag</span></h3>
+  <div class="admin-chart">
+    <% if !@utm.any? %>
+      <p class="admin-chart__empty">No tagged visits yet. A link with <code>?utm_source=…</code> on it records one.</p>
+    <% else %>
+      <p class="admin-chart__takeaway">A visit is a load of the landing page (<code>/</code>), so one person can count more than once. Sign-ups carry the first tags their browser saw, and leave out admins.</p>
+      <div class="pg-admin-home__scroll" tabindex="0" role="region" aria-label="Sign-ups by UTM tags">
+        <table class="admin__table admin__table--wide">
+          <thead>
+            <tr><th scope="col">Source</th><th scope="col">Medium</th><th scope="col">Campaign</th>
+              <th class="admin__num" scope="col">Visits</th><th class="admin__num" scope="col">Sign-ups</th><th class="admin__num" scope="col">Sign-ups per visit</th></tr>
+          </thead>
+          <tbody>
+            <% @utm.rows.each do |row| %>
+              <tr>
+                <td><%= row.source || "—" %></td><td><%= row.medium || "—" %></td><td><%= row.campaign || "—" %></td>
+                <td class="admin__num"><%= row.visits %></td><td class="admin__num"><%= row.signups %></td>
+                <td class="admin__num"><%= row.rate ? number_to_percentage(row.rate, precision: 0) : "—" %></td>
+              </tr>
+            <% end %>
+            <tr>
+              <th scope="row" colspan="3">No tags</th>
+              <td class="admin__num"><%= @utm.untagged_visits %></td><td class="admin__num"><%= @utm.untagged %></td>
+              <td class="admin__num"><%= @utm.untagged_rate ? number_to_percentage(@utm.untagged_rate, precision: 0) : "—" %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+</div></div>

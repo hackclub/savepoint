@@ -55,9 +55,13 @@ Rails.application.routes.draw do
     # Every admin page, and what's waiting on an admin.
     root "home#show"
     resources :nudges, only: :index
-    resources :metrics, only: :index
-    # The public stats page (StatsController), with the admin bar over it.
-    resource :stats, only: :show
+    # Stats and Numbers are sections of the admin home now (D-073), so their old URLs go to the section.
+    get "stats", to: redirect("/admin#growth", status: 301)
+    get "metrics", to: redirect("/admin#history", status: 301)
+    # The home's heavy sections, each in a lazy Turbo Frame so the first paint doesn't wait for them.
+    get "growth" => "home#growth", as: :growth
+    get "signups" => "home#signups", as: :signups
+    get "history" => "home#history", as: :history
     resources :extensions, only: %i[index update]
     resources :orders, only: %i[index update] do
       post :send_stickers, on: :collection

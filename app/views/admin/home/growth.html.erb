@@ -1,0 +1,154 @@
+<% content_for :title, "Admin · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/admin-home save_point/pages/stats" %>
+<% totals, streaks, growth = @stats[:totals], @stats[:streaks], @stats[:growth] %>
+<% latest = growth[:latest] %>
+<% day = @stats[:day].clamp(0, @stats[:days]) %>
+<%# The growth section's lazy frame: the public stats (PublicStats) that the home doesn't show already, in the admin look.
+    Totals; DAU, WAU and MAU; the audience and retention lines; the growth simulator and its levers; streaks and buddies.
+    Dropped because the home has them: hours built each day (the Hours built chart), who's building each day by state (the Daily
+    active builders chart) and the funnel (the participants' funnel). The line charts keep the stats page's markup and its
+    style sheet, under .pg-stats; the cards around them are the home's (admin-chart). %>
+<div class="pg-admin-home"><div class="sp-container">
+<%= turbo_frame_tag "admin-growth" do %>
+  <div class="pg-stats pg-admin-home__stats" data-controller="stats-tooltip"
+       data-action="pointerover->stats-tooltip#show focusin->stats-tooltip#show pointerout->stats-tooltip#hide focusout->stats-tooltip#hide">
+    <h3 class="pg-admin-home__sub">Totals <span>everyone building, exact, <%= day < 1 ? "starts #{Program::DATES.begin.strftime("%b %-d")}" : (@stats[:day] > @stats[:days] ? "that's a wrap" : "day #{day} of #{@stats[:days]}") %></span></h3>
+    <div class="pg-admin-home__readouts pg-admin-home__readouts--five">
+      <% { "Builders" => [ "user-3-fill", totals[:builders] ], "Hours built" => [ "time-fill", totals[:hours] ], "Games shipped" => [ "rocket-fill", totals[:shipped] ],
+           "Hours shipped" => [ "send-plane-fill", totals[:shipped_hours] ], "Prizes earned" => [ "gift-fill", totals[:prizes] ] }.each do |name, (icon, value)| %>
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon icon %><%= name %></span><strong><%= stat(value) %></strong></div>
+      <% end %>
+    </div>
+
+    <% if latest %>
+      <h3 class="pg-admin-home__sub">Who's building <span>after <a href="https://blog.duolingo.com/growth-model-duolingo/" target="_blank" rel="noopener" class="pg-admin-home__more">Duolingo's growth model</a>; a day counts once it's over</span></h3>
+      <div class="pg-admin-home__readouts pg-admin-home__readouts--five">
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "fire-fill" %><abbr title="Daily active builders">DAU</abbr></span><strong><%= stat(latest[:dau]) %></strong><small>built yesterday</small></div>
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "calendar-fill" %><abbr title="Weekly active builders">WAU</abbr></span><strong><%= stat(latest[:wau]) %></strong><small>built this week</small></div>
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "calendar-fill" %><abbr title="Monthly active builders">MAU</abbr></span><strong><%= stat(latest[:mau]) %></strong><small>built this month</small></div>
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "chart-bar-fill" %>DAU ÷ MAU</span><strong><%= stat_percent(latest[:mau].positive? ? latest[:dau].fdiv(latest[:mau]) : nil) %></strong><small>stickiness</small></div>
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "refresh-2-fill" %><abbr title="Current user retention rate">CURR</abbr></span><strong><%= stat_percent(latest[:curr]) %></strong><small>came back next day, last <%= Growth::RATE_WINDOW %> days</small></div>
+      </div>
+
+      <h3 class="pg-admin-home__sub">Retention <span>one line a day, hover or focus a day for its numbers</span></h3>
+      <div class="pg-admin-home__charts pg-admin-home__charts--wide">
+        <figure class="admin-chart admin-chart--lines">
+          <figcaption><span class="admin__readout-name"><%= sp_icon "user-3-fill" %>Daily, weekly and monthly</span></figcaption>
+          <p class="admin-chart__takeaway">WAU built in the last 7 days, MAU in the last 30: so far, that's nearly everyone who's built at all.</p>
+          <%= render "stats/lines", rows: growth[:days], series: StatsHelper::GROWTH_AUDIENCE_SERIES %>
+        </figure>
+        <figure class="admin-chart admin-chart--lines">
+          <figcaption><span class="admin__readout-name"><%= sp_icon "refresh-2-fill" %>Who comes back</span></figcaption>
+          <p class="admin-chart__takeaway">Of the builders in each state one day, the share building the next. Pooled over <%= Growth::RATE_WINDOW %> days.</p>
+          <%= render "stats/lines", rows: growth[:rates], series: growth_series_present(StatsHelper::GROWTH_RATE_SERIES, growth[:rates]), percent: true %>
+        </figure>
+      </div>
+
+      <% projection = growth[:projections][@signups] %>
+      <% if projection %>
+        <% levers = projection[:levers] %>
+        <% shown = levers.first(Growth::Simulator::PROJECTED_LEVERS) %>
+        <div class="pg-admin-home__subrow">
+          <h3 class="pg-admin-home__sub">The growth simulator <span>where the rest of Save Point is heading</span></h3>
+          <nav class="stats__toggle" aria-label="Where new builders come from" data-seg-nav>
+          <% StatsHelper::GROWTH_SIGNUP_LABELS.each_with_index do |(signups, label), index| %>
+            <% active = signups == @signups %>
+            <%= link_to admin_growth_path(signups: (signups unless signups == "word_of_mouth")),
+                        class: class_names("stats__toggle-option", "stats__toggle-option--active" => active),
+                        "aria-current": (active ? "true" : nil) do %>
+              <%= tag.span(class: "stats__pill", style: "view-transition-name: stats-pill", aria: { hidden: true }) if active %>
+              <%= tag.span(label, class: "stats__label", style: "view-transition-name: stats-option-#{index}") %>
+            <% end %>
+          <% end %>
+        </nav>
+        </div>
+        <figure class="admin-chart admin-chart--lines">
+          <figcaption><span class="admin__readout-name"><%= sp_icon "rocket-fill" %>DAU for the rest of Save Point</span></figcaption>
+          <p class="admin-chart__takeaway">
+            <% if @signups == "word_of_mouth" %>
+              New builders scale with the day before's DAU, as in Duolingo's compounding example: lately
+              <strong><%= number_with_precision(projection[:signups_per_dau] * 100, precision: 1) %></strong> new a day per 100 building.
+              Every builder a better rate keeps brings more the next day, so the gains compound.
+            <% else %>
+              New builders held at their recent average of <strong><%= number_with_precision(projection[:new_per_day], precision: 1) %></strong> a day,
+              however DAU moves. Gains add up but don't compound.
+            <% end %>
+            Rates are the last <%= Growth::Simulator::WINDOW %> days'. By <%= Program::DATES.end.strftime("%b %-d") %>, with nothing changed:
+            <strong><%= stat(projection[:baseline_dau].round) %></strong> DAU.
+          </p>
+          <%= render "stats/lines", rows: projection[:rows], series: growth_projection_series(shown) %>
+        </figure>
+
+        <h3 class="pg-admin-home__sub">Which rate to improve</h3>
+        <div class="admin-chart">
+          <p class="admin-chart__takeaway">
+            Each row raises one rate by a tenth (60% becomes 66%) from today, the test Duolingo used to pick CURR, and shows the DAU
+            it adds by <%= Program::DATES.end.strftime("%b %-d") %>. The last column is the builder-days lost over the rest of Save Point
+            by starting <%= Growth::Simulator::DELAY_DAYS %> days later.
+          </p>
+          <div class="pg-admin-home__scroll" tabindex="0" role="region" aria-label="Which rate to improve">
+            <table class="admin__table admin__table--wide">
+              <thead>
+                <tr><th scope="col">Rate</th><th class="admin__num" scope="col">Now</th><th class="admin__num" scope="col">DAU on the last day</th><th class="admin__num" scope="col">Added</th><th class="admin__num" scope="col">Builder-days lost by waiting <%= Growth::Simulator::DELAY_DAYS %> days</th></tr>
+              </thead>
+              <tbody>
+                <% levers.each do |lever| %>
+                  <tr>
+                    <th scope="row"><%= StatsHelper::GROWTH_RATE_LABELS.fetch(lever[:rate]) %></th>
+                    <td class="admin__num"><%= stat_percent(lever[:current_rate]) %></td>
+                    <td class="admin__num"><%= stat(lever[:dau].round) %></td>
+                    <td class="admin__num admin__up">+<%= number_with_precision(lever[:lift], precision: 1) %></td>
+                    <td class="admin__num admin__down">−<%= number_with_precision(lever[:cost_of_waiting], precision: 1) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+
+    <h3 class="pg-admin-home__sub">Streaks and buddies</h3>
+    <div class="pg-admin-home__readouts">
+      <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "fire-fill" %>On a streak</span><strong><%= stat(streaks[:on_streak]) %></strong></div>
+      <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "trophy-fill" %>Longest streak</span><strong><%= streaks[:longest] ? pluralize(streaks[:longest], "day") : "—" %></strong></div>
+      <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "user-3-fill" %>Buddy pairs</span><strong><%= stat(streaks[:pairs]) %></strong></div>
+    </div>
+    <% most = streaks[:groups].map { |g| g[:people] }.max %>
+    <div class="admin-chart admin-chart--steps">
+      <p class="admin-chart__takeaway">How many people are on a streak of each length.</p>
+      <ol class="admin-chart__steps">
+        <% streaks[:groups].each do |group| %>
+          <li class="admin-chart__step<%= " is-empty" if group[:people].zero? %>">
+            <div class="admin-chart__step-head"><span><%= group[:label] %></span><strong><%= stat(group[:people]) %></strong></div>
+            <div class="admin-chart__meter" title="<%= group[:label] %>: <%= group[:people] %>"><span style="width: <%= most.positive? ? (group[:people] * 100.0 / most).round(1) : 0 %>%"></span></div>
+          </li>
+        <% end %>
+      </ol>
+    </div>
+
+    <details class="stats__table-view">
+      <summary><%= sp_icon "down-fill" %>States and rates</summary>
+      <dl class="stats__definitions">
+        <dt>New</dt><dd>First day building is today.</dd>
+        <dt>Current</dt><dd>Building today, and on at least one of the previous 6 days.</dd>
+        <dt>Reactivated</dt><dd>Building today, last built 7 to 29 days ago.</dd>
+        <dt>Resurrected</dt><dd>Building today, last built 30 or more days ago.</dd>
+        <dt>At-risk WAU</dt><dd>Not building today, but on one of the previous 6 days.</dd>
+        <dt>At-risk MAU</dt><dd>Last built 7 to 29 days ago.</dd>
+        <dt>Dormant</dt><dd>Last built 30 or more days ago.</dd>
+        <dt>NURR</dt><dd>New user retention rate: the share of yesterday's new builders building again today.</dd>
+        <dt>CURR</dt><dd>Current user retention rate: the share of yesterday's current builders building again today.</dd>
+        <dt>RURR</dt><dd>Reactivated user retention rate: the share of yesterday's reactivated builders building again today.</dd>
+        <dt>SURR</dt><dd>Resurrected user retention rate: the share of yesterday's resurrected builders building again today.</dd>
+        <dt>iWAURR</dt><dd>At-risk WAU retention rate: the share of yesterday's at-risk WAU builders back today.</dd>
+        <dt>Reactivation</dt><dd>The share of yesterday's at-risk MAU builders back today.</dd>
+        <dt>Resurrection</dt><dd>The share of yesterday's dormant builders back today.</dd>
+      </dl>
+    </details>
+
+    <p class="admin-chart__takeaway pg-admin-home__updated"><%= sp_icon "refresh-2-fill" %>Updated <%= time_ago_in_words(@stats[:generated_at]) %> ago. Hours come from Hackatime and catch up through the day.</p>
+    <div class="stats__tooltip" data-stats-tooltip-target="tip" role="tooltip" hidden></div>
+  </div>
+<% end %>
+</div></div>

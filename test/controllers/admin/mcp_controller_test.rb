@@ -122,17 +122,19 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a token gets 240 requests a minute" do
-    store = ActiveSupport::Cache::MemoryStore.new
-    replacing(Rails, :cache, -> { store }) do
-      240.times { mcp_post(@token, "ping") }
-      assert_response :success
-      mcp_post(@token, "ping")
-      assert_response :too_many_requests
-      assert_equal "60", response.headers["Retry-After"]
+    freeze_time do
+      store = ActiveSupport::Cache::MemoryStore.new
+      replacing(Rails, :cache, -> { store }) do
+        240.times { mcp_post(@token, "ping") }
+        assert_response :success
+        mcp_post(@token, "ping")
+        assert_response :too_many_requests
+        assert_equal "60", response.headers["Retry-After"]
 
-      other, = mcp_token_for(name: "another")
-      mcp_post(other, "ping")
-      assert_response :success, "another token has its own"
+        other, = mcp_token_for(name: "another")
+        mcp_post(other, "ping")
+        assert_response :success, "another token has its own"
+      end
     end
   end
 

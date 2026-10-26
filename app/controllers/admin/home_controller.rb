@@ -3,6 +3,7 @@ class Admin::HomeController < Admin::BaseController
   def show
     @waiting = { "Orders" => Order.waiting.count, "Ships" => Ship.pending.count, "Extensions" => Extension.pending.count }
     @summary = AdminSummary.cached
+    @nps = NpsStats.new.last_7_days
     @totals = { "Projects" => Project.count, "People" => User.count }
   end
 end

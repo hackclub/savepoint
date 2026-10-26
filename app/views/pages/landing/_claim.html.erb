@@ -25,7 +25,7 @@
       <div class="claim__actions">
         <button type="button" class="claim__x" aria-label="Not yet" data-action="goal#close"><%= sp_icon "close-fill" %></button>
         <%# The price stays in the page for the goal controller (and for assistive tech), but the stats row already shows it. %>
-        <%= link_to onboarding_path, class: "claim__go cta", data: { action: "goal#remember" } do %>
+        <%= link_to landing_destination, class: "claim__go cta", data: { action: "goal#remember" } do %>
           <b class="visually-hidden" data-goal-target="claimPrice"></b><span>Claim it</span>
         <% end %>
       </div>

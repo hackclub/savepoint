@@ -73,6 +73,30 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart__step:first-child .admin-chart__meter span[style*='width: 100.0%']"
   end
 
+  test "the NPS of the last 7 days is on the home page, without admins, and links to Numbers" do
+    NpsResponse.create!(user: users(:ana), source: "daily", score: 10, doing_well: "Streaks", improve: "Prizes")
+    NpsResponse.create!(user: users(:orpheus), source: "daily", score: 0, doing_well: "Nothing", improve: "Everything")
+    sign_in_as(users(:orpheus))
+    get admin_root_path
+
+    assert_select ".admin-chart--split", text: /NPS/ do
+      assert_select ".admin-chart__takeaway", /\+100 NPS from 1 person/
+      assert_select ".admin-chart__legend tbody tr", text: /Promoters.*1.*100%/m
+      assert_select ".admin-chart__legend tbody tr", text: /Detractors.*0/m
+    end
+    assert_select ".pg-admin-home__sub a[href=?]", admin_metrics_path
+    assert_select ".admin-chart a", 0
+  end
+
+  test "with no NPS answers the home page says so" do
+    sign_in_as(users(:orpheus))
+    get admin_root_path
+
+    assert_response :success
+    assert_select ".admin-chart__takeaway", "Nobody has answered in the last 7 days."
+    assert_select ".admin-chart__legend tbody tr", text: /Promoters.*0/m
+  end
+
   test "nobody else can see it" do
     get admin_root_path
     assert_response :not_found

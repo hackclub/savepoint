@@ -7,18 +7,23 @@
 # (Nudge::Cheer). Nothing goes within MESSAGE_GAP of anything else the bot DMed them (User#slack_dmed_at: nudges,
 # cheers, rewards, a project linking itself), so its messages never land together: a nudge's slot passes, a cheer
 # waits. Hourly (NudgeScoringJob), each one whose window has closed is scored on whether they built, or for a setup
-# nudge, whether they did the step it asked for.
+# nudge, whether they did the step it asked for. A bandit or comeback nudge worked if they built at all within
+# WORKED_WINDOW (a comeback DM can also promise a free sticker pack for coming back, Reward.award_comeback_stickers!).
 # What it says is Nudge::Copy, the Slack message is Nudge::Message, and its links are NudgeLinksController.
 class Nudge < ApplicationRecord
   # Bandit nudges and cheers are learned from. The rest always send when they apply, bar test ones
   # (bin/rails nudges:test), which are never scored or counted.
-  KINDS = %w[bandit cheer setup milestone program streak_saver test].freeze
+  KINDS = %w[bandit cheer setup milestone program streak_saver comeback test].freeze
   LEARNED = %w[bandit cheer].freeze
 
-  # Building this long after a nudge counts as it working. Same as what keeps a streak going. A cheer's window is
-  # the whole of the next streak day instead (see #window).
+  # What keeps a streak going. Milestone, program and streak saver nudges count as working when they built this long
+  # within REWARD_WINDOW of one. A cheer's window is the whole of the next streak day instead (see #window).
   REWARD_MINUTES = 20
   REWARD_WINDOW = 6.hours
+  # A bandit or comeback nudge worked if they built any streak day's worth (Growth::ACTIVE_SECONDS) within this long
+  # of it, like Duolingo's "lesson within 2 hours" (Yancey & Settles 2020, D-078).
+  WORKED_KINDS = %w[bandit comeback].freeze
+  WORKED_WINDOW = 2.hours
   # Stopping the bot's messages from a nudge counts as this many failures.
   OPT_OUT_PENALTY = -5
 
@@ -35,6 +40,7 @@ class Nudge < ApplicationRecord
   # TODO: a second bandit over sending at the slot vs an hour before it.
   SLOTS = { "after school" => "15:30", "evening" => "19:00", "late night" => "21:30", "weekends" => "11:00" }.freeze
 
+  # built_on is the streak day a cheer is for, and for a comeback nudge the day they missed.
   belongs_to :user
 
   # The tracked links: /n/<token> goes where the button says, /n/<token>/stop stops the bot's messages.
@@ -120,7 +126,7 @@ class Nudge < ApplicationRecord
   end
 
   def self.score_due(now = Time.current)
-    unscored.real.where(sent_at: ..now - REWARD_WINDOW).find_each do |nudge|
+    unscored.real.where(sent_at: ..now - WORKED_WINDOW).find_each do |nudge|
       next if nudge.window_closes_at > now
       nudge.score!
     rescue Hackatime::Unavailable
@@ -130,11 +136,13 @@ class Nudge < ApplicationRecord
 
   def cheer? = kind == "cheer"
   def setup? = kind == "setup"
+  def worked_quickly? = WORKED_KINDS.include?(kind)
 
-  # When building counts as this nudge working: the six hours after it, or for a cheer, the whole of the next streak
-  # day (2am to 2am in their timezone), since a cheer's job is getting them to come back.
+  # When building counts as this nudge working: the WORKED_WINDOW after a bandit or comeback nudge, the six hours after
+  # the rest, or for a cheer, the whole of the next streak day (2am to 2am in their timezone), since a cheer's job is
+  # getting them to come back.
   def window
-    return sent_at..sent_at + REWARD_WINDOW unless cheer?
+    return sent_at..sent_at + (worked_quickly? ? WORKED_WINDOW : REWARD_WINDOW) unless cheer?
 
     next_day = built_on + 1
     from = ActiveSupport::TimeZone[user.timezone.presence || "UTC"].local(next_day.year, next_day.month, next_day.day, 2)
@@ -145,14 +153,15 @@ class Nudge < ApplicationRecord
     window.end
   end
 
-  # 1 if they built REWARD_MINUTES in the window (or, for a setup nudge, did the step it asked for), 0 if not,
-  # OPT_OUT_PENALTY if this nudge made them stop the bot's messages.
+  # 1 if they built in the window (Growth::ACTIVE_SECONDS for a bandit or comeback nudge, REWARD_MINUTES for the rest, or
+  # for a setup nudge, did the step it asked for), 0 if not, OPT_OUT_PENALTY if this nudge made them stop the bot's
+  # messages. Ones scored before the 2-hour rule keep the reward they got under the old one (20 minutes in 6 hours).
   def score!
     seconds = opted_out_at ? 0 : built_seconds
     reward =
       if opted_out_at then OPT_OUT_PENALTY
       elsif setup? then step_done? ? 1 : 0
-      elsif seconds >= REWARD_MINUTES * 60 then 1
+      elsif seconds >= (worked_quickly? ? Growth::ACTIVE_SECONDS : REWARD_MINUTES * 60) then 1
       else 0
       end
     update!(reward:, rewarded_at: Time.current)
@@ -182,11 +191,16 @@ class Nudge < ApplicationRecord
   end
 
   # Time on their linked Hackatime projects in the window. Nothing linked, or Hackatime not linked any more, is none.
-  def built_seconds
+  def built_seconds = seconds_between(window)
+
+  # Time on their linked Hackatime projects in the Reward::COMEBACK_WINDOW after a comeback DM, for its sticker pack.
+  def coded_after = seconds_between(sent_at..sent_at + Reward::COMEBACK_WINDOW)
+
+  def seconds_between(times)
     project = user.project
     return 0 unless project&.tracking?
 
-    Hackatime.seconds_between(user, project.hackatime_projects, window)
+    Hackatime.seconds_between(user, project.hackatime_projects, times)
   rescue Hackatime::NotLinked, Hackatime::Expired
     0
   end

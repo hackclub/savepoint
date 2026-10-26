@@ -24,7 +24,8 @@ class Order < ApplicationRecord
 
   validates :status, inclusion: { in: STATUSES }
   validates :prize_key, inclusion: { in: Prize::CLAIMABLE.map(&:key) }
-  validates :prize_key, uniqueness: { scope: :project_id, message: "is one you've bought already" }, allow_nil: true
+  # The free stickers can be claimed up to Reward::STICKER_PACKS_MAX times, once for each pack earned (stickers_earned).
+  validates :prize_key, uniqueness: { scope: :project_id, message: "is one you've bought already" }, allow_nil: true, unless: :stickers?
   validate :stickers_earned, :covered_by_approved_hours, :addressed, on: :create
 
   scope :waiting, -> { where(status: "waiting") }
@@ -103,12 +104,17 @@ class Order < ApplicationRecord
       self.recipient_name ||= project.user.recipient_name
     end
 
-    # The free stickers (D-051) are for someone who earned them: the "stickers" Reward. They cost no hours.
+    # The free stickers (D-051) are for someone who earned them: a sticker Reward for each pack, the first-hour one or a
+    # comeback one (D-078). They cost no hours. The packs are counted afresh and the order is saved under the project's lock
+    # (see #save), so two claims at once can't take more packs than they earned or than Reward::STICKER_PACKS_MAX.
     def stickers_earned
-      return unless prize_key == "stickers" && project
+      return unless stickers? && project
 
       user = project.user
-      if !user.earned?("stickers") then errors.add(:prize_key, "isn't one you've earned")
+      claimed = project.orders.where(prize_key: Prize::STICKERS.key).where.not(id:).count
+      earned = Reward.sticker_packs_earned(user)
+      if earned.zero? then errors.add(:prize_key, "isn't one you've earned")
+      elsif claimed >= [ earned, Reward::STICKER_PACKS_MAX ].min then errors.add(:prize_key, "is one you've bought already")
       elsif !user.sticker_eligible? then errors.add(:base, "Hack Club stickers aren't available on this account")
       end
     end

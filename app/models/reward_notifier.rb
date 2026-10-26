@@ -6,10 +6,10 @@ module RewardNotifier
     "gold_star" => "3-day streak!! You now have a gold star on your sheet :cat-lock-in:",
     "streak_shoutout" => "5-day streak!! You've earned a shoutout in Slack for %{title} :yayayayayay:",
     "stickers" => "Stickers!! You worked on your game in your first hour, so free Hack Club stickers are yours :yayayayayay: Tell us where to send them."
-  }.freeze
+  }.merge(Reward::COMEBACK_STICKER_KEYS.index_with { "Stickers!! You came back and worked on your game, so free Hack Club stickers are yours :yayayayayay: Tell us where to send them." }).freeze
 
   # The DM's link button, for the ones that point somewhere other than the project page: [label, path].
-  LINKS = { "stickers" => [ "Claim your stickers", "/shop" ] }.freeze
+  LINKS = Reward::STICKER_KEYS.index_with { [ "Claim your stickers", "/shop" ] }.freeze
 
   # The post in the channel, for the ones that have one.
   POSTS = {

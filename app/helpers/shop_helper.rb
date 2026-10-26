@@ -29,10 +29,19 @@ module ShopHelper
     end
   end
 
-  # Whether to show the free stickers' claim card (D-051): they are earned (the "stickers" Reward) and not yet claimed. They are
-  # not one of the shelf's prizes.
+  # Whether to show the free stickers' claim card (D-051): a pack is earned (the first-hour one, or one for coming back,
+  # D-078) and not yet claimed. They are not one of the shelf's prizes.
   def shop_sticker_claim?(project, user = current_user)
-    project.present? && user&.sticker_eligible? && user.earned?("stickers") && shop_order_for(project, Prize::STICKERS).nil?
+    project.present? && user&.sticker_eligible? && user.sticker_packs_unclaimed.positive?
+  end
+
+  # Why the claim card says they have the stickers: the first-hour ones if that is what they have not claimed yet.
+  def shop_sticker_claim_about(user = current_user)
+    if user.earned?("stickers") && user.project.orders.none? { |order| order.persisted? && order.prize_key == Prize::STICKERS.key }
+      "You worked on your game in your first hour. Tell us where to send them."
+    else
+      "You came back and worked on your game. Tell us where to send them."
+    end
   end
 
   # "12 hrs"

@@ -6,8 +6,9 @@
 <% totals = @stats.totals %>
 
 <%# How the Slack nudges are doing and what the bandit's learned (Nudge::Stats), as panels of dense tables in Save
-    Point's style (save_point/pages/admin-nudges.css). "Worked" means they built Nudge::REWARD_MINUTES within
-    Nudge::REWARD_WINDOW of it, or did the step a setup nudge asked for. A table that's wider than the screen scrolls
+    Point's style (save_point/pages/admin-nudges.css). "Worked" means they built Growth::ACTIVE_SECONDS within
+    Nudge::WORKED_WINDOW of a bandit or comeback nudge (Nudge::REWARD_MINUTES within Nudge::REWARD_WINDOW for the other fixed ones), or
+    did the step a setup nudge asked for. A table that's wider than the screen scrolls
     inside its panel. %>
 <div class="sp-page pg-admin-nudges">
   <main class="an">
@@ -17,17 +18,18 @@
         <h1>The nudge bandit</h1>
       </div>
       <p class="an__note">
-        A nudge worked if they built <%= Nudge::REWARD_MINUTES %> minutes in the <%= Nudge::REWARD_WINDOW.inspect %> after it.
+        A bandit or comeback nudge worked if they built at all (<%= Growth::ACTIVE_SECONDS / 60 %> minute) in the <%= Nudge::WORKED_WINDOW.inspect %> after it. Ones scored before that rule worked if they built <%= Nudge::REWARD_MINUTES %> minutes in the <%= Nudge::REWARD_WINDOW.inspect %>, and still do.
+        A streak saver, milestone or program nudge worked if they built <%= Nudge::REWARD_MINUTES %> minutes in the <%= Nudge::REWARD_WINDOW.inspect %> after it.
         A cheer (sent once they've built their <%= Nudge::REWARD_MINUTES %> minutes) worked if they built again the next day.
         A setup nudge worked if the step it asked for (linking Hackatime, adding a repo) was done by then.
-        Stopping the Slack messages counts as <%= Nudge::OPT_OUT_PENALTY.abs %> failures.
+        Stopping the Slack messages counts as <%= Nudge::OPT_OUT_PENALTY.abs %> misses.
       </p>
     </header>
 
     <section class="admin__tiles an__tiles" aria-label="Totals">
       <div class="admin__tile"><span class="an__tile-icon"><%= sp_icon "send-plane-fill" %></span><span class="an__tile-label">Sent</span><strong><%= totals.sent %></strong></div>
       <div class="admin__tile"><span class="an__tile-icon"><%= sp_icon "mouse-fill" %></span><span class="an__tile-label">Clicked</span><strong><%= pct.(totals.click_rate) %></strong><small><%= totals.clicked %> nudges</small></div>
-      <div class="admin__tile an__tile--gold"><span class="an__tile-icon"><%= sp_icon "check-circle-fill" %></span><span class="an__tile-label">Worked</span><strong><%= pct.(totals.work_rate) %></strong><small><%= totals.worked %> of <%= totals.scored %> scored</small></div>
+      <div class="admin__tile an__tile--gold"><span class="an__tile-icon"><%= sp_icon "check-circle-fill" %></span><span class="an__tile-label">Worked</span><strong><%= pct.(totals.work_rate) %></strong><small><%= totals.worked %> worked, <%= totals.didnt_work %> didn't, of <%= totals.scored %> scored</small></div>
       <div class="admin__tile"><span class="an__tile-icon"><%= sp_icon "time-fill" %></span><span class="an__tile-label">Waiting to score</span><strong><%= @stats.waiting %></strong></div>
       <div class="admin__tile an__tile--coral"><span class="an__tile-icon"><%= sp_icon "pause-fill" %></span><span class="an__tile-label">Stopped messages</span><strong><%= @stats.muted_users %></strong><small><%= totals.opted_out %> from a nudge</small></div>
       <div class="admin__tile an__tile--coral"><span class="an__tile-icon"><%= sp_icon "warning-fill" %></span><span class="an__tile-label">Can't DM</span><strong><%= @stats.failed_dms %></strong></div>

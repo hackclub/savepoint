@@ -1,13 +1,14 @@
 # What the admin dashboard shows about the bot's nudges: how many went out and what came of them, the bandit against
 # the holdout, each bucket's arms as the bandit sees them, and the fixed nudges.
 class Nudge::Stats
-  # Counts for some nudges. Worked and failed are of the scored ones; an opt-out is a failure (and more, to the bandit).
+  # Counts for some nudges. Worked and didn't work are of the scored ones; an opt-out is one that didn't work (and counts for
+  # more, to the bandit). Not delivery failures: those are failed_dms below.
   Row = Data.define(:sent, :clicked, :scored, :worked, :opted_out) do
     def self.empty = new(sent: 0, clicked: 0, scored: 0, worked: 0, opted_out: 0)
 
     def click_rate = sent.zero? ? nil : clicked.fdiv(sent)
     def work_rate = scored.zero? ? nil : worked.fdiv(scored)
-    def failed = scored - worked
+    def didnt_work = scored - worked
   end
 
   COUNTS = [ "COUNT(*)", "COUNT(clicked_at)", "COUNT(reward)", "COUNT(*) FILTER (WHERE reward = 1)",

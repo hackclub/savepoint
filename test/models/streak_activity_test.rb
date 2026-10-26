@@ -351,4 +351,36 @@ class StreakActivityTest < ActiveSupport::TestCase
       end
     end
   end
+
+  test "D-084: time on an unconfirmed auto-link is synced but held, and confirming counts it at once" do
+    @user.project.update_columns(hackatime_auto_linked: true)
+    travel_to Time.utc(2026, 11, 2, 12) do
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 11, 1, 15), 30) ] }
+      StreakActivity.sync_for_user!(@user)
+
+      day = @user.streak_activities.find_by(activity_date: Date.new(2026, 11, 1))
+      assert_equal 0, day.coded_seconds
+      assert_equal 30 * 60, day.unconfirmed_seconds
+      assert_equal 0.0, @user.hours_in(Date.new(2026, 11, 1)..Date.new(2026, 11, 1))
+      assert_equal 0, @user.reload.current_streak
+
+      @user.project.update!(hackatime_auto_linked: false)
+
+      day.reload
+      assert_equal 30 * 60, day.coded_seconds
+      assert_equal 0, day.unconfirmed_seconds
+      assert_equal 0.5, @user.hours_in(Date.new(2026, 11, 1)..Date.new(2026, 11, 1))
+      assert_equal 1, @user.reload.current_streak
+    end
+  end
+
+  test "D-084: a link picked by hand counts straight away" do
+    travel_to Time.utc(2026, 11, 2, 12) do
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 11, 1, 15), 30) ] }
+      StreakActivity.sync_for_user!(@user)
+
+      day = @user.streak_activities.find_by(activity_date: Date.new(2026, 11, 1))
+      assert_equal [ 30 * 60, 0 ], [ day.coded_seconds, day.unconfirmed_seconds ]
+    end
+  end
 end

@@ -40,6 +40,18 @@ class AdminSummaryTest < ActiveSupport::TestCase
     assert_equal true, summary[:today_row][:partial]
   end
 
+  test "D-084: DAU counts confirmed builders only and says how many more are unconfirmed" do
+    dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
+    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 600)
+    dee.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 0, unconfirmed_seconds: 600)
+    users(:orpheus).streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 0, unconfirmed_seconds: 600)
+    summary = AdminSummary.new.to_h
+
+    assert_equal 1, summary[:dau]
+    assert_equal 1, summary[:dau_unconfirmed], "dee's held ten minutes; the admin's don't count"
+    assert_equal 1, summary[:today_row][:dau]
+  end
+
   test "the site count beside today's DAU is today's, 0 once visits are being recorded" do
     @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 600)
     SiteDay.create!(user: @ana, date: Date.new(2026, 10, 23))

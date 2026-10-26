@@ -341,8 +341,9 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "save-point-game" ], project.hackatime_projects
     assert project.hackatime_auto_linked?
     assert project.step_done?("hackatime_project")
-    assert_select ".project__auto-linked-title", "New time on Hackatime for save-point-game"
-    assert_select ".project__auto-linked a[href=?]", project_path(step: "hackatime_project"), "Change"
+    assert_select ".project__auto-linked-title", "Is save-point-game your game?"
+    assert_select ".project__auto-linked button", "Yes"
+    assert_select ".project__auto-linked a[href=?]", project_path(step: "hackatime_project"), "Pick another"
     dm = enqueued_jobs.find { |job| job[:job] == SlackMessageJob && job[:args].first == "U0ORPHEUS" }
     assert_match(/new time from you on \*save-point-game\*, so it's linked to \*a rhythm game\*/, dm[:args].second)
 

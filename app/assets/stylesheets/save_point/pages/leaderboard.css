@@ -143,6 +143,16 @@
 .pg-leaderboard .leaderboard__table tr[data-you] td { background: var(--gold-soft); border-color: var(--gold-line); box-shadow: 0 3px 0 var(--gold-line); }
 .pg-leaderboard .leaderboard__table tr[data-you] .leaderboard__name { color: var(--gold-ink); }
 
+/* The break between the top three and your part of the list, and the line under the list for the way back and forth. */
+.pg-leaderboard .leaderboard__table tr.leaderboard__gap td {
+  padding: 0 var(--space-3); text-align: center; font: 800 13px/20px var(--font-body); color: var(--ink-faint);
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+}
+.pg-leaderboard .leaderboard__nudge { padding: var(--space-4) var(--space-3) 0; text-align: center; font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
+.pg-leaderboard .leaderboard__more { padding-top: var(--space-4); text-align: center; }
+.pg-leaderboard .leaderboard__more-link { font: 800 14px/20px var(--font-body); color: var(--royal-ink); text-decoration: none; }
+.pg-leaderboard .leaderboard__more-link:hover { text-decoration: underline; }
+
 .pg-leaderboard td.leaderboard__rank { width: 1%; white-space: nowrap; }
 .pg-leaderboard .leaderboard__rank > * { vertical-align: middle; }
 .pg-leaderboard .leaderboard__coin { display: inline-grid; }
@@ -181,6 +191,7 @@
     display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); row-gap: 2px;
     padding: 8px 16px 8px 8px; background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 3px 0 var(--line);
   }
+  .pg-leaderboard .leaderboard__table tr.leaderboard__gap { display: block; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
   .pg-leaderboard .leaderboard__table tr[data-you] { background: var(--gold-soft); border-color: var(--gold-line); box-shadow: 0 3px 0 var(--gold-line); }
   .pg-leaderboard .leaderboard__table td,
   .pg-leaderboard .leaderboard__table td:first-child,

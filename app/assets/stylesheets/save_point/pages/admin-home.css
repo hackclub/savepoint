@@ -89,8 +89,7 @@
 .admin-chart__key--detractor { background: var(--coral); }
 .admin-chart__key--new { background: var(--mint-line); }
 .admin-chart__key--current { background: var(--royal); }
-.admin-chart__key--reactivated { background: var(--copper); }
-.admin-chart__key--resurrected { background: var(--violet); }
+.admin-chart__key--returning { background: var(--copper); }
 .admin-chart__empty { margin: 0; font: 700 14px/20px var(--font-body); color: var(--ink-muted); }
 .admin-chart__legend { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 22px; font-variant-numeric: tabular-nums; }
 .admin-chart__legend th, .admin-chart__legend td { padding: 6px var(--space-2); text-align: left; border-bottom: 2px solid var(--line); }
@@ -115,9 +114,8 @@
 .admin-chart__column { fill: var(--royal); }
 .admin-chart__column--new { fill: var(--mint-line); }
 .admin-chart__column--current { fill: var(--royal); }
-.admin-chart__column--reactivated { fill: var(--copper); }
-.admin-chart__column--resurrected { fill: var(--violet); }
-.admin-chart__day:hover .admin-chart__column--new, .admin-chart__day:hover .admin-chart__column--current, .admin-chart__day:hover .admin-chart__column--reactivated, .admin-chart__day:hover .admin-chart__column--resurrected { filter: brightness(1.12); }
+.admin-chart__column--returning { fill: var(--copper); }
+.admin-chart__day:hover .admin-chart__column--new, .admin-chart__day:hover .admin-chart__column--current, .admin-chart__day:hover .admin-chart__column--returning { filter: brightness(1.12); }
 .admin-chart__hit { fill: transparent; }
 .admin-chart__day:hover .admin-chart__column { fill: var(--royal-hi); }
 .admin-chart__base { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }

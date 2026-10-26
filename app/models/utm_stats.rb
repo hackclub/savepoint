@@ -1,4 +1,4 @@
-# Where sign-ups come from, on the admin numbers page (D-043): per source, medium and campaign, the tagged visits, the
+# Where sign-ups come from, in the admin home's sign-ups section (D-043): per source, medium and campaign, the tagged visits, the
 # sign-ups and sign-ups per visit. Only landing-page visits (path "/") count, because every page view is a Visit since
 # D-047 and the rest are people already signed in (D-058). Visits and sign-ups without tags are one more row. Admins'
 # sign-ups are left out (D-032).

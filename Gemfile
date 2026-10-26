@@ -70,7 +70,7 @@ gem "omniauth", "~> 2.1"
 gem "omniauth-rails_csrf_protection", "~> 2.0"
 gem "omniauth_openid_connect", "~> 0.8"
 # Linking Hackatime (OAuth2) to read your projects and hours, even when your stats are private
-gem "omniauth-oauth2", "~> 1.8"
+gem "omniauth-oauth2", "~> 1.10"
 
 gem "dotenv-rails", "~> 3.2"
 

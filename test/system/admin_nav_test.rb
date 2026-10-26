@@ -17,7 +17,7 @@ class AdminNavTest < ApplicationSystemTestCase
   test "the bar has the same place and size on every admin page, wide and narrow" do
     sign_in
     pages = [ admin_root_path, admin_orders_path, admin_ships_path, admin_extensions_path, admin_projects_path,
-              admin_users_path, admin_user_path(users(:ana)), admin_metrics_path, admin_stats_path, admin_nudges_path,
+              admin_users_path, admin_user_path(users(:ana)), admin_nudges_path,
               admin_tokens_path ]
 
     [ [ 1440, 1000 ], [ 400, 900 ] ].each do |width, height|
@@ -35,10 +35,9 @@ class AdminNavTest < ApplicationSystemTestCase
     sign_in
     visit admin_root_path
     before = measure_bar
-    within(".admin__nav") { click_on "Stats" }
-    assert_selector "h1", text: "Save Point in numbers"
+    within(".admin__nav") { click_on "Orders" }
+    assert_selector ".admin__nav a[aria-current=page]", text: "Orders"
     assert_equal before, measure_bar
-    assert_selector ".admin__nav a[aria-current=page]", text: "Stats"
     assert_equal "admin-bar", evaluate_script("getComputedStyle(document.querySelector('.admin-bar')).viewTransitionName")
   end
 
@@ -48,7 +47,7 @@ class AdminNavTest < ApplicationSystemTestCase
     sign_in
     page.current_window.resize_to(1440, 1000)
     FileUtils.mkdir_p(dir)
-    { "home" => admin_root_path, "ships" => admin_ships_path, "metrics" => admin_metrics_path, "stats" => admin_stats_path,
+    { "home" => admin_root_path, "ships" => admin_ships_path,
       "users" => admin_users_path, "orders" => admin_orders_path }.each do |name, path|
       visit path
       assert_selector ".admin-bar"

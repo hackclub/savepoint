@@ -1,0 +1,47 @@
+<% content_for :title, "Admin · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/admin-home" %>
+<% latest = @days.last %>
+<% show = ->(value) { value.nil? ? "—" : value.to_f.round(1).to_s.sub(/\.0$/, "") } %>
+<%# The history section's lazy frame: Save Point's numbers day by day (Metric), a row per number and a column per day, so a change
+    shows in what came after it. Cumulative ones carry the day's change beside them. Folded in from the old Numbers page (D-073). %>
+<div class="pg-admin-home"><div class="sp-container">
+<%= turbo_frame_tag "admin-history" do %>
+  <% if @days.empty? %>
+    <p class="admin-chart admin-chart__empty">No snapshots yet. The hourly job takes the first.</p>
+  <% else %>
+    <div class="admin-chart">
+      <p class="admin-chart__takeaway">Each day's taken as of the end of it (UTC); today's is rewritten hourly. Totals show the day's change beside them. A dash is a day before the snapshots started, for the numbers nothing dates.</p>
+      <div class="pg-admin-home__scroll" tabindex="0" role="region" aria-label="Every number, day by day" data-controller="admin-metrics-page">
+        <table class="admin__table admin__table--wide admin__table--history">
+          <thead>
+            <tr>
+              <th scope="col">Number</th>
+              <% @days.each do |day| %>
+                <th class="admin__num" scope="col" <%= "data-latest" if day == latest %>><%= day.strftime("%b %-d") %></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% Metric::DEFINITIONS.each do |definition| %>
+              <% values = @values.fetch(definition.key, {}) %>
+              <tr>
+                <th scope="row"><%= definition.label %></th>
+                <% @days.each_with_index do |day, index| %>
+                  <% value = values[day] %>
+                  <% before = index.positive? ? values[@days[index - 1]] : nil %>
+                  <td class="admin__num" <%= "data-latest" if day == latest %> <%= "data-none" if value.nil? %>>
+                    <%= show.(value) %>
+                    <% if definition.cumulative && value && before && value != before %>
+                      <small class="admin__change" data-up="<%= value > before %>"><%= value > before ? "+" : "" %><%= show.(value - before) %></small>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+<% end %>
+</div></div>

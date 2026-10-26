@@ -25,6 +25,25 @@ class AdminSummaryTest < ActiveSupport::TestCase
     assert_equal [ 1, Date.new(2026, 10, 23) ], summary.values_at(:dau, :dau_date)
   end
 
+  test "daily says how many builders also opened the site, and nothing before the first recorded day" do
+    travel_to Time.utc(2026, 10, 27, 20)
+    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 25), coded_seconds: 30 * 60)
+    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 26), coded_seconds: 30 * 60)
+    users(:orpheus).streak_activities.create!(activity_date: Date.new(2026, 10, 26), coded_seconds: 30 * 60)
+    SiteDay.create!(user: @ana, date: Date.new(2026, 10, 26))
+    SiteDay.create!(user: users(:orpheus), date: Date.new(2026, 10, 26))
+    summary = AdminSummary.new
+    daily = summary.daily.index_by { |row| row[:date] }
+
+    assert_nil daily[Date.new(2026, 10, 25)][:on_site], "before the first recorded day it's unknown, not 0"
+    assert_equal 1, daily[Date.new(2026, 10, 26)][:on_site], "the admin's visit is left out"
+    assert_equal({ Date.new(2026, 10, 26) => 1 }, summary.site_days)
+  end
+
+  test "site_days is empty until a visit has been recorded" do
+    assert_equal({}, AdminSummary.new.site_days)
+  end
+
   test "daily has a row for each finished day, for participants only, with empty days at 0" do
     travel_to Time.utc(2026, 10, 26, 20)
     @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 90 * 60)
@@ -33,9 +52,24 @@ class AdminSummaryTest < ActiveSupport::TestCase
     daily = AdminSummary.new.daily.index_by { |row| row[:date] }
 
     assert_equal (Program::HACKATIME_START..Date.new(2026, 10, 25)).to_a, daily.keys, "finished days only: today is still filling in"
-    assert_equal({ date: Date.new(2026, 10, 24), dau: 1, states: { new: 0, current: 1, reactivated: 0, resurrected: 0 }, signups: 1, hours: 1.5 }, daily[Date.new(2026, 10, 24)])
-    assert_equal({ date: Date.new(2026, 10, 25), dau: 0, states: { new: 0, current: 0, reactivated: 0, resurrected: 0 }, signups: 0, hours: 0.0 }, daily[Date.new(2026, 10, 25)])
+    assert_equal({ date: Date.new(2026, 10, 24), on_site: nil, dau: 1, states: { new: 0, current: 1, returning: 0 }, signups: 1, hours: 1.5 }, daily[Date.new(2026, 10, 24)])
+    assert_equal({ date: Date.new(2026, 10, 25), on_site: nil, dau: 0, states: { new: 0, current: 0, returning: 0 }, signups: 0, hours: 0.0 }, daily[Date.new(2026, 10, 25)])
     assert_equal [ 1, 5.0, User.participants.where.not(id: @ana.id).count ], daily[Date.new(2026, 10, 23)].values_at(:dau, :hours, :signups), "the admin's 9 hours and sign-up are left out"
+  end
+
+  test "daily splits each day's builders into new, built yesterday too, and back after days off, and they sum to the DAU" do
+    travel_to Time.utc(2026, 10, 27, 20)
+    [ 24, 26 ].each { |day| @ana.streak_activities.create!(activity_date: Date.new(2026, 10, day), coded_seconds: 10 * 60) }
+    dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
+    [ 25, 26 ].each { |day| dee.streak_activities.create!(activity_date: Date.new(2026, 10, day), coded_seconds: 10 * 60) }
+    eve = User.create!(hca_id: "ident!eve", first_name: "Eve")
+    eve.streak_activities.create!(activity_date: Date.new(2026, 10, 26), coded_seconds: 10 * 60)
+    daily = AdminSummary.new.daily.index_by { |row| row[:date] }
+
+    assert_equal({ new: 1, current: 1, returning: 1 }, daily[Date.new(2026, 10, 26)][:states], "eve is new, dee built the day before too, ana was away on the 25th")
+    assert_equal({ new: 1, current: 0, returning: 0 }, daily[Date.new(2026, 10, 25)][:states])
+    assert_equal({ new: 0, current: 1, returning: 0 }, daily[Date.new(2026, 10, 24)][:states])
+    assert(daily.values.all? { |row| row[:states].values.sum == row[:dau] })
   end
 
   test "the summary carries the participants' funnel, and its cache key is v2" do

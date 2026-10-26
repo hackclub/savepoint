@@ -1,5 +1,5 @@
 # The numbers on the public stats page (/stats): exact totals across everyone, and no names. Hours are from
-# everyone's synced streak days (StreakActivity), so they lag Hackatime a little. Who's building each day, by state,
+# everyone's synced streak days (StreakActivity), so they lag Hackatime a little. Who's building each day, by group,
 # is Growth's.
 class PublicStats
   CACHE_FOR = 10.minutes
@@ -8,7 +8,7 @@ class PublicStats
   STREAK_GROUPS = { "1 day" => 1..1, "2 days" => 2..2, "3–4" => 3..4, "5–6" => 5..6, "7–9" => 7..9, "10+" => 10.. }.freeze
 
   def self.cached
-    Rails.cache.fetch("public_stats/v5", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("public_stats/v6", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h

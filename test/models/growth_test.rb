@@ -9,16 +9,17 @@ class GrowthTest < ActiveSupport::TestCase
     built("at_risk_wau", 2)
     built("wau_lost", 7)
     built("reactivated", 9, 0)
-    built("too_short", 0, seconds: 4 * 60)
+    built("too_short", 0, seconds: Growth::ACTIVE_SECONDS - 1)
+    built("just_enough", 0, seconds: Growth::ACTIVE_SECONDS)
     built("later", -1)
 
     day = Growth.new(today: DAY + 1).days.last
 
     assert_equal DAY, day.date
-    assert_equal({ "new" => 1, "current" => 1, "at_risk_wau" => 1, "at_risk_mau" => 1, "reactivated" => 1 }, day.counts)
-    assert_equal 3, day.dau
-    assert_equal 4, day.wau
-    assert_equal 5, day.mau
+    assert_equal({ "new" => 2, "current" => 1, "at_risk_wau" => 1, "at_risk_mau" => 1, "reactivated" => 1 }, day.counts)
+    assert_equal 4, day.dau
+    assert_equal 5, day.wau
+    assert_equal 6, day.mau
     assert_equal(
       { "current" => { "current" => 1 }, "at_risk_wau" => { "at_risk_wau" => 1, "at_risk_mau" => 1 }, "at_risk_mau" => { "reactivated" => 1 } },
       day.transitions
@@ -76,6 +77,14 @@ class GrowthTest < ActiveSupport::TestCase
     assert_equal "resurrected", Growth.state_on(dates, DAY - 10)
     assert_equal "current", Growth.state_on(dates, DAY)
     assert_equal "reactivated", Growth.state_on([ DAY - 10, DAY ], DAY)
+  end
+
+  test "a builder counts from 60 seconds, not 59" do
+    assert_equal 60, Growth::ACTIVE_SECONDS
+    built("one_minute", 0, seconds: 60)
+    built("almost", 0, seconds: 59)
+
+    assert_equal 1, Growth.new(today: DAY + 1).days.last.dau
   end
 
   private

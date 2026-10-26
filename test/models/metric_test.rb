@@ -21,6 +21,14 @@ class MetricTest < ActiveSupport::TestCase
     assert_equal User.count, today["signed_in"]
   end
 
+  test "a day's builders are the people with 60 seconds or more, not 59" do
+    travel_to Time.utc(2026, 10, 24, 20)
+    users(:ana).streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 60)
+    users(:orpheus).streak_activities.find_by(activity_date: Date.new(2026, 10, 24)).update!(coded_seconds: 59)
+
+    assert_equal 1, Metric.values["builders"]
+  end
+
   test "hours shipped are each project's newest ship as of that day" do
     ship = ->(at, hours) do
       projects(:orpheus).ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",

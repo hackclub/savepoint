@@ -88,6 +88,9 @@
 .pg-admin-orders__done { white-space: nowrap; }
 .pg-admin-orders__done .sp-badge .sp-icon { font-size: 16px; }
 .pg-admin-orders__done small { margin-top: 4px; padding-left: 4px; }
+.pg-admin-orders__stickers { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+.pg-admin-orders__stickers form { margin: 0; }
+.pg-admin-orders__letter a { text-decoration: underline; }
 .pg-admin-orders__letter code { font-family: ui-monospace, monospace; font-size: 12px; }
 
 /* ---------- Phones: each row folds into a card ---------- */

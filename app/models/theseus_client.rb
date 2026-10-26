@@ -4,6 +4,7 @@
 class TheseusClient
   API = "https://mail.hackclub.com/api/v1"
   DEFAULT_QUEUE = "save-point-stickers"
+  BACK_OFFICE = "https://mail.hackclub.com/back_office"
 
   # The message is for the admin who clicked, so it says what to do, never what was sent.
   class Error < StandardError; end
@@ -14,6 +15,11 @@ class TheseusClient
   # ENV first (production has no credentials file), then credentials.
   def self.api_key = ENV["THESEUS_API_KEY"].presence || Rails.application.credentials.dig(:theseus, :api_key).presence
   def self.sticker_queue = ENV["THESEUS_STICKER_QUEUE"].presence || Rails.application.credentials.dig(:theseus, :sticker_queue).presence || DEFAULT_QUEUE
+
+  # Where an admin sees the sticker queue, and one letter, in Theseus's back office. A letter id has a "!" in it
+  # ("ltr!n43hw55m4"), which is a valid path character, so it stays as it is.
+  def self.queue_url = "#{BACK_OFFICE}/letter/queues/#{ERB::Util.url_encode(sticker_queue)}"
+  def self.letter_url(id) = "#{BACK_OFFICE}/letters/#{ERB::Util.url_encode(id).gsub("%21", "!")}"
 
   def initialize(key: self.class.api_key, queue: self.class.sticker_queue)
     raise Error, "Theseus isn't set up: THESEUS_API_KEY is missing" if key.blank?

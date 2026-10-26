@@ -72,4 +72,12 @@ class TheseusClientTest < ActiveSupport::TestCase
     Web.adapter = ->(*) { raise Web::Error, "boom" }
     assert_raises(TheseusClient::Error) { TheseusClient.new(key: "k").send_stickers(@order) }
   end
+
+  test "the back office links are the queue, and a letter with its id's ! left alone" do
+    assert_equal "https://mail.hackclub.com/back_office/letter/queues/save-point-stickers", TheseusClient.queue_url
+    ENV["THESEUS_STICKER_QUEUE"] = "a queue"
+    assert_equal "https://mail.hackclub.com/back_office/letter/queues/a%20queue", TheseusClient.queue_url
+    assert_equal "https://mail.hackclub.com/back_office/letters/ltr!n43hw55m4", TheseusClient.letter_url("ltr!n43hw55m4")
+    assert_equal "https://mail.hackclub.com/back_office/letters/ltr_abc%2F1", TheseusClient.letter_url("ltr_abc/1")
+  end
 end

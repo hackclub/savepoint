@@ -18,6 +18,8 @@
     <b><%= order.configuration %></b>
     <%# For this name on the parcel (their preferred one, else the Hack Club one), with the Hack Club name to check it by. %>
     <small class="pg-admin-orders__recipient">To <b><%= order.recipient_name.presence || user.name.presence || user.public_name %></b><% if user.name.present? && order.recipient_name.present? && order.recipient_name != user.name %> (Hack Club: <%= user.name %>)<% end %></small>
+    <%# Stickers are free for a project's hours (D-051), so the project is what qualified them. %>
+    <% if order.stickers? %><small class="pg-admin-orders__project">Earned on <%= link_to project.title, admin_project_path(project) %></small><% end %>
     <small class="admin__address pg-admin-orders__address"><%= user.address_lines(order.address) || "No address: look it up on Hack Club Auth" %></small>
     <%# The phone they gave for the carrier, if any. %>
     <% phone = order.address.is_a?(Hash) ? order.address["phone_number"] : nil %>

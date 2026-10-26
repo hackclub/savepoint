@@ -32,12 +32,19 @@
         </p>
       <% end %>
 
-      <%# The free stickers go through Theseus (D-067), one button each or all at once. %>
+      <%# The free stickers go through Theseus (D-067), one button each or all at once, and the queue they land in is a click away. %>
       <% sticker_count = @waiting.count(&:stickers?) %>
-      <% if sticker_count.positive? %>
-        <%= button_to send_stickers_admin_orders_path, class: "sp-btn sp-btn--gold sp-btn--sm", form: { data: { turbo: false } } do %>
-          <%= sp_icon "truck-fill" %>Ship all waiting stickers (<%= sticker_count %>)
-        <% end %>
+      <% if (@waiting + @ordered).any?(&:stickers?) %>
+        <div class="pg-admin-orders__stickers">
+          <% if sticker_count.positive? %>
+            <%= button_to send_stickers_admin_orders_path, class: "sp-btn sp-btn--gold sp-btn--sm", form: { data: { turbo: false } } do %>
+              <%= sp_icon "truck-fill" %>Ship all waiting stickers (<%= sticker_count %>)
+            <% end %>
+          <% end %>
+          <%= link_to TheseusClient.queue_url, class: "sp-btn sp-btn--ghost sp-btn--sm pg-admin-orders__queue", target: "_blank", rel: "noopener" do %>
+            <%= sp_icon "truck-fill" %>Open the Theseus queue
+          <% end %>
+        </div>
       <% end %>
 
       <% { "To order" => [ "admin-orders-waiting", @waiting, "Nothing to order.", "gift-fill" ],
@@ -75,7 +82,7 @@
                         <td class="pg-admin-orders__done" data-decision="approved" data-label="Ordered">
                           <span class="sp-badge sp-badge--mint"><%= sp_icon "check-circle-fill" %><%= order.ordered_by&.first_name.presence || "someone" %></span>
                           <small><%= order.ordered_at.strftime("%b %-d") %></small>
-                          <% if order.stickers? %><small class="pg-admin-orders__letter"><code><%= order.theseus_letter_id.presence || "no letter ID" %></code></small><% end %>
+                          <% if order.stickers? %><small class="pg-admin-orders__letter"><% if order.theseus_letter_id.present? %><%= link_to TheseusClient.letter_url(order.theseus_letter_id), target: "_blank", rel: "noopener" do %><code><%= order.theseus_letter_id %></code><% end %><% else %><code>no letter ID</code><% end %></small><% end %>
                         </td>
                       <% end %>
                     <% end %>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -151,6 +151,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_150000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.date "built_on"
+    t.boolean "stickers_promised", default: false, null: false
+    t.datetime "stickers_earned_at"
     t.index ["token"], name: "index_nudges_on_token", unique: true
     t.index ["user_id", "built_on"], name: "index_nudges_on_user_id_and_built_on"
     t.index ["user_id", "sent_at"], name: "index_nudges_on_user_id_and_sent_at"
@@ -173,7 +175,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_150000) do
     t.datetime "airtable_failed_at"
     t.string "theseus_letter_id"
     t.index ["ordered_by_id"], name: "index_orders_on_ordered_by_id"
-    t.index ["project_id", "prize_key"], name: "index_orders_on_project_id_and_prize_key", unique: true
+    t.index ["project_id", "prize_key"], name: "index_orders_on_project_id_and_prize_key", unique: true, where: "((prize_key)::text <> 'stickers'::text)"
   end
 
   create_table "pairs", force: :cascade do |t|

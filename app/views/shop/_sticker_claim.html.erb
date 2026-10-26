@@ -1,5 +1,5 @@
 <%# locals: (open: false) %>
-<%# The free stickers' claim card (D-051): above the shop's grid, only for someone who earned them and has no sticker order yet
+<%# The free stickers' claim card (D-051): above the shop's grid, only for someone who earned a pack they have not claimed yet
     (shop_sticker_claim?). It is the claim flow every prize uses: its button opens a sheet whose second step is the shared claim
     step (name and address), and the claim becomes a zero-hour Order that waits on /admin/orders like any other. %>
 <% prize = Prize::STICKERS %>
@@ -10,7 +10,7 @@
   <span class="sticker-claim__art" aria-hidden="true"><%= image_tag "sticker-promise.svg", alt: "", width: 335, height: 432 %></span>
   <div class="sticker-claim__text">
     <h2 class="sticker-claim__title" id="sticker-claim-title">Your free stickers are ready</h2>
-    <p class="sticker-claim__about">You worked on your game in your first hour. Tell us where to send them.</p>
+    <p class="sticker-claim__about"><%= shop_sticker_claim_about %></p>
   </div>
   <%# Without JavaScript this claims at once, with the name and address as they are. %>
   <%= button_to shop_order_path, params: { order: { prize_key: prize.key } }, class: "sp-btn sp-btn--gold sticker-claim__action",

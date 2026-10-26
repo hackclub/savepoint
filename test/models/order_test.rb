@@ -140,6 +140,29 @@ class OrderTest < ActiveSupport::TestCase
     assert_equal "Hack Club stickers is one you've bought already", again.problem
   end
 
+  test "a sticker pack can be claimed once for each pack earned, comeback ones included, and never more than 3" do
+    users(:orpheus).update!(address: HQ_ADDRESS)
+    users(:orpheus).rewards.create!(key: "stickers")
+    assert buy_prize("stickers").persisted?
+    again = buy_prize("stickers")
+    assert_not again.persisted?
+    assert_equal "Hack Club stickers is one you've bought already", again.problem
+
+    users(:orpheus).rewards.create!(key: "comeback_stickers_1")
+    assert buy_prize("stickers").persisted?
+    assert_not buy_prize("stickers").persisted?, "two earned, two claimed"
+
+    users(:orpheus).rewards.create!(key: "comeback_stickers_2")
+    assert buy_prize("stickers").persisted?
+    assert_equal 3, @project.orders.where(prize_key: "stickers").count
+
+    # A fourth reward is possible by hand (a bug elsewhere), but the order still isn't.
+    Reward.insert!({ user_id: users(:orpheus).id, key: "comeback_stickers_3", created_at: Time.current, updated_at: Time.current })
+    fourth = buy_prize("stickers")
+    assert_not fourth.persisted?
+    assert_equal "Hack Club stickers is one you've bought already", fourth.problem
+  end
+
   test "the stickers are not one of the shelf's prizes" do
     assert_nil Prize::ALL.find { |prize| prize.key == "stickers" }
     assert_equal Prize::STICKERS, Prize.find("stickers")
@@ -220,6 +243,33 @@ class OrderConcurrencyTest < ActiveSupport::TestCase
     Order.where(project_id: project.id).delete_all
     project.ships.destroy_all
     project.user.streak_activities.delete_all
+  end
+
+  test "parallel claims of the stickers take no more packs than were earned" do
+    project, user = projects(:orpheus), users(:orpheus)
+    address = user.address
+    user.update!(address: HQ_ADDRESS)
+    Reward.create!(user:, key: "stickers")
+    start = Queue.new
+    meet = { mutex: Mutex.new, cond: ConditionVariable.new, arrived: 0 }
+    threads = 2.times.map do
+      Thread.new do
+        Thread.current[:order_rendezvous] = meet
+        ActiveRecord::Base.connection_pool.with_connection do
+          start.pop
+          Project.find(project.id).orders.create(prize_key: "stickers")
+        end
+      end
+    end
+    2.times { start << true }
+    orders = threads.map(&:value)
+
+    assert_equal 1, orders.count(&:persisted?), "one pack earned, one claim saved"
+    assert_equal 1, Order.where(project_id: project.id).count
+  ensure
+    Order.where(project_id: project.id).delete_all
+    Reward.where(user_id: user.id, key: Reward::STICKER_KEYS).delete_all
+    user.update!(address:)
   end
 
   private

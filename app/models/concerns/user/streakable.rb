@@ -24,6 +24,7 @@ module User::Streakable
     Reward.award_streak!(self)
     Reward.award_hours!(self)
     Reward.award_stickers!(self)
+    Reward.award_comeback_stickers!(self)
   end
 
   # Hours on your linked Hackatime projects over some days, as of the last sync. The leaderboard and the buddy page come from
@@ -33,6 +34,13 @@ module User::Streakable
   end
 
   def earned?(key) = rewards.any? { |reward| reward.key == key }
+
+  # Free sticker packs earned and not yet claimed (an Order each): the first-hour ones (D-051) and comeback ones (D-078).
+  def sticker_packs_unclaimed
+    earned = rewards.count { |reward| Reward::STICKER_KEYS.include?(reward.key) }
+    claimed = project&.orders&.count { |order| order.persisted? && order.prize_key == Prize::STICKERS.key }.to_i
+    [ earned - claimed, 0 ].max
+  end
 
   # Queues a sync, unless one went out in the last STREAK_SYNC_THROTTLE. Your first (nothing synced yet) runs now
   # instead, so the page that asked shows your hours rather than none until the job's done. If Hackatime can't be

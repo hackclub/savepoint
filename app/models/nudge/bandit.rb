@@ -1,6 +1,7 @@
 # Thompson sampling over how a nudge is framed, learned separately per bucket (like "behind"). Each arm is a
 # Beta(successes, failures) guess at how often it gets someone building; we draw from each guess and send the
-# highest draw, so arms we're unsure about still get tried. Cheers (Nudge::Cheer) are their own bucket, learned on
+# highest draw, so arms we're unsure about still get tried. An arm this person was sent recently has its draw cut
+# (recency_multipliers), so the same framing doesn't land day after day. Cheers (Nudge::Cheer) are their own bucket, learned on
 # whether they build again the next day.
 class Nudge::Bandit
   # Which arms make sense in each state. A streak message to someone with no streak is a wasted send.
@@ -24,6 +25,16 @@ class Nudge::Bandit
   POOLED_WEIGHT = 0.2
   # Thompson sampling has no closed-form propensity, so we estimate it by drawing this many times.
   DRAWS = 1_000
+
+  # An arm they were sent recently counts for less (D-078, after Duolingo's recency penalty, which decays over weeks with a
+  # half-life of about 15 days). Each send multiplies the arm's draw by 1 - RECENCY_PENALTY * 0.5^(days since / half-life),
+  # added up over its recent sends and kept above zero. This program is 10 days with a nudge a day, so the half-life is 2 days
+  # (an arm sent yesterday has 0.7 of its penalty left, one from 4 days ago a quarter, 8 days ago hardly any), and the
+  # penalty is half: an arm sent just now draws at half strength, enough to lose to an arm the bandit rates a bit lower, but
+  # not enough to hide a clear winner. Sends older than RECENCY_LOOKBACK (4 half-lives, 6% of the weight) are left out.
+  RECENCY_HALF_LIFE = 2.days
+  RECENCY_PENALTY = 0.5
+  RECENCY_LOOKBACK = 8.days
 
   def self.nudge_for(context, kind: "bandit", bucket: context.bucket)
     bandit = new(bucket)
@@ -54,9 +65,18 @@ class Nudge::Bandit
     return [ arms.sample, 1.0 / arms.size, false ] if context.today < EXPLORE_UNTIL
 
     posteriors = arms.index_with { |arm| posterior(arm) }
-    winner = draw(posteriors)
-    propensity = DRAWS.times.count { draw(posteriors) == winner }.fdiv(DRAWS)
+    recency = recency_multipliers(context.user, context.now)
+    winner = draw(posteriors, recency)
+    propensity = DRAWS.times.count { draw(posteriors, recency) == winner }.fdiv(DRAWS)
     [ winner, propensity, false ]
+  end
+
+  # { arm => multiplier below 1 } for the arms this person was sent in the last RECENCY_LOOKBACK. The propensity is
+  # estimated with the same multipliers, so the log still says how likely the pick really was.
+  def recency_multipliers(user, now)
+    sends = user.nudges.delivered.bandit.where(sent_at: now - RECENCY_LOOKBACK..now).pluck(:arm, :sent_at)
+    sends.each_with_object(Hash.new(0.0)) { |(arm, sent_at), weights| weights[arm] += 0.5**((now - sent_at) / RECENCY_HALF_LIFE.to_f) }
+         .transform_values { |weight| [ 1 - RECENCY_PENALTY * weight, 0.0 ].max }
   end
 
   # Arms for this state that this person can actually get: streak copy needs a streak, social needs peers, overtake
@@ -72,9 +92,9 @@ class Nudge::Bandit
     end
   end
 
-  # One draw from each arm's { arm => [a, b] }, and the arm with the highest.
-  def draw(posteriors)
-    posteriors.max_by { |_, (a, b)| beta_sample(a, b) }.first
+  # One draw from each arm's { arm => [a, b] }, each times its recency multiplier, and the arm with the highest.
+  def draw(posteriors, recency = {})
+    posteriors.max_by { |arm, (a, b)| beta_sample(a, b) * recency.fetch(arm, 1.0) }.first
   end
 
   # Beta(1, 1) to start, plus this bucket's results, plus a little of every other bucket's. An opt-out counts as

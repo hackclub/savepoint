@@ -1,5 +1,5 @@
 # Nudges that always send when they apply, so the bandit never learns from them. The first one that applies wins:
-# a program date, then a milestone, then a missing setup step, then saving a streak.
+# a program date, then a milestone, then a missing setup step, then saving a streak, then coming back after a missed day.
 module Nudge::Fixed
   # Save Point's own dates, for them: kickoff is everyone's, the last days go by their deadline (Project#deadline).
   def self.program_dates(context)
@@ -16,7 +16,7 @@ module Nudge::Fixed
 
   # Sent at their slot, so streak savers come with the day's nudge rather than at 11pm.
   def self.for(context)
-    program_nudge(context) || milestone(context) || setup_nudge(context) || streak_saver(context)
+    program_nudge(context) || milestone(context) || setup_nudge(context) || streak_saver(context) || comeback(context)
   end
 
   # Each once: ones sent for an earlier deadline (before this one's last three days) don't count, so a moved
@@ -69,6 +69,20 @@ module Nudge::Fixed
     return unless context.streak >= 2 && context.minutes_today < Nudge::REWARD_MINUTES
     return if context.user.nudges.delivered.where(kind: "streak_saver", sent_at: context.now - context.streak.days..).exists?
     build(context, kind: "streak_saver", arm: "streak_saver")
+  end
+
+  # After a missed day, to someone who has built before (D-078): one DM per missed day, in the place of a bandit send since
+  # the scheduler gives each person one DM a day at most. It promises a free sticker pack for coding Reward::STICKERS_SECONDS
+  # within Reward::COMEBACK_WINDOW, unless they can't have one (Context#stickers_to_promise?). built_on is the day missed.
+  # Streak saver never overlaps it: that is for someone who built yesterday, and this for someone who did not.
+  def self.comeback(context)
+    missed = context.comeback_missed_on or return
+    return if context.user.nudges.delivered.where(kind: "comeback", built_on: missed).exists?
+
+    promise = context.stickers_to_promise?
+    build(context, kind: "comeback", arm: promise ? "comeback_stickers" : "comeback").tap do |nudge|
+      nudge.assign_attributes(built_on: missed, stickers_promised: promise)
+    end
   end
 
   def self.build(context, kind:, arm:)

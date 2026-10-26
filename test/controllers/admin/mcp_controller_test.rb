@@ -261,6 +261,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
 
     assert_includes mcp_tool(@token, "metrics", { days: 3 }).keys, "nps"
     assert_includes mcp_tool(@token, "nudges").keys, "buckets"
+    totals = mcp_tool(@token, "nudges")["totals"]
+    assert_equal totals["scored"] - totals["worked"], totals["didnt_work"]
+    assert_not_includes totals.keys, "failed", "that was scored minus worked, not delivery failures (cannot_dm is those)"
     users(:orpheus).update!(slack_dm_failed_at: 1.hour.ago, slack_dm_error: "user_disabled")
     nudges = mcp_tool(@token, "nudges")
     assert_equal 1, nudges["cannot_dm"]

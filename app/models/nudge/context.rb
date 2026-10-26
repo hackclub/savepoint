@@ -109,6 +109,23 @@ class Nudge::Context
     user.slack_dmed_at + Nudge::MESSAGE_GAP if just_messaged?
   end
 
+  # The streak day a comeback DM would be for: the one before today, when they built (Growth::ACTIVE_SECONDS) on some day
+  # before it but neither on it nor yet today, and it was a day they'd build (a weekend builder has no missed Fridays). Nil
+  # for someone who never built: the setup nudges are for them.
+  def comeback_missed_on
+    today = StreakActivity.streak_date_for(now, user.timezone)
+    missed = today - 1
+    return unless project.build_day?(missed) && seconds_on(today) < Growth::ACTIVE_SECONDS && seconds_on(missed) < Growth::ACTIVE_SECONDS
+
+    missed if user.streak_activities.where(activity_date: ...missed, coded_seconds: Growth::ACTIVE_SECONDS..).exists?
+  end
+
+  # Whether a comeback DM can promise a free sticker pack: they could claim it (Hack Club Auth's YSWS-eligible and not
+  # banned on Hackatime, D-051) and haven't got Reward::STICKER_PACKS_MAX already.
+  def stickers_to_promise?
+    user.sticker_eligible? && Reward.sticker_packs_earned(user) < Reward::STICKER_PACKS_MAX
+  end
+
   def sent_today
     user.nudges.delivered.where(sent_at: local_now.beginning_of_day..)
   end
@@ -134,7 +151,8 @@ class Nudge::Context
   def hours = @hours ||= project.hours_logged
   def streak = user.current_streak
   def minutes_today = minutes_on(user.streak_today_date)
-  def minutes_on(date) = user.streak_activities.find_by(activity_date: date)&.coded_seconds.to_i / 60
+  def minutes_on(date) = seconds_on(date) / 60
+  def seconds_on(date) = user.streak_activities.find_by(activity_date: date)&.coded_seconds.to_i
   def last_built_on = @last_built_on ||= user.streak_activities.where(coded_seconds: 1..).maximum(:activity_date)
 
   # Other participants who built today (or on the day a cheer's for), admins aside (D-032).
@@ -179,6 +197,7 @@ class Nudge::Context
         next_reward: (upcoming[:label].downcase if upcoming && streak.positive?),
         days_to_reward: (upcoming[:days] - streak if upcoming && streak.positive?),
         reward_days_word: (unit(upcoming[:days] - streak, "day") if upcoming && streak.positive?),
+        sticker_minutes: Reward::STICKERS_SECONDS / 60,
         peers: (peers if peers >= MIN_PEERS),
         days_idle: ((today - last_built_on).to_i if last_built_on && lapsed?),
         **leaderboard_vars,

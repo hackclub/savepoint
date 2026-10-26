@@ -100,7 +100,7 @@ class Prize < Data.define(:key, :name, :article, :kind, :cost, :hours, :image, :
   # them. An Order for them is accepted (CLAIMABLE) and costs no hours.
   STICKERS = new(key: "stickers", name: "Hack Club stickers", article: "some", kind: "Free sticker pack", cost: 0, hours: 0,
                  image: nil, icon: "sparkles-fill", url: nil,
-                 facts: [ "Free for working on your game in your first hour", "Posted to the address you give" ])
+                 facts: [ "Free for working on your game", "Posted to the address you give" ])
 
   # Everything an Order can be for.
   CLAIMABLE = (ALL + [ STICKERS ]).freeze

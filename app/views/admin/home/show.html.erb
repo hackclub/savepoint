@@ -94,6 +94,16 @@
             </ol>
           <% end %>
         </div>
+
+        <% week = @nps %>
+        <h3 class="pg-admin-home__sub">Would they recommend Save Point <span>last 7 days, admins left out; <%= link_to "every answer is on Numbers", admin_metrics_path, class: "pg-admin-home__more" %></span></h3>
+        <div class="pg-admin-home__charts pg-admin-home__charts--wide">
+          <%= render "split_card", name: "NPS", icon: "heart-fill", head: "People",
+                                   parts: [ { id: "promoter", name: "Promoters", about: "scored 9 or 10", value: week.promoters, text: week.promoters.to_s },
+                                            { id: "passive", name: "Passives", about: "scored 7 or 8", value: week.passives, text: week.passives.to_s },
+                                            { id: "detractor", name: "Detractors", about: "scored 0 to 6", value: week.detractors, text: week.detractors.to_s } ],
+                                   takeaway: week.people.zero? ? "Nobody has answered in the last 7 days." : "#{nps_value(week.nps)} NPS from #{pluralize(week.people, "person")}, each counted once by their latest answer." %>
+        </div>
       </section>
 
       <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-funnel">

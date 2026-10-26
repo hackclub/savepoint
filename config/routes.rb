@@ -61,6 +61,7 @@ Rails.application.routes.draw do
     # The home's heavy sections, each in a lazy Turbo Frame so the first paint doesn't wait for them.
     get "growth" => "home#growth", as: :growth
     get "signups" => "home#signups", as: :signups
+    get "stuck" => "home#stuck", as: :stuck
     get "history" => "home#history", as: :history
     resources :extensions, only: %i[index update]
     resources :orders, only: %i[index update] do

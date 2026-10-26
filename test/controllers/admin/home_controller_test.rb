@@ -20,15 +20,15 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "/admin", admin_root_path
     assert_select ".admin__nav a[aria-current=page]", "Admin"
-    assert_equal %w[Admin Orders Ships Extensions Projects People Numbers Stats Bandit Tokens Insights], css_select(".admin__nav a").map(&:text)
+    assert_equal %w[Admin Orders Ships Extensions Projects People Bandit Tokens Insights], css_select(".admin__nav a").map(&:text)
     assert_select ".pg-admin-home__total", /1\s*waiting/
     assert_select "a.admin__tile[href=?][data-waiting]", admin_extensions_path, /Extensions\s*1\s*waiting/
     assert_select "a.admin__tile[href=?]:not([data-waiting])", admin_ships_path, /Ships\s*0\s*in review/
-    assert_select ".admin__table--pages tbody tr", 10
+    assert_select ".admin__table--pages tbody tr", 8
     assert_select ".admin__table--pages tr", text: /Projects.*Every project, searchable.*#{Project.count}/m
 
-    assert_select ".admin__table--pages th a[href=?]", admin_stats_path, "Stats"
-    assert_select ".admin__nav a[href=?]:not([data-turbo=false])", admin_stats_path, "Stats"
+    assert_select ".admin__table--pages th a", text: /Stats|Numbers/, count: 0
+    assert_select ".admin__nav a", text: /Stats|Numbers/, count: 0
 
     # And it's in the nav on every admin page.
     get admin_ships_path
@@ -73,7 +73,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart__step:first-child .admin-chart__meter span[style*='width: 100.0%']"
   end
 
-  test "the NPS of the last 7 days is on the home page, without admins, and links to Numbers" do
+  test "the NPS of the last 7 days is on the home page, without admins" do
     NpsResponse.create!(user: users(:ana), source: "daily", score: 10, doing_well: "Streaks", improve: "Prizes")
     NpsResponse.create!(user: users(:orpheus), source: "daily", score: 0, doing_well: "Nothing", improve: "Everything")
     sign_in_as(users(:orpheus))
@@ -84,8 +84,8 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
       assert_select ".admin-chart__legend tbody tr", text: /Promoters.*1.*100%/m
       assert_select ".admin-chart__legend tbody tr", text: /Detractors.*0/m
     end
-    assert_select ".pg-admin-home__sub a[href=?]", admin_metrics_path
     assert_select ".admin-chart a", 0
+    assert_select "#signups .admin-chart--split", 1, "one NPS section, not two"
   end
 
   test "with no NPS answers the home page says so" do
@@ -95,6 +95,120 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".admin-chart__takeaway", "Nobody has answered in the last 7 days."
     assert_select ".admin-chart__legend tbody tr", text: /Promoters.*0/m
+  end
+
+  test "every number is in one page: a section for each, with jump links to them" do
+    sign_in_as(users(:orpheus))
+    get admin_root_path
+
+    ids = %w[waiting building funnel prizes signups growth history]
+    ids.each do |id|
+      assert_select "main section##{id}", 1
+      assert_select ".pg-admin-home__jump a[href=?]", "##{id}"
+    end
+    assert_select "#waiting .admin__tile", 3, "the waiting block is whole"
+    %w[growth signups history].each do |frame|
+      assert_select "turbo-frame#admin-#{frame}[loading=lazy][src=?]", send("admin_#{frame}_path")
+    end
+  end
+
+  test "the old Stats and Numbers pages go to their sections of the home page" do
+    sign_in_as(users(:orpheus))
+
+    get "/admin/stats"
+    assert_redirected_to "/admin#growth"
+    assert_response :moved_permanently
+    get "/admin/metrics"
+    assert_redirected_to "/admin#history"
+    assert_response :moved_permanently
+  end
+
+  test "the growth section has the totals, the simulator on the admin page and the streaks, and no second funnel" do
+    sign_in_as(users(:orpheus))
+    travel_to Program::DATES.begin + 4
+    user = User.create!(hca_id: "ident!daily", first_name: "Daily")
+    (0..2).each { |ago| user.streak_activities.create!(activity_date: Program::DATES.begin + 3 - ago, coded_seconds: 6 * 60) }
+    get admin_growth_path, headers: { "Turbo-Frame" => "admin-growth" }
+
+    assert_response :success
+    assert_select "turbo-frame#admin-growth" do
+      assert_select ".admin__readout-name", text: /Builders/
+      assert_select ".admin__readout-name", text: /Games shipped/
+      assert_select ".admin__readout-name", text: /DAU ÷ MAU/
+      assert_select ".stats__lines", minimum: 2
+      assert_select ".stats__toggle a[href^=?]", admin_growth_path, minimum: 2
+      assert_select ".stats__toggle a[href*=?]", "signups=flat"
+      assert_select ".stats__levers, .admin__table--wide th", text: /Rate/
+      assert_select ".admin__readout-name", text: /On a streak/
+      assert_select ".admin-chart__steps", 1, "only the streak bars: the funnel is on the home page"
+    end
+    assert_select ".admin-bar", 0, "a frame request is just the frame"
+
+    get admin_growth_path(signups: "flat"), headers: { "Turbo-Frame" => "admin-growth" }
+    assert_select ".stats__toggle-option--active", "Flat"
+  end
+
+  test "opening a section's URL itself shows it under the admin bar" do
+    sign_in_as(users(:orpheus))
+    get admin_history_path
+    assert_response :success
+    assert_select ".admin-bar", 1
+  end
+
+  test "sign-ups: the latest NPS answers and where sign-ups come from, without admins" do
+    NpsResponse.create!(user: users(:ana), source: "daily", score: 10, doing_well: "Loved the streaks", improve: "More prizes")
+    users(:ana).update!(utm_source: "slack", utm_medium: "post", utm_campaign: "launch")
+    users(:orpheus).update!(utm_source: "slack", utm_medium: "post", utm_campaign: "launch")
+    3.times { Visit.create!(utm_source: "slack", utm_medium: "post", utm_campaign: "launch", path: "/") }
+    Visit.create!(utm_source: "twitter", path: "/")
+    2.times { Visit.create!(path: "/") }
+    Visit.create!(path: "/project")
+    sign_in_as(users(:orpheus))
+    get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }
+
+    assert_select ".admin-answer__pill--promoter", "10"
+    assert_select ".admin-answer__qa dd", "Loved the streaks"
+    assert_select ".admin-answer__qa dd", "More prizes"
+    assert_select ".admin-answer__qa dt", text: "Anything else you want to tell us?", count: 0
+    assert_select "tr", text: /slack\s*post\s*launch\s*3\s*1\s*33%/
+    assert_select "tr", text: /twitter\s*—\s*—\s*1\s*0\s*0%/
+    untagged = User.participants.where(utm_source: nil).count
+    assert_select "tr", text: /No tags\s*2\s*#{untagged}\s*#{(100.0 * untagged / 2).round}%/
+  end
+
+  test "with no NPS answers the sign-ups section says so" do
+    sign_in_as(users(:orpheus))
+    get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }
+    assert_select ".admin-chart__empty", text: /Nobody has answered yet/
+  end
+
+  test "history: each number by day, with the day's change on totals" do
+    MetricSnapshot.create!(day: Date.new(2026, 10, 23), key: "signed_in", value: 10)
+    MetricSnapshot.create!(day: Date.new(2026, 10, 24), key: "signed_in", value: 14)
+    MetricSnapshot.create!(day: Date.new(2026, 10, 24), key: "hours_day", value: 2.5)
+    MetricSnapshot.create!(day: Date.new(2026, 10, 23), key: "hours", value: 300.1)
+    MetricSnapshot.create!(day: Date.new(2026, 10, 24), key: "hours", value: 323.4)
+    travel_to Time.utc(2026, 10, 25, 12)
+    sign_in_as(users(:orpheus))
+    get admin_history_path, headers: { "Turbo-Frame" => "admin-history" }
+
+    assert_select "thead th", text: "Oct 23"
+    assert_select "tr", text: /Signed in\s*10\s*14\s*\+4/
+    assert_select "tr", text: /Hours that day\s*—\s*2\.5/
+    assert_select "small.admin__change", text: "+23.3"
+    assert_select "small.admin__change", text: /\d{3,}\.\d{2,}/, count: 0
+  end
+
+  test "the new sections are for admins only" do
+    %w[growth signups history].each do |section|
+      get "/admin/#{section}"
+      assert_response :not_found
+    end
+    sign_in_as(users(:ana))
+    %w[growth signups history].each do |section|
+      get "/admin/#{section}"
+      assert_response :not_found
+    end
   end
 
   test "nobody else can see it" do

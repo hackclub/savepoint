@@ -2,9 +2,10 @@
 <% content_for :stylesheets, " save_point/pages/admin-home save_point/pages/stats" %>
 <% totals, streaks, growth = @stats[:totals], @stats[:streaks], @stats[:growth] %>
 <% latest = growth[:latest] %>
+<% site_latest = latest && @site_days[latest[:date]] %>
 <% day = @stats[:day].clamp(0, @stats[:days]) %>
 <%# The growth section's lazy frame: the public stats (PublicStats) that the home doesn't show already, in the admin look.
-    Totals; DAU, WAU and MAU; the audience and retention lines; the growth simulator and its levers; streaks and buddies.
+    Totals; DAU beside who also opened the site (D-076) and CURR; the retention line (D-077: no WAU or MAU); the growth simulator and its levers; streaks and buddies.
     Dropped because the home has them: hours built each day (the Hours built chart), who's building each day by state (the Daily
     active builders chart) and the funnel (the participants' funnel). The line charts keep the stats page's markup and its
     style sheet, under .pg-stats; the cards around them are the home's (admin-chart). %>
@@ -23,23 +24,15 @@
     <% if latest %>
       <h3 class="pg-admin-home__sub">Who's building <span>after <a href="https://blog.duolingo.com/growth-model-duolingo/" target="_blank" rel="noopener" class="pg-admin-home__more">Duolingo's growth model</a>; a day counts once it's over</span></h3>
       <div class="pg-admin-home__readouts pg-admin-home__readouts--five">
-        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "fire-fill" %><abbr title="Daily active builders">DAU</abbr></span><strong><%= stat(latest[:dau]) %></strong><small>built yesterday</small></div>
-        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "calendar-fill" %><abbr title="Weekly active builders">WAU</abbr></span><strong><%= stat(latest[:wau]) %></strong><small>built this week</small></div>
-        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "calendar-fill" %><abbr title="Monthly active builders">MAU</abbr></span><strong><%= stat(latest[:mau]) %></strong><small>built this month</small></div>
-        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "chart-bar-fill" %>DAU ÷ MAU</span><strong><%= stat_percent(latest[:mau].positive? ? latest[:dau].fdiv(latest[:mau]) : nil) %></strong><small>stickiness</small></div>
+        <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "fire-fill" %><abbr title="Daily active builders">DAU</abbr></span><strong><%= stat(latest[:dau]) %></strong><small>built yesterday<%= " · #{stat(site_latest)} also opened the site" if site_latest %></small></div>
         <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon "refresh-2-fill" %><abbr title="Current user retention rate">CURR</abbr></span><strong><%= stat_percent(latest[:curr]) %></strong><small>came back next day, last <%= Growth::RATE_WINDOW %> days</small></div>
       </div>
 
       <h3 class="pg-admin-home__sub">Retention <span>one line a day, hover or focus a day for its numbers</span></h3>
       <div class="pg-admin-home__charts pg-admin-home__charts--wide">
         <figure class="admin-chart admin-chart--lines">
-          <figcaption><span class="admin__readout-name"><%= sp_icon "user-3-fill" %>Daily, weekly and monthly</span></figcaption>
-          <p class="admin-chart__takeaway">WAU built in the last 7 days, MAU in the last 30: so far, that's nearly everyone who's built at all.</p>
-          <%= render "stats/lines", rows: growth[:days], series: StatsHelper::GROWTH_AUDIENCE_SERIES %>
-        </figure>
-        <figure class="admin-chart admin-chart--lines">
           <figcaption><span class="admin__readout-name"><%= sp_icon "refresh-2-fill" %>Who comes back</span></figcaption>
-          <p class="admin-chart__takeaway">Of the builders in each state one day, the share building the next. Pooled over <%= Growth::RATE_WINDOW %> days.</p>
+          <p class="admin-chart__takeaway">Of the builders in each group one day, the share building the next. Pooled over <%= Growth::RATE_WINDOW %> days.</p>
           <%= render "stats/lines", rows: growth[:rates], series: growth_series_present(StatsHelper::GROWTH_RATE_SERIES, growth[:rates]), percent: true %>
         </figure>
       </div>
@@ -128,22 +121,18 @@
     </div>
 
     <details class="stats__table-view">
-      <summary><%= sp_icon "down-fill" %>States and rates</summary>
+      <summary><%= sp_icon "down-fill" %>Groups and rates</summary>
       <dl class="stats__definitions">
         <dt>New</dt><dd>First day building is today.</dd>
-        <dt>Current</dt><dd>Building today, and on at least one of the previous 6 days.</dd>
-        <dt>Reactivated</dt><dd>Building today, last built 7 to 29 days ago.</dd>
-        <dt>Resurrected</dt><dd>Building today, last built 30 or more days ago.</dd>
-        <dt>At-risk WAU</dt><dd>Not building today, but on one of the previous 6 days.</dd>
-        <dt>At-risk MAU</dt><dd>Last built 7 to 29 days ago.</dd>
-        <dt>Dormant</dt><dd>Last built 30 or more days ago.</dd>
+        <dt>Built yesterday too</dt><dd>Building today, and built yesterday as well.</dd>
+        <dt>Back after days off</dt><dd>Building today, built on an earlier day, but not yesterday.</dd>
+        <dt>Skipped today</dt><dd>Not building today, but built yesterday.</dd>
+        <dt>Gone</dt><dd>Not building today or yesterday, but built before.</dd>
         <dt>NURR</dt><dd>New user retention rate: the share of yesterday's new builders building again today.</dd>
-        <dt>CURR</dt><dd>Current user retention rate: the share of yesterday's current builders building again today.</dd>
-        <dt>RURR</dt><dd>Reactivated user retention rate: the share of yesterday's reactivated builders building again today.</dd>
-        <dt>SURR</dt><dd>Resurrected user retention rate: the share of yesterday's resurrected builders building again today.</dd>
-        <dt>iWAURR</dt><dd>At-risk WAU retention rate: the share of yesterday's at-risk WAU builders back today.</dd>
-        <dt>Reactivation</dt><dd>The share of yesterday's at-risk MAU builders back today.</dd>
-        <dt>Resurrection</dt><dd>The share of yesterday's dormant builders back today.</dd>
+        <dt>CURR</dt><dd>Current user retention rate: the share of yesterday's builders who had also built the day before, building again today.</dd>
+        <dt>RURR</dt><dd>Returning user retention rate: the share of yesterday's back-after-days-off builders building again today.</dd>
+        <dt>Back after 1 day off</dt><dd>The share of yesterday's skipped builders back today.</dd>
+        <dt>Back after 2+ days off</dt><dd>The share of yesterday's gone builders back today.</dd>
       </dl>
     </details>
 

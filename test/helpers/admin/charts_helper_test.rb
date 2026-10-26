@@ -48,12 +48,12 @@ class Admin::ChartsHelperTest < ActionView::TestCase
   end
 
   test "stacked columns stack the parts of a day, bottom first, with a 2px gap and the rounded end on top" do
-    states = { new: 1, current: 3, reactivated: 0, resurrected: 0 }
-    rows = [ { date: Date.new(2026, 10, 24), states: }, { date: Date.new(2026, 10, 25), states: { new: 0, current: 0, reactivated: 0, resurrected: 0 } } ]
+    states = { new: 1, current: 2, returning: 1 }
+    rows = [ { date: Date.new(2026, 10, 24), states: }, { date: Date.new(2026, 10, 25), states: { new: 0, current: 0, returning: 0 } } ]
     svg = Nokogiri::HTML.fragment(admin_stacked_chart(rows))
 
-    assert_equal [ "admin-chart__column admin-chart__column--new", "admin-chart__column admin-chart__column--current" ], svg.css("path").map { |path| path["class"] }
-    assert_equal [ "Sat Oct 24: 4 builders (1 new, 3 building most days, 0 back after a week, 0 back after a month)", "Sun Oct 25: 0 builders (0 new, 0 building most days, 0 back after a week, 0 back after a month)" ], svg.css("g title").map(&:text)
+    assert_equal [ "admin-chart__column admin-chart__column--new", "admin-chart__column admin-chart__column--current", "admin-chart__column admin-chart__column--returning" ], svg.css("path").map { |path| path["class"] }
+    assert_equal [ "Sat Oct 24: 4 builders (1 new, 2 built yesterday too, 1 back after days off)", "Sun Oct 25: 0 builders (0 new, 0 built yesterday too, 0 back after days off)" ], svg.css("g title").map(&:text)
     heights = svg.css("path").map { |path| path["d"].scan(/\d+(?:\.\d+)?/).first(2).map(&:to_f) }
     assert_in_delta 96.0, heights[0][1], 0.01, "the first part stands on the baseline"
   end

@@ -61,7 +61,7 @@ module AdminMcp::Tools::Numbers
   # The public Stats page: totals across everyone, the funnel, who builds each day, and Growth.
   class PublicStats < AdminMcp::Tool
     reads "public_stats", "The public stats",
-          "The numbers on the public /stats page: totals, the funnel, hours and builders per day, streaks, and Growth (who's building, by state, with the rates and projections). " \
+          "The numbers on the public /stats page: totals, the funnel, hours and builders per day, streaks, and Growth (who's building, in three groups: new, built yesterday too, back after days off, with the rates and projections). " \
           "Counts everyone, admins too, as the public page does."
 
     def self.run(_args, _caller) = ::PublicStats.cached

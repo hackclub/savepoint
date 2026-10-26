@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -222,6 +222,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_160000) do
     t.datetime "jame_gam_submitted_at"
     t.string "jame_gam_submission_id"
     t.string "jame_gam_review_status"
+    t.datetime "first_coded_at"
+    t.datetime "hackatime_picked_at"
     t.index ["buddy_code"], name: "index_projects_on_buddy_code", unique: true
     t.index ["user_id"], name: "index_projects_on_user_id", unique: true
   end
@@ -530,6 +532,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_160000) do
     t.string "hackatime_trust_level"
     t.datetime "banned_at"
     t.text "ban_reason"
+    t.datetime "hackatime_linked_at"
+    t.jsonb "onboarding_step_times", default: {}, null: false
     t.index ["hackatime_uid"], name: "index_users_on_hackatime_uid", unique: true
     t.index ["hca_id"], name: "index_users_on_hca_id", unique: true
   end

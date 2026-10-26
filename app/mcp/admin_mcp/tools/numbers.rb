@@ -1,8 +1,8 @@
 module AdminMcp::Tools::Numbers
-  # The Numbers page: Save Point's numbers day by day, the NPS and where sign-ups come from.
+  # The admin home's sign-ups and history sections (once the Numbers page): Save Point's numbers day by day, the NPS and where sign-ups come from.
   class Metrics < AdminMcp::Tool
     reads "metrics", "Save Point's numbers",
-          "What the Numbers page shows: each metric (funnel counts, hours, builders, bandit nudges, and more) per day for the last `days` days, " \
+          "What the admin home's day-by-day history shows: each metric (funnel counts, hours, builders, bandit nudges, and more) per day for the last `days` days, " \
           "builders per day and how many of them also opened the site (D-076, from the day it shipped), the NPS of the last 7 days with the newest answers (score, who by public name, the three answers), and where sign-ups come from (UTM source, " \
           "medium and campaign: landing-page visits, sign-ups, rate, and the untagged ones). Participants only.",
           { days: { type: "integer", minimum: 1, maximum: 120, description: "How many of the latest days. Default 14." } }
@@ -61,7 +61,7 @@ module AdminMcp::Tools::Numbers
   # The public Stats page: totals across everyone, the funnel, who builds each day, and Growth.
   class PublicStats < AdminMcp::Tool
     reads "public_stats", "The public stats",
-          "The numbers on the public /stats page: totals, the funnel, hours and builders per day, streaks, and Growth (who's building, by state, with the rates and projections). " \
+          "The numbers on the public /stats page: totals, the funnel, hours and builders per day, streaks, and Growth (who's building, in three groups: new, built yesterday too, back after days off, with the rates and projections). " \
           "Counts everyone, admins too, as the public page does."
 
     def self.run(_args, _caller) = ::PublicStats.cached

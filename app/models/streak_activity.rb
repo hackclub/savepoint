@@ -30,6 +30,7 @@ class StreakActivity < ApplicationRecord
       return unless project&.tracking?
 
       today = streak_date_for(Time.current, user.timezone)
+      from_start ||= missing_first_coded?(user, project)
       synced_on = streak_date_for(user.streak_synced_at, user.timezone) - 1 if user.streak_synced_at && !from_start
       start_date = [ synced_on || Program::FIRST_STREAK_DATE, Program::FIRST_STREAK_DATE ].max
 
@@ -37,7 +38,9 @@ class StreakActivity < ApplicationRecord
       # to 2am in yours: so it's asked for a day either side, or tonight's building would be tomorrow by its clock
       # and left out until the next sync.
       spans = Hackatime.heartbeat_spans(user, project.hackatime_projects, start_date: start_date - 1, end_date: today + 2)
-      daily_seconds = bucket_spans_by_streak_day(clip_to_start(spans, project.hours_start), user.timezone)
+      counted = clip_to_start(spans, project.hours_start)
+      daily_seconds = bucket_spans_by_streak_day(counted, user.timezone)
+      note_first_coded(project, counted)
 
       just_completed = []
       (start_date..today).each do |date|
@@ -55,6 +58,21 @@ class StreakActivity < ApplicationRecord
     end
 
     private
+      # The start of the first counted span, kept once (projects.first_coded_at). The sync reads every day since the
+      # last one, so a person's first minute is in the first sync that finds time.
+      def note_first_coded(project, counted)
+        return if project.first_coded_at
+
+        first = counted.select { |span| span["duration"].to_f.positive? }.map { |span| span["start_time"].to_f }.min
+        project.update_columns(first_coded_at: Time.zone.at(first)) if first
+      end
+
+      # Someone with counted days from before first_coded_at existed has their sync read from the first day once, which
+      # is the one place their first minute is.
+      def missing_first_coded?(user, project)
+        project.first_coded_at.nil? && user.streak_activities.where(coded_seconds: 1..).exists?
+      end
+
       # Saves one day and says whether this write took it past the goal. Two syncs for one user can run at once
       # (the sweep and an on-demand sync), and both may find no row for a day. The loser hits the unique index or
       # the uniqueness validation, so it looks the row up again and writes onto the winner's. A day the winner

@@ -8,6 +8,7 @@ INSIGHTS_VIEW_MIGRATIONS ||= %w[
   AddOnboardingProgressToInsightsUsers
   AddHackatimeSeenToInsightsProjects
   UpdateInsightsShipsForFraudStage
+  AddRetentionDataToInsightsViews
 ].freeze
 
 namespace :insights do

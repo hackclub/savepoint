@@ -24,6 +24,28 @@ namespace :slack do
   end
 
   namespace :announce do
+    # Edits a message Armand already posted, replacing its blocks and text. Without CONFIRM=<channel id> it only prints
+    # what it would do. Nothing edits messages in the wrong tool's channels.
+    #
+    #   CONFIRM=C0123ABCD bin/rails "slack:announce:update[C0123ABCD,1700000000.000100,announcements/example.json]"
+    desc "Edit a posted message from a Block Kit file as Armand (needs SLACK_USER_TOKEN and CONFIRM=<channel id>)"
+    task :update, [ :channel, :ts, :file ] => :environment do |_, args|
+      channel = SlackAnnouncement.check_channel!(args[:channel])
+      ts = SlackAnnouncement.check_timestamp!(args[:ts])
+      message = SlackAnnouncement.load(args[:file])
+      SlackAnnouncement.token!
+      unless ENV["CONFIRM"] == channel
+        puts "would update #{ts} in #{channel}: #{message.blocks.size} blocks, text #{message.text.inspect}"
+        puts "preview: #{message.preview_url}"
+        abort "nothing changed. Run again with CONFIRM=#{channel} to update."
+      end
+      puts "updated #{ts} in #{channel}: #{message.update!(channel, ts)}"
+    rescue SlackAnnouncement::Refused => error
+      abort error.message
+    rescue Slack::Web::Api::Errors::SlackError => error
+      abort "Slack refused: #{error.message}"
+    end
+
     # Posts the message to the token owner's own DM, to see the real render. Posts nowhere else.
     desc "DM the token owner a Block Kit message file, to check how it renders"
     task :test, [ :file ] => :environment do |_, args|

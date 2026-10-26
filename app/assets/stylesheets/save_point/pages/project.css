@@ -94,11 +94,11 @@
 @media (max-width: 759px) { .pg-project .project__shot-slot:not([data-filled]) { aspect-ratio: 3 / 1; } }
 .pg-project .project__shot-note { font: 600 13px/18px var(--font-body); color: var(--ink-muted); text-align: center; }
 
-/* ---------- Your Hackatime project linked itself ---------- */
-.pg-project .project__auto-linked { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-4); align-items: center; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--mint-soft); border: 2px solid var(--mint-line); box-shadow: 0 var(--lip-depth) 0 var(--mint-lip); }
-.pg-project .project__auto-linked-icon { font-size: 36px; color: var(--mint-ink); }
+/* ---------- Your Hackatime project linked itself: is it your game? (D-084) ---------- */
+.pg-project .project__auto-linked { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-4); align-items: center; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--gold-soft); border: 2px solid var(--gold-line); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip); }
+.pg-project .project__auto-linked-icon { font-size: 36px; color: var(--gold-ink); }
 .pg-project .project__auto-linked-title { font: 800 italic 19px/24px var(--font-display); }
-.pg-project .project__auto-linked-name { color: var(--mint-ink); }
+.pg-project .project__auto-linked-name { color: var(--gold-ink); }
 .pg-project .project__auto-linked-note { color: var(--ink-muted); font-size: 15px; }
 .pg-project .project__auto-linked-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 @media (min-width: 760px) { .pg-project .project__auto-linked { grid-template-columns: auto minmax(0, 1fr) auto; } .pg-project .project__auto-linked-actions { grid-column: auto; } }

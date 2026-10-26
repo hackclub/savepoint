@@ -7,7 +7,7 @@ class AdminSummary
   CACHE_FOR = 2.minutes
 
   def self.cached
-    Rails.cache.fetch("admin_summary/v6", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("admin_summary/v7", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h
@@ -16,7 +16,7 @@ class AdminSummary
     dates = growth.days.map(&:date)
     sign_up_days = AdminInsights::SignUpDay.call(dates: Program::DATES.cover?(Date.current) ? [ *dates, Date.current ] : dates)
     { signups: User.participants.count, signups_today: User.participants.where(created_at: Time.current.all_day).count,
-      dau: dau_today, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
+      dau: dau_today, dau_unconfirmed: dau_unconfirmed_today, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
       pace:, prize_spend: AdminInsights::PrizeSpend.call(pace), sign_up_day: sign_up_days.first(dates.size), sign_up_today: (sign_up_days[dates.size]&.merge(partial: true)),
       ship_flow: AdminInsights::ShipFlow.call(dates:), nudge_results: AdminInsights::NudgeResults.call }
   end
@@ -25,6 +25,13 @@ class AdminSummary
   # finished days and the sign-ups today beside it, so it lines up with the days charted below.
   def dau_today
     StreakActivity.where(activity_date: Date.current, coded_seconds: Growth::ACTIVE_SECONDS.., user_id: participants.select(:id)).count
+  end
+
+  # D-084: participants whose only time today so far is on a Hackatime link that linked itself and isn't confirmed. They
+  # aren't in dau_today.
+  def dau_unconfirmed_today
+    StreakActivity.where(activity_date: Date.current, coded_seconds: ...Growth::ACTIVE_SECONDS, unconfirmed_seconds: Growth::ACTIVE_SECONDS..,
+                         user_id: participants.select(:id)).count
   end
 
   # Of today's builders, how many also opened the site; nil until any visit has been recorded.

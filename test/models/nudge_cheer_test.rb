@@ -80,27 +80,17 @@ class NudgeCheerTest < ActiveSupport::TestCase
     assert cheer(Date.new(2026, 10, 25), at + 1.hour).delivered
   end
 
-  test "a project linking itself at your slot is the day's message: no nudge, one cheer, an hour on" do
+  test "a project linking itself at your slot is the day's message: no nudge, no cheer while its time is held (D-084)" do
     @user.project.update!(hackatime_projects: [], hackatime_baseline: [ "dotfiles" ], hackatime_baseline_seconds: { "dotfiles" => 11_160 })
     Hackatime.stubbed_spans = { "1001" => [ span(at(7, hour: 17), 51), span(at(8, hour: 17), 56) ] }
     slot = at(8, hour: 19, min: 5)
 
-    nudge = nil
-    assert_enqueued_with(job: NudgeCheerJob, args: [ @user.id, Date.new(2026, 10, 25) ]) do
-      nudge = travel_to(slot) { Nudge.deliver_to(@user.reload, slot) }
-    end
+    nudge = travel_to(slot) { Nudge.deliver_to(@user.reload, slot) }
     assert_nil nudge
     assert_empty @sent
     assert_equal [ "rhythm-game" ], @user.project.reload.hackatime_projects
-    assert_equal 1, enqueued_jobs.count { |job| job[:job] == NudgeCheerJob }, "one cheer, not one for each day"
+    assert_equal 0, enqueued_jobs.count { |job| job[:job] == NudgeCheerJob }, "unconfirmed time earns no cheer"
     assert_equal 1, enqueued_jobs.count { |job| job[:job] == SlackMessageJob }
-
-    assert_enqueued_with(job: NudgeCheerJob, args: [ @user.id, Date.new(2026, 10, 25) ], at: slot + 1.hour) { cheer(Date.new(2026, 10, 25), slot) }
-    assert_empty @sent
-
-    assert cheer(Date.new(2026, 10, 25), slot + 1.hour).delivered
-    cheer(Date.new(2026, 10, 24), slot + 2.hours)
-    assert_equal 1, @sent.size, "yesterday's cheer never goes after today's"
   end
 
   test "a cheer that's stopped being owed isn't held around" do

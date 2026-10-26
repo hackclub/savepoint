@@ -46,6 +46,7 @@ class Project < ApplicationRecord
   # D-065: a moved hours start rebuilds every day from the new moment too.
   after_update_commit :refresh_streak, if: -> { saved_change_to_hackatime_projects? || saved_change_to_hours_start_override? }
   # D-066: a new repo or Hackatime project may be a jame gam game, so look again.
+  after_update_commit :release_held_hours, if: -> { saved_change_to_hackatime_auto_linked? && !hackatime_auto_linked? }
   after_update_commit :check_jame_gam, if: -> { saved_change_to_hackatime_projects? || saved_change_to_repo_url? }
   validate :hours_start_override_in_range, if: :hours_start_override_changed?
 
@@ -288,6 +289,10 @@ class Project < ApplicationRecord
   def step_settled?(step)
     step_done?(step) || (step == "hackatime_project" && waiting_for_hackatime_project?)
   end
+
+  # D-084: a link the person picked by hand is confirmed. One that linked itself (hackatime_auto_linked) isn't until they
+  # press Yes or pick another; its time is synced but held (StreakActivity#unconfirmed_seconds).
+  def hackatime_confirmed? = !hackatime_auto_linked?
 
   # Hours count once Hackatime knows which project this is.
   def tracking?
@@ -566,6 +571,13 @@ class Project < ApplicationRecord
 
     def refresh_streak
       user.refresh_streak!
+    end
+
+    # D-084: confirmed (Yes, or picked by hand): the held time counts now, then the sync catches up.
+    def release_held_hours
+      StreakActivity.release_held!(user)
+      user.recalculate_streak!
+      user.sync_streak!
     end
 
     def check_jame_gam

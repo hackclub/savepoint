@@ -151,6 +151,17 @@ module ProjectsHelper
     ]
   end
 
+  # D-078: in the last third of the program (Program::GOAL_SALIENCE_STARTS_AT) the page leads with the minutes left to the goal
+  # prize, while there are some.
+  def project_goal_left?(project)
+    Program.goal_salient? && project.tracking? && project.chosen_prize.present? && project.hours_to_go.positive?
+  end
+
+  # The same hours_to_go the Done by tile and the schedule use, in minutes.
+  def project_minutes_left(project)
+    (project.hours_to_go * 60).round
+  end
+
   # The Done by tile: reached, or the day you'd finish at your pace, never one after the deadline.
   def project_done_by(project)
     if project.hours_to_go.zero? then { label: "Done by", value: "Reached", note: "you've logged enough" }

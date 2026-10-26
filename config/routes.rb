@@ -15,6 +15,7 @@ Rails.application.routes.draw do
     resource :extension, only: :create
     resource :goal_seen, only: :create # the earned-it popup was shown for this goal
     get :hours
+    get :first_heartbeat # has your first time reached Hackatime yet (the project page waits for it)
     resource :streak, only: :update
   end
   # How likely you are to recommend Save Point, asked at ship and every so often (NpsResponse).

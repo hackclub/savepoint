@@ -399,4 +399,56 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
   ensure
     Hackatime.define_singleton_method(:repo_urls, original)
   end
+
+  test "you're waiting for your first heartbeat until Hackatime has seen time or a day has coded time" do
+    project = projects(:orpheus)
+    assert_not project.awaiting_first_heartbeat?, "Hackatime isn't linked"
+
+    link_hackatime(users(:orpheus))
+    project.reload
+    assert project.awaiting_first_heartbeat?
+
+    project.available_hackatime_projects = []
+    assert project.awaiting_first_heartbeat?, "Hackatime said there's nothing"
+
+    users(:orpheus).streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 0)
+    assert project.awaiting_first_heartbeat?, "a day without time is not time"
+
+    users(:orpheus).streak_activities.first.update!(coded_seconds: 60)
+    assert_not project.awaiting_first_heartbeat?
+
+    users(:orpheus).streak_activities.delete_all
+    project.available_hackatime_projects = [ Hackatime::Project.new("a", 60) ]
+    assert_not project.awaiting_first_heartbeat?
+  end
+
+  test "the first heartbeat is looked for in Hackatime at most every 30 seconds, and links the project it lands on" do
+    link_hackatime(users(:orpheus))
+    project = projects(:orpheus)
+    project.update!(hackatime_projects: [])
+    before = Hackatime.stubbed_projects
+    Hackatime.stubbed_projects = before.merge("1001" => [])
+    store = ActiveSupport::Cache::MemoryStore.new
+    original = Rails.cache
+    Rails.singleton_class.define_method(:cache) { store }
+    freeze_time do
+      assert_not project.first_heartbeat_arrived?
+
+      Hackatime.stubbed_projects = Hackatime.stubbed_projects.merge("1001" => [ Hackatime::Project.new("my-game", 120) ])
+      travel 29.seconds
+      assert_not project.first_heartbeat_arrived?, "it's the last answer, Hackatime isn't asked"
+
+      travel 2.seconds
+      assert project.first_heartbeat_arrived?
+      assert_equal [ "my-game" ], project.reload.hackatime_projects
+    end
+  ensure
+    Rails.singleton_class.define_method(:cache) { original } if original
+    Hackatime.stubbed_projects = before
+  end
+
+  test "a Hackatime that can't be reached hasn't seen your first heartbeat" do
+    users(:orpheus).update!(hackatime_uid: "9999", hackatime_access_token: "revoked")
+    assert_not projects(:orpheus).first_heartbeat_arrived?
+  end
 end

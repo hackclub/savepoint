@@ -455,6 +455,77 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".project__start", /Start pomodoro/
   end
 
+  test "linked with no time ever seen, the page waits for your first heartbeat and checks for it" do
+    link_hackatime(users(:orpheus))
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    with_only_hackatime_projects do
+      get project_path
+      assert_select ".pg-project[data-controller=first-heartbeat][data-first-heartbeat-url-value='#{first_heartbeat_project_path}']"
+      assert_select ".project__heartbeat[data-state=waiting] .project__heartbeat-title", "Waiting for your first heartbeat"
+      assert_select ".project__heartbeat a[href='https://hackatime.hackclub.com/']"
+      assert_select ".pg-project[data-controller~=hackatime-watch]", count: 0, message: "one poller, not two"
+
+      get first_heartbeat_project_path
+      assert_response :success
+      assert_equal false, response.parsed_body["arrived"]
+    end
+
+    with_hackatime_projects do
+      travel 31.seconds do
+        get first_heartbeat_project_path
+        assert_equal true, response.parsed_body["arrived"]
+      end
+    end
+  end
+
+  test "once Hackatime has seen your time, the page doesn't wait for a heartbeat" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_seen_seconds: 600, hackatime_seen_count: 1)
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    get project_path
+    assert_select ".project__heartbeat", count: 0
+    assert_select "[data-controller~=first-heartbeat]", count: 0
+  end
+
+  test "the first-heartbeat check needs a project" do
+    get first_heartbeat_project_path
+    assert_redirected_to onboarding_path
+  end
+
+  test "late in the program the page leads with the minutes left to your prize, and before it keeps today's display" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    with_hackatime_hours(4.6) { get hours_project_path(refresh: 1) }
+
+    travel_to(Program::GOAL_SALIENCE_STARTS_AT - 1.hour) do
+      get project_path
+      assert_select ".project__left", count: 0
+    end
+
+    travel_to(Program::GOAL_SALIENCE_STARTS_AT + 1.hour) do
+      get project_path
+      assert_select ".project__left-title", /114 min left to your #{projects(:orpheus).prize_name}/ # 1.9 hrs of the 6.5 to go
+      assert_select ".project__left-pace", /45 min, this evening/
+    end
+  end
+
+  test "once your prize's hours are in, no minutes are left to lead with" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    with_hackatime_hours(7) { get hours_project_path(refresh: 1) }
+
+    travel_to(Program::GOAL_SALIENCE_STARTS_AT + 1.hour) do
+      get project_path
+      assert_select ".project__left", count: 0
+    end
+  end
+
   test "a step you can still do opens when you pick it" do
     sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
     get project_path(step: "repo")

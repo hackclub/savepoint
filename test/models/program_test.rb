@@ -71,6 +71,13 @@ class ProgramTest < ActiveSupport::TestCase
     assert_equal "{number: 10, total: 10}", out.strip
   end
 
+  test "the last third starts a third of the program back from the end, on Oct 30" do
+    assert_equal Time.utc(2026, 10, 30, 13), Program::GOAL_SALIENCE_STARTS_AT
+    assert_not Program.goal_salient?(Time.utc(2026, 10, 30, 12, 59))
+    assert Program.goal_salient?(Time.utc(2026, 10, 30, 13))
+    assert Program.goal_salient?(Program::ENDS_AT + 1.hour)
+  end
+
   private
 
   # Constants are read when the app loads, so a start from the environment needs a fresh process.

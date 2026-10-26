@@ -3,7 +3,7 @@ class ProjectsController < ApplicationController
   # Save Point's own layout and style sheet (D-009).
   layout "save_point"
 
-  before_action :require_project, only: %i[show update hours]
+  before_action :require_project, only: %i[show update hours first_heartbeat]
 
   # ?step= opens one of the setup steps you can still do (otherwise it's the first one left); ?edit=pace, your pace;
   # ?edit=prize, your prize; ?edit=extension, asking for more time (ExtensionsController).
@@ -33,6 +33,12 @@ class ProjectsController < ApplicationController
     current_user.rewards.reset
     render json: { hours:, label: helpers.project_hours_label(@project, [ hours - @project.hours_spent, 0 ].max), tracking: @project.tracking?,
                    stickers: helpers.sticker_promise_json(helpers.sticker_promise_state(current_user)), checked_at: Time.current.iso8601 }
+  end
+
+  # D-078: whether your first time has reached Hackatime, for the project page's "waiting for your first heartbeat" panel to
+  # poll. Hackatime is asked at most once every 30 seconds per person (Project#first_heartbeat_arrived?).
+  def first_heartbeat
+    render json: { arrived: @project.first_heartbeat_arrived?, checked_at: Time.current.iso8601 }
   end
 
   # Starting your project (the onboarding controller posts your game, Hackatime project and prize). Once you have

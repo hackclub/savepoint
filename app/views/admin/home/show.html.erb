@@ -6,7 +6,7 @@
     it), then flat readouts and charts under a ribbon each (who's building, where people drop, prizes and ships, sign-ups and
     NPS, growth and retention, the daily history; none of it a link), then every admin page with what it's for. The heavy
     sections load in lazy Turbo Frames. Each section's id is what the old Stats and Numbers URLs redirect to. %>
-<% sections = [ [ "waiting", "Waiting", "flag-1-fill" ], [ "building", "Building", "fire-fill" ], [ "funnel", "Drop-off", "down-fill" ], [ "prizes", "Prizes", "gift-fill" ],
+<% sections = [ [ "waiting", "Waiting", "flag-1-fill" ], [ "building", "Building", "fire-fill" ], [ "funnel", "Drop-off", "down-fill" ], [ "stuck", "Stuck", "warning-fill" ], [ "prizes", "Prizes", "gift-fill" ],
                 [ "signups", "Sign-ups & NPS", "heart-fill" ], [ "growth", "Growth", "rocket-fill" ], [ "history", "History", "calendar-fill" ] ] %>
 <div class="pg-admin-home">
   <div class="sp-container">
@@ -147,6 +147,13 @@
         <% built_hours = stages.sum { |stage| stage[:hours] } %>
         <%= render "split_card", name: "Hours", icon: "time-fill", head: "Hours", parts: stages.map { |stage| { id: stage[:id], name: stage[:name], about: stage[:about], value: stage[:hours], text: "#{admin_hours(stage[:hours])} h" } },
                                  takeaway: built_hours.zero? ? "No hours built yet." : "#{admin_share(@summary[:approved_hours] / built_hours)} of the #{admin_hours(built_hours)} h built is approved." %>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" id="stuck" aria-labelledby="admin-home-stuck">
+        <h2 class="sp-ribbon" id="admin-home-stuck"><span><%= sp_icon "warning-fill" %>Who's stuck</span></h2>
+        <%= turbo_frame_tag "admin-stuck", src: admin_stuck_path, loading: :lazy do %>
+          <p class="admin-chart admin-chart__empty pg-admin-home__loading" aria-busy="true">Loading who stopped, and where…</p>
+        <% end %>
       </section>
 
       <section class="sp-panel pg-admin-home__panel" id="prizes" aria-labelledby="admin-home-prizes">

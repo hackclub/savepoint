@@ -276,3 +276,11 @@ turbo-frame.pg-admin-home__frame, .pg-admin-home turbo-frame { display: block; }
 .pg-admin-home .admin-more > summary, .pg-admin-home .pg-stats > .stats__table-view summary { border-radius: var(--inner-radius); }
 .pg-admin-home .admin-chart .stats__table-view summary { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
 .pg-admin-home .admin-answer__pill { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
+
+/* Who's stuck: a collapsed group each, its summary a pill with the count beside it, the table in a card 12px under it. */
+.admin-stuck + .admin-stuck { margin-top: var(--space-3); }
+.admin-stuck__count { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 6px; border-radius: var(--radius-full); background: var(--royal-soft); font: 900 13px/1 var(--font-display); color: var(--royal-ink); }
+.admin-stuck__lead { margin-bottom: var(--space-3); }
+.pg-admin-home .admin-stuck code { font: 600 13px/18px var(--font-mono, monospace); color: var(--ink-muted); }
+.admin-stuck[data-empty] > summary { cursor: default; color: var(--ink-faint); border-color: var(--line); pointer-events: none; }
+.admin-stuck[data-empty] > summary .sp-icon { display: none; }

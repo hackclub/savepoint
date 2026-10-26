@@ -101,13 +101,13 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     get admin_root_path
 
-    ids = %w[waiting building funnel prizes signups growth history]
+    ids = %w[waiting building funnel stuck prizes signups growth history]
     ids.each do |id|
       assert_select "main section##{id}", 1
       assert_select ".pg-admin-home__jump a[href=?]", "##{id}"
     end
     assert_select "#waiting .admin__tile", 3, "the waiting block is whole"
-    %w[growth signups history].each do |frame|
+    %w[growth signups history stuck].each do |frame|
       assert_select "turbo-frame#admin-#{frame}[loading=lazy][src=?]", send("admin_#{frame}_path")
     end
   end
@@ -146,6 +146,19 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
     get admin_growth_path(signups: "flat"), headers: { "Turbo-Frame" => "admin-growth" }
     assert_select ".stats__toggle-option--active", "Flat"
+  end
+
+  test "who's stuck lists people who stopped by step, linking to their admin page, and not admins" do
+    sign_in_as(users(:orpheus))
+    users(:ana).update_columns(last_seen_at: 2.hours.ago, last_seen_path: "/project")
+    get admin_stuck_path, headers: { "Turbo-Frame" => "admin-stuck" }
+
+    assert_select "details.admin-stuck", 5
+    assert_select "details.admin-stuck[data-empty]", 4, "a group nobody is in has no table to open"
+    assert_select "details.admin-stuck summary", text: /Pledged, not picked\s*1/
+    assert_select "tr", text: /pixelana.*2 hours ago.*\/project/m
+    assert_select "a.admin-person[href=?]", admin_user_path(users(:ana))
+    assert_select "a.admin-person[href=?]", admin_user_path(users(:orpheus)), 0
   end
 
   test "opening a section's URL itself shows it under the admin bar" do
@@ -200,12 +213,12 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the new sections are for admins only" do
-    %w[growth signups history].each do |section|
+    %w[growth signups history stuck].each do |section|
       get "/admin/#{section}"
       assert_response :not_found
     end
     sign_in_as(users(:ana))
-    %w[growth signups history].each do |section|
+    %w[growth signups history stuck].each do |section|
       get "/admin/#{section}"
       assert_response :not_found
     end

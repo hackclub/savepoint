@@ -17,6 +17,12 @@ class Admin::HomeController < Admin::BaseController
     render_section
   end
 
+  # Who stopped, by how far they got (StuckPeople, D-078).
+  def stuck
+    @groups = StuckPeople.new.groups
+    render_section
+  end
+
   # The latest written NPS answers, and where sign-ups come from (UTM tags).
   def signups
     @nps = NpsStats.new

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -484,6 +484,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_170000) do
     t.integer "coded_seconds", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "unconfirmed_seconds", default: 0, null: false
     t.index ["user_id", "activity_date"], name: "index_streak_activities_on_user_id_and_activity_date", unique: true
     t.index ["user_id"], name: "index_streak_activities_on_user_id"
   end

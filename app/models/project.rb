@@ -42,6 +42,7 @@ class Project < ApplicationRecord
   # Only a new screenshot is checked, so a project with a GIF from before they were refused still saves.
   validate :screenshot_is_an_image, if: -> { attachment_changes["screenshot"] }
   validate :picking_hackatime_projects_you_have
+  before_save :note_when_first_hackatime_project_picked, if: :will_save_change_to_hackatime_projects?
   # D-065: a moved hours start rebuilds every day from the new moment too.
   after_update_commit :refresh_streak, if: -> { saved_change_to_hackatime_projects? || saved_change_to_hours_start_override? }
   # D-066: a new repo or Hackatime project may be a jame gam game, so look again.
@@ -405,7 +406,7 @@ class Project < ApplicationRecord
     newest = without_other_repos(available.select { |project| gained.(project).positive? }).max_by(&gained)
     return unless newest
 
-    update_columns(hackatime_projects: [ newest.name ], hackatime_auto_linked: true)
+    update_columns(hackatime_projects: [ newest.name ], hackatime_auto_linked: true, hackatime_picked_at: hackatime_picked_at || Time.current)
     refresh_streak
     check_jame_gam
     dm_about_auto_link(newest.name)
@@ -558,6 +559,11 @@ class Project < ApplicationRecord
   end
 
   private
+    # The first time a Hackatime project is linked (picked, or linked by itself): a later change keeps the time.
+    def note_when_first_hackatime_project_picked
+      self.hackatime_picked_at ||= Time.current if hackatime_projects.present?
+    end
+
     def refresh_streak
       user.refresh_streak!
     end

@@ -282,6 +282,34 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
     assert_empty project.hackatime_projects
   end
 
+  test "the time the first Hackatime project was picked is kept" do
+    project = projects(:orpheus)
+    project.update_columns(hackatime_projects: [], hackatime_picked_at: nil)
+    link_hackatime(project.user)
+    project.available_hackatime_projects = Hackatime.projects(project.user)
+
+    travel_to Time.utc(2026, 10, 26, 9) do
+      project.update!(hackatime_project_names: [ "rhythm-game" ])
+    end
+    assert_equal Time.utc(2026, 10, 26, 9), project.reload.hackatime_picked_at
+
+    travel_to Time.utc(2026, 10, 27, 9) do
+      project.update!(hackatime_project_names: [ "rhythm-game", "dotfiles" ])
+    end
+    assert_equal Time.utc(2026, 10, 26, 9), project.reload.hackatime_picked_at, "changing the pick keeps the first time"
+  end
+
+  test "a Hackatime project that links itself notes the time too" do
+    project = auto_linkable_project
+    project.update_columns(hackatime_picked_at: nil)
+    project.auto_link_hackatime_project([ hackatime_project("old-game", 600) ])
+
+    travel_to Time.utc(2026, 10, 26, 9) do
+      project.auto_link_hackatime_project([ hackatime_project("old-game", 900) ])
+    end
+    assert_equal Time.utc(2026, 10, 26, 9), project.reload.hackatime_picked_at
+  end
+
   test "a continued game links itself once its project gains time after the baseline" do
     project = auto_linkable_project
     project.auto_link_hackatime_project([ hackatime_project("old-game", 600), hackatime_project("dotfiles", 90) ])

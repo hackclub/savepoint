@@ -30,6 +30,22 @@ class OnboardingControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "progress keeps the first time each step was reached" do
+    sign_in_as_orpheus
+    user = users(:orpheus)
+    user.update_columns(onboarding_step_reached: nil, onboarding_step_at: nil, onboarding_step_times: {})
+
+    travel_to Time.utc(2026, 10, 26, 10) do
+      post onboarding_progress_path, params: { step: 2 }
+    end
+    travel_to Time.utc(2026, 10, 26, 10, 5) do
+      post onboarding_progress_path, params: { step: 4 }
+      post onboarding_progress_path, params: { step: 2 }
+    end
+
+    assert_equal({ "2" => "2026-10-26T10:00:00Z", "4" => "2026-10-26T10:05:00Z" }, user.reload.onboarding_step_times, "step 3 was skipped, so it has no time")
+  end
+
   test "progress ignores junk without an error" do
     sign_in_as_orpheus
     user = users(:orpheus)

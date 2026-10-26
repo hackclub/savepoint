@@ -2,6 +2,7 @@ require Rails.root.join("db/migrate/20261023150000_create_insights_views")
 require Rails.root.join("db/migrate/20261023160100_add_utm_to_insights_views")
 require Rails.root.join("db/migrate/20261024110100_add_hackatime_seen_to_insights_projects")
 require Rails.root.join("db/migrate/20261026100100_update_insights_ships_for_fraud_stage")
+require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
 
 # Talking to the admin MCP server (Admin::McpController) in an integration test: a token for an admin, a JSON-RPC call,
 # and a tool's answer as the Ruby it sent.
@@ -42,13 +43,14 @@ module AdminMcpHelpers
   def create_insights_views
     present = ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'")
     seen = ActiveRecord::Base.connection.select_value("select 1 from information_schema.columns where table_schema = 'insights' and table_name = 'projects' and column_name = 'hackatime_seen_seconds'")
-    return if (CreateInsightsViews::VIEWS + %w[visits] - present).empty? && seen
+    return if (CreateInsightsViews::VIEWS + %w[visits nudges site_days] - present).empty? && seen
 
     ActiveRecord::Migration.suppress_messages do
       CreateInsightsViews.new.up
       AddUtmToInsightsViews.new.up
       AddHackatimeSeenToInsightsProjects.new.up
       UpdateInsightsShipsForFraudStage.new.up
+      AddRetentionDataToInsightsViews.new.up
     end
   end
 end

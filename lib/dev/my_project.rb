@@ -26,10 +26,14 @@ module Dev
       Hackatime::Fake.pin_hours!(user, hours)
       user.streak_activities.where(activity_date: Program::FIRST_STREAK_DATE..).delete_all
       if hours
-        Hackatime::Fake.pinned_days(hours.to_r).each { |date, seconds| user.streak_activities.create!(activity_date: date, coded_seconds: seconds) }
+        days = Hackatime::Fake.pinned_days(hours.to_r)
+        days.each { |date, seconds| user.streak_activities.create!(activity_date: date, coded_seconds: seconds) }
+        # The days are made here, so the sync has no first minute to find (it rebuilds from the first day when it's missing).
+        @project.update_columns(first_coded_at: days.keys.min&.in_time_zone("UTC")&.change(hour: 12))
         user.update_column(:streak_synced_at, Time.current)
         user.recalculate_streak!
       else
+        @project.update_columns(first_coded_at: nil)
         user.update_column(:streak_synced_at, nil)
       end
       @project.instance_variable_set(:@hours_logged, nil)

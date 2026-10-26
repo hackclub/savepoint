@@ -55,9 +55,10 @@
           <div class="admin__readout">
             <span class="admin__readout-name"><%= sp_icon "fire-fill" %><abbr title="Daily active builders">DAU</abbr></span>
             <strong><%= number_with_delimiter(@summary[:dau]) %></strong>
-            <small>built today so far</small>
+            <small>built in the last 24 hours</small>
+            <small>plus <%= number_with_delimiter(@summary[:dau_unconfirmed]) %> unconfirmed</small>
             <% on_site = @summary[:dau_on_site] %>
-            <small><%= on_site ? "#{number_with_delimiter(on_site)} also opened the site" : "site visits: –" %></small>
+            <small><%= on_site ? "#{number_with_delimiter(on_site)} also opened the site today" : "site visits: –" %></small>
           </div>
         </div>
 

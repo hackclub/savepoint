@@ -96,7 +96,9 @@ class NudgeTest < ActiveSupport::TestCase
     assert_empty @sent
     dm = enqueued_jobs.find { |job| job[:job] == SlackMessageJob && job[:args].first == "U0ORPHEUS" }
     assert_match(/linked to \*a rhythm game\* now/, dm[:args].second)
-    assert_equal 1.5, @user.project.hours_logged, "its time was synced before anything else was decided"
+    assert_equal 0.0, @user.project.hours_logged, "its time is synced but held until it's confirmed (D-084)"
+    @user.project.reload.update!(hackatime_auto_linked: false)
+    assert_equal 1.5, Project.find(@user.project.id).hours_logged, "and counts at once when it is"
     assert_equal at_slot(9), @user.reload.slack_dmed_at
   end
 

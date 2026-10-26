@@ -46,6 +46,7 @@ class Project < ApplicationRecord
   # D-065: a moved hours start rebuilds every day from the new moment too.
   after_update_commit :refresh_streak, if: -> { saved_change_to_hackatime_projects? || saved_change_to_hours_start_override? }
   # D-066: a new repo or Hackatime project may be a jame gam game, so look again.
+  after_update_commit :release_held_hours, if: -> { saved_change_to_hackatime_auto_linked? && !hackatime_auto_linked? }
   after_update_commit :check_jame_gam, if: -> { saved_change_to_hackatime_projects? || saved_change_to_repo_url? }
   validate :hours_start_override_in_range, if: :hours_start_override_changed?
 
@@ -289,6 +290,10 @@ class Project < ApplicationRecord
     step_done?(step) || (step == "hackatime_project" && waiting_for_hackatime_project?)
   end
 
+  # D-084: a link the person picked by hand is confirmed. One that linked itself (hackatime_auto_linked) isn't until they
+  # press Yes or pick another; its time is synced but held (StreakActivity#unconfirmed_seconds).
+  def hackatime_confirmed? = !hackatime_auto_linked?
+
   # Hours count once Hackatime knows which project this is.
   def tracking?
     hackatime_linked? && hackatime_projects.any?
@@ -298,6 +303,14 @@ class Project < ApplicationRecord
   # will link itself. Only known once available_hackatime_projects has been asked for.
   def waiting_for_hackatime_project?
     hackatime_linked? && hackatime_projects.none? && available_hackatime_projects&.none?
+  end
+
+  # D-086: Hackatime's linked and has projects of yours (when we last asked it), but none is picked, and the page isn't
+  # waiting on a first heartbeat. Their hours can't count until they pick one. Not in the first half hour after linking,
+  # when the project they build on is still likely to link itself (D-048).
+  def needs_to_pick_hackatime_project?
+    hackatime_linked? && hackatime_projects.none? && hackatime_seen_count.to_i.positive? && !awaiting_first_heartbeat? &&
+      (user.hackatime_linked_at.nil? || user.hackatime_linked_at <= 30.minutes.ago)
   end
 
   # D-078: Hackatime's linked but no time has ever arrived from you: none seen when we asked it, and no coded day synced.
@@ -566,6 +579,13 @@ class Project < ApplicationRecord
 
     def refresh_streak
       user.refresh_streak!
+    end
+
+    # D-084: confirmed (Yes, or picked by hand): the held time counts now, then the sync catches up.
+    def release_held_hours
+      StreakActivity.release_held!(user)
+      user.recalculate_streak!
+      user.sync_streak!
     end
 
     def check_jame_gam

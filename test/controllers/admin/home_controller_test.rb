@@ -119,6 +119,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin__readout", text: /DAU.*site visits: –/m
 
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 4, coded_seconds: 30 * 60)
+    CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 600)
     SiteDay.create!(user: users(:ana), date: Program::DATES.begin + 4)
     Rails.cache.clear
     get admin_root_path
@@ -126,14 +127,15 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart", text: /Also on the site/
   end
 
-  test "the DAU tile says built today so far, and the charts end on a partial column for today with the averages on finished days" do
+  test "the DAU tile says built in the last 24 hours, and the charts end on a partial column for today with the averages on finished days" do
     sign_in_as(users(:orpheus))
     travel_to Program::DATES.begin + 4
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 3, coded_seconds: 3600)
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 4, coded_seconds: 120)
+    CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 120)
     get admin_root_path
 
-    assert_select ".admin__readout", text: /DAU\s*1\s*built today so far/
+    assert_select ".admin__readout", text: /DAU\s*1\s*built in the last 24 hours\s*plus 0 unconfirmed/
     assert_select ".pg-admin-home__sub", text: /today so far, then finished days/
     assert_select ".admin-chart--daily .admin-chart__day.is-partial", 5, "one for each of the five charts"
     assert_select ".admin-chart--daily .admin-chart__axis span:last-child", text: "Today", minimum: 5
@@ -145,6 +147,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     travel_to Program::DATES.begin + 4
     users(:ana).streak_activities.create!(activity_date: Date.current, coded_seconds: 600)
+    CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 600)
     SiteDay.create!(user: users(:ana), date: Date.current)
     get admin_root_path
 

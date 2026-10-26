@@ -10,6 +10,8 @@ class StreakActivity < ApplicationRecord
   validates :coded_seconds, numericality: { greater_than_or_equal_to: 0 }
 
   scope :completed, -> { where(coded_seconds: DAILY_GOAL_SECONDS..) }
+  # D-084: a day's time on a link that linked itself and isn't confirmed yet (unconfirmed_seconds) is kept apart from
+  # coded_seconds, which is all that counts anywhere (hours, streaks, DAU).
   scope :for_range, ->(range) { where(activity_date: range) }
 
   def completed?
@@ -41,16 +43,27 @@ class StreakActivity < ApplicationRecord
       counted = clip_to_start(spans, project.hours_start)
       daily_seconds = bucket_spans_by_streak_day(counted, user.timezone)
       note_first_coded(project, counted)
+      CodedBucket.rewrite_for(user, counted, held: project.hackatime_auto_linked?)
 
+      # D-084: an unconfirmed auto-link is still synced, but its time is held, not counted.
+      held = project.hackatime_auto_linked?
       just_completed = []
       (start_date..today).each do |date|
         seconds = daily_seconds.fetch(date, 0)
-        just_completed << date if write_day(user, date, seconds) && date >= today - 1
+        counted_seconds, held_seconds = held ? [ 0, seconds ] : [ seconds, 0 ]
+        just_completed << date if write_day(user, date, counted_seconds, held_seconds) && date >= today - 1
       end
 
       user.update_column(:streak_synced_at, Time.current)
       user.recalculate_streak!
       Nudge::Cheer.queue(user, just_completed.max) if just_completed.any?
+    end
+
+    # D-084: the person confirmed their link, so the time held for it counts, without asking Hackatime.
+    def release_held!(user)
+      CodedBucket.release_held!(user)
+      user.streak_activities.where("unconfirmed_seconds > 0")
+          .update_all("coded_seconds = coded_seconds + unconfirmed_seconds, unconfirmed_seconds = 0, updated_at = CURRENT_TIMESTAMP")
     end
 
     def streak_date_for(time, timezone)
@@ -77,14 +90,14 @@ class StreakActivity < ApplicationRecord
       # (the sweep and an on-demand sync), and both may find no row for a day. The loser hits the unique index or
       # the uniqueness validation, so it looks the row up again and writes onto the winner's. A day the winner
       # completed counts as completed before, so only one sync cheers.
-      def write_day(user, date, seconds)
+      def write_day(user, date, seconds, held_seconds = 0)
         attempts = 0
         begin
           record = find_or_initialize_by(user_id: user.id, activity_date: date)
-          return false if record.persisted? && record.coded_seconds == seconds
+          return false if record.persisted? && record.coded_seconds == seconds && record.unconfirmed_seconds == held_seconds
 
           completed_before = record.persisted? && record.completed?
-          record.update!(coded_seconds: seconds)
+          record.update!(coded_seconds: seconds, unconfirmed_seconds: held_seconds)
           record.completed? && !completed_before
         rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => error
           raise if error.is_a?(ActiveRecord::RecordInvalid) && !error.record.errors.of_kind?(:activity_date, :taken)

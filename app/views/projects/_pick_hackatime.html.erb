@@ -1,0 +1,13 @@
+<%# locals: (project:) %>
+<%# D-086: Hackatime is linked and has projects on it, but none is picked, so no hours count. Same panel as the auto-link
+    question (project__auto-linked), and Pick opens the existing picker. %>
+<section class="project__auto-linked" role="status" aria-labelledby="project-pick-hackatime-title">
+  <%= sp_icon "question-fill", "project__auto-linked-icon" %>
+  <div class="project__auto-linked-text">
+    <h2 class="project__auto-linked-title" id="project-pick-hackatime-title">Which Hackatime project is your game?</h2>
+    <p class="project__auto-linked-note">Your hours only count once you pick it.</p>
+  </div>
+  <div class="project__auto-linked-actions">
+    <%= link_to "Pick it", project_path(step: "hackatime_project"), class: "sp-btn sp-btn--gold sp-btn--sm project__step-button" %>
+  </div>
+</section>

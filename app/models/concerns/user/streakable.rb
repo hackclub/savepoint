@@ -11,6 +11,7 @@ module User::Streakable
 
   included do
     has_many :streak_activities, dependent: :destroy
+    has_many :coded_buckets, dependent: :delete_all
     has_many :rewards, dependent: :destroy
   end
 
@@ -62,6 +63,7 @@ module User::Streakable
       sync_streak!
     else
       streak_activities.delete_all
+      coded_buckets.delete_all
       update_columns(current_streak: 0, streak_skip_used_on: nil, streak_synced_at: nil)
     end
   end

@@ -5,9 +5,8 @@
 <% peak = daily.reject { |d| d[:future] || d[:hours].zero? }.max_by { |d| d[:hours] } %>
 
 <%# Save Point in numbers (PublicStats): exact totals, and no names. Save Point's look (D-009): panels with ribbons, stat
-    coins and the charts in the style sheet's colours (save_point/pages/stats.css). The public page (stats/show) and the
-    admin one (admin/stats/show) both render this, each with its own bar above it. The signups toggle links back to
-    whichever page it is on. %>
+    coins and the charts in the style sheet's colours (save_point/pages/stats.css). The public page (stats/show) renders this under its top bar. (The admin home's growth section, admin/home/growth, draws the same data in
+    its own look.) %>
   <main class="sp-container">
     <div class="stats" data-controller="stats-tooltip"
          data-action="pointerover->stats-tooltip#show focusin->stats-tooltip#show pointerout->stats-tooltip#hide focusout->stats-tooltip#hide">

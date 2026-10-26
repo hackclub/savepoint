@@ -4,7 +4,7 @@ module AdminHomePageHelper
   ADMIN_PAGE_ICONS = {
     "Admin" => "home-4-fill", "Orders" => "truck-fill", "Ships" => "rocket-fill", "Extensions" => "time-fill",
     "Projects" => "game-2-fill", "People" => "user-3-fill",
-    "Numbers" => "chart-bar-fill", "Stats" => "trophy-fill", "Bandit" => "sparkles-fill", "Tokens" => "lock-fill", "Insights" => "search-fill"
+    "Bandit" => "sparkles-fill", "Tokens" => "lock-fill", "Insights" => "search-fill"
   }.freeze
 
   def admin_page_icon(label) = sp_icon(ADMIN_PAGE_ICONS.fetch(label, "right-fill"))

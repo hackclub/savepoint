@@ -117,6 +117,10 @@
 .admin-chart__column--returning { fill: var(--copper); }
 .admin-chart__day:hover .admin-chart__column--new, .admin-chart__day:hover .admin-chart__column--current, .admin-chart__day:hover .admin-chart__column--returning { filter: brightness(1.12); }
 .admin-chart__hit { fill: transparent; }
+/* Today so far (D-082): the column of a day still filling in is drawn pale with a dashed outline in its own colour. */
+.admin-chart__day.is-partial .admin-chart__column { fill-opacity: 0.3; stroke: var(--royal); stroke-width: 1.25; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
+.admin-chart__day.is-partial .admin-chart__column--new { stroke: var(--mint-line); }
+.admin-chart__day.is-partial .admin-chart__column--returning { stroke: var(--copper); }
 .admin-chart__day:hover .admin-chart__column { fill: var(--royal-hi); }
 .admin-chart__base { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .admin-chart__axis { display: flex; justify-content: space-between; margin: 0; font: 700 12px/16px var(--font-body); color: var(--ink-muted); }

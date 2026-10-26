@@ -1,10 +1,13 @@
 <% content_for :title, "Admin · Save Point" %>
-<% content_for :stylesheets, " save_point/pages/admin-home" %>
+<% content_for :stylesheets, " save_point/pages/admin-home save_point/pages/stats" %>
 <% waiting = @waiting.values.sum %>
 
-<%# The admin home: what's waiting on an admin (a tile each, to the page that has it), then flat readouts and charts under
-    three ribbons (who's building, where people drop, prizes and ships; none of it a link), then every admin page with
-    what it's for, and how many of each there are where that's a number. %>
+<%# The admin home, the one page for every admin number (D-073): what's waiting on an admin (a tile each, to the page that has
+    it), then flat readouts and charts under a ribbon each (who's building, where people drop, prizes and ships, sign-ups and
+    NPS, growth and retention, the daily history; none of it a link), then every admin page with what it's for. The heavy
+    sections load in lazy Turbo Frames. Each section's id is what the old Stats and Numbers URLs redirect to. %>
+<% sections = [ [ "waiting", "Waiting", "flag-1-fill" ], [ "building", "Building", "fire-fill" ], [ "funnel", "Drop-off", "down-fill" ], [ "prizes", "Prizes", "gift-fill" ],
+                [ "signups", "Sign-ups & NPS", "heart-fill" ], [ "growth", "Growth", "rocket-fill" ], [ "history", "History", "calendar-fill" ] ] %>
 <div class="pg-admin-home">
   <div class="sp-container">
     <header class="pg-admin-home__head">
@@ -16,12 +19,17 @@
       </div>
       <p class="pg-admin-home__lead">
         <%= waiting.zero? ? "Nothing's waiting on you." : "#{pluralize(waiting, "thing")} waiting on you." %>
-        Every admin page is below, and in the links along the top of each one.
+        Every number is below, and every admin page in the links along the top.
       </p>
+      <nav class="pg-admin-home__jump" aria-label="Jump to a section">
+        <% sections.each do |id, label, icon| %>
+          <a href="#<%= id %>" data-turbo="false"><%= sp_icon icon %><%= label %></a>
+        <% end %>
+      </nav>
     </header>
 
     <main class="pg-admin-home__main">
-      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-waiting">
+      <section class="sp-panel pg-admin-home__panel" id="waiting" aria-labelledby="admin-home-waiting">
         <h2 class="sp-ribbon sp-ribbon--gold" id="admin-home-waiting"><span><%= sp_icon "flag-1-fill" %>Waiting on you</span></h2>
         <div class="pg-admin-home__tiles">
           <% admin_pages.select { |page| @waiting.key?(page[:label]) }.each do |page| %>
@@ -36,7 +44,7 @@
       </section>
 
       <% daily = @summary[:daily] %>
-      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-so-far">
+      <section class="sp-panel pg-admin-home__panel" id="building" aria-labelledby="admin-home-so-far">
         <h2 class="sp-ribbon" id="admin-home-so-far"><span><%= sp_icon "fire-fill" %>Who's building</span></h2>
         <div class="pg-admin-home__readouts">
           <div class="admin__readout">
@@ -94,19 +102,9 @@
             </ol>
           <% end %>
         </div>
-
-        <% week = @nps %>
-        <h3 class="pg-admin-home__sub">Would they recommend Save Point <span>last 7 days, admins left out; <%= link_to "every answer is on Numbers", admin_metrics_path, class: "pg-admin-home__more" %></span></h3>
-        <div class="pg-admin-home__charts pg-admin-home__charts--wide">
-          <%= render "split_card", name: "NPS", icon: "heart-fill", head: "People",
-                                   parts: [ { id: "promoter", name: "Promoters", about: "scored 9 or 10", value: week.promoters, text: week.promoters.to_s },
-                                            { id: "passive", name: "Passives", about: "scored 7 or 8", value: week.passives, text: week.passives.to_s },
-                                            { id: "detractor", name: "Detractors", about: "scored 0 to 6", value: week.detractors, text: week.detractors.to_s } ],
-                                   takeaway: week.people.zero? ? "Nobody has answered in the last 7 days." : "#{nps_value(week.nps)} NPS from #{pluralize(week.people, "person")}, each counted once by their latest answer." %>
-        </div>
       </section>
 
-      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-funnel">
+      <section class="sp-panel pg-admin-home__panel" id="funnel" aria-labelledby="admin-home-funnel">
         <h2 class="sp-ribbon" id="admin-home-funnel"><span><%= sp_icon "down-fill" %>Where people drop</span></h2>
         <% funnel = @summary[:participant_funnel] %>
         <% steps = admin_funnel_steps(funnel, @summary[:participant_waiting]) %>
@@ -151,7 +149,7 @@
                                  takeaway: built_hours.zero? ? "No hours built yet." : "#{admin_share(@summary[:approved_hours] / built_hours)} of the #{admin_hours(built_hours)} h built is approved." %>
       </section>
 
-      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-prizes">
+      <section class="sp-panel pg-admin-home__panel" id="prizes" aria-labelledby="admin-home-prizes">
         <h2 class="sp-ribbon" id="admin-home-prizes"><span><%= sp_icon "gift-fill" %>Prizes and ships</span></h2>
         <% pace = @summary[:pace] %>
         <% spend = @summary[:prize_spend] %>
@@ -192,7 +190,40 @@
         </div>
       </section>
 
-      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-pages">
+      <section class="sp-panel pg-admin-home__panel" id="signups" aria-labelledby="admin-home-signups">
+        <h2 class="sp-ribbon" id="admin-home-signups"><span><%= sp_icon "heart-fill" %>Sign-ups and NPS</span></h2>
+        <% week = @nps %>
+        <h3 class="pg-admin-home__sub">Would they recommend Save Point <span>last 7 days, admins left out</span></h3>
+        <div class="pg-admin-home__charts pg-admin-home__charts--wide">
+          <%= render "split_card", name: "NPS", icon: "heart-fill", head: "People",
+                                   parts: [ { id: "promoter", name: "Promoters", about: "scored 9 or 10", value: week.promoters, text: week.promoters.to_s },
+                                            { id: "passive", name: "Passives", about: "scored 7 or 8", value: week.passives, text: week.passives.to_s },
+                                            { id: "detractor", name: "Detractors", about: "scored 0 to 6", value: week.detractors, text: week.detractors.to_s } ],
+                                   takeaway: week.people.zero? ? "Nobody has answered in the last 7 days." : "#{nps_value(week.nps)} NPS from #{pluralize(week.people, "person")}, each counted once by their latest answer." %>
+        </div>
+        <%= turbo_frame_tag "admin-signups", src: admin_signups_path, loading: :lazy do %>
+          <p class="admin-chart admin-chart__empty pg-admin-home__loading" aria-busy="true">Loading the latest answers and sign-up sources…</p>
+        <% end %>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" id="growth" aria-labelledby="admin-home-growth">
+        <h2 class="sp-ribbon" id="admin-home-growth"><span><%= sp_icon "rocket-fill" %>Growth and retention</span></h2>
+        <%= turbo_frame_tag "admin-growth", src: admin_growth_path, loading: :lazy do %>
+          <p class="admin-chart admin-chart__empty pg-admin-home__loading" aria-busy="true">Loading totals, retention and the growth simulator…</p>
+        <% end %>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" id="history" aria-labelledby="admin-home-history">
+        <h2 class="sp-ribbon" id="admin-home-history"><span><%= sp_icon "calendar-fill" %>Day by day</span></h2>
+        <details class="admin-more admin-more--history">
+          <summary><%= sp_icon "down-fill" %>Show every number, day by day</summary>
+          <%= turbo_frame_tag "admin-history", src: admin_history_path, loading: :lazy do %>
+            <p class="admin-chart admin-chart__empty pg-admin-home__loading" aria-busy="true">Loading the daily history…</p>
+          <% end %>
+        </details>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" id="pages" aria-labelledby="admin-home-pages">
         <h2 class="sp-ribbon" id="admin-home-pages"><span><%= sp_icon "more-1-fill" %>Every page</span></h2>
         <div class="pg-admin-home__scroll">
           <table class="admin__table admin__table--pages">

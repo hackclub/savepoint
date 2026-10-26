@@ -7,10 +7,11 @@ class SlackAnnouncementTest < ActiveSupport::TestCase
   Link = Struct.new(:permalink)
 
   class FakeClient
-    attr_reader :posts
+    attr_reader :posts, :updates
 
     def initialize(permalink: true)
       @posts = []
+      @updates = []
       @permalink = permalink
     end
 
@@ -19,6 +20,11 @@ class SlackAnnouncementTest < ActiveSupport::TestCase
     def chat_postMessage(**options)
       @posts << options
       Sent.new(options[:channel], "123.456")
+    end
+
+    def chat_update(**options)
+      @updates << options
+      Sent.new(options[:channel], options[:ts])
     end
 
     def chat_getPermalink(channel:, message_ts:)
@@ -100,5 +106,27 @@ class SlackAnnouncementTest < ActiveSupport::TestCase
     client = FakeClient.new
     announcement.test!(client:)
     assert_equal "U0ME", client.posts.sole[:channel]
+  end
+
+  test "update! edits the message in place with the blocks and text, and returns the permalink" do
+    client = FakeClient.new
+    result = announcement.update!("C0123ABCD", "123.456", client:)
+    update = client.updates.sole
+    assert_equal({ channel: "C0123ABCD", ts: "123.456", text: "Fallback", blocks: BLOCKS }, update)
+    assert_empty client.posts
+    assert_equal "https://slack.example/p/C0123ABCD/123.456", result
+  end
+
+  test "update! refuses a bad channel or ts before touching the client" do
+    client = FakeClient.new
+    assert_raises(SlackAnnouncement::Refused) { announcement.update!("C0C5UHLAAP5", "123.456", client:) }
+    [ nil, "", "123", "abc.def", "123.456; drop" ].each do |ts|
+      assert_raises(SlackAnnouncement::Refused, ts.inspect) { announcement.update!("C0123ABCD", ts, client:) }
+    end
+    assert_empty client.updates
+  end
+
+  test "update! returns the ts when the permalink fails" do
+    assert_equal "123.456", announcement.update!("C0123ABCD", "123.456", client: FakeClient.new(permalink: false))
   end
 end

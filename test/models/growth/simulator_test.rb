@@ -14,7 +14,7 @@ class Growth::SimulatorTest < ActiveSupport::TestCase
   test "rates the window never saw are not levers" do
     levers = Growth::Simulator.new([ day ], horizon: 10).levers.map(&:rate)
 
-    assert_not_includes levers, "surr"
+    assert_not_includes levers, "days_off"
     assert_not_includes levers, "rurr"
   end
 
@@ -23,7 +23,7 @@ class Growth::SimulatorTest < ActiveSupport::TestCase
   test "word of mouth holds a balanced DAU steady and compounds an improvement" do
     balanced = Growth::Day.new(
       date: Date.new(2026, 10, 27), counts: { "new" => 20, "current" => 80 },
-      transitions: { "new" => { "current" => 16, "at_risk_wau" => 4 }, "current" => { "current" => 64, "at_risk_wau" => 16 } }
+      transitions: { "new" => { "current" => 16, "at_risk" => 4 }, "current" => { "current" => 64, "at_risk" => 16 } }
     )
     simulator = Growth::Simulator.new([ balanced ] * 2, horizon: 10)
     curr = simulator.levers.find { |lever| lever.rate == "curr" }
@@ -45,13 +45,12 @@ class Growth::SimulatorTest < ActiveSupport::TestCase
     def day
       Growth::Day.new(
         date: Date.new(2026, 10, 27),
-        counts: { "new" => 10, "current" => 100, "at_risk_wau" => 50, "at_risk_mau" => 40, "dormant" => 200 },
+        counts: { "new" => 10, "current" => 100, "at_risk" => 50, "lapsed" => 200 },
         transitions: {
-          "new" => { "current" => 4, "at_risk_wau" => 6 },
-          "current" => { "current" => 80, "at_risk_wau" => 20 },
-          "at_risk_wau" => { "current" => 5, "at_risk_wau" => 35, "at_risk_mau" => 10 },
-          "at_risk_mau" => { "reactivated" => 2, "at_risk_mau" => 33, "dormant" => 5 },
-          "dormant" => { "resurrected" => 1, "dormant" => 199 }
+          "new" => { "current" => 4, "at_risk" => 6 },
+          "current" => { "current" => 80, "at_risk" => 20 },
+          "at_risk" => { "returning" => 5, "at_risk" => 35, "lapsed" => 10 },
+          "lapsed" => { "lapsed" => 200 }
         }
       )
     end

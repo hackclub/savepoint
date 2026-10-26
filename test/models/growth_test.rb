@@ -5,28 +5,38 @@ class GrowthTest < ActiveSupport::TestCase
 
   test "sorts each builder into one state and records yesterday-to-today moves" do
     built("new", 0)
-    built("current", 3, 1, 0)
-    built("at_risk_wau", 2)
-    built("wau_lost", 7)
-    built("reactivated", 9, 0)
+    built("built_yesterday_too", 1, 0)
+    built("skipped_today", 1)
+    built("back_after_days_off", 3, 0)
+    built("gone", 3)
     built("too_short", 0, seconds: Growth::ACTIVE_SECONDS - 1)
-    built("just_enough", 0, seconds: Growth::ACTIVE_SECONDS)
     built("later", -1)
 
     day = Growth.new(today: DAY + 1).days.last
 
     assert_equal DAY, day.date
-    assert_equal({ "new" => 2, "current" => 1, "at_risk_wau" => 1, "at_risk_mau" => 1, "reactivated" => 1 }, day.counts)
-    assert_equal 4, day.dau
-    assert_equal 5, day.wau
-    assert_equal 6, day.mau
+    assert_equal({ "new" => 1, "current" => 1, "returning" => 1, "at_risk" => 1, "lapsed" => 1 }, day.counts)
+    assert_equal 3, day.dau
     assert_equal(
-      { "current" => { "current" => 1 }, "at_risk_wau" => { "at_risk_wau" => 1, "at_risk_mau" => 1 }, "at_risk_mau" => { "reactivated" => 1 } },
+      { "new" => { "current" => 1, "at_risk" => 1 }, "lapsed" => { "lapsed" => 1, "returning" => 1 } },
       day.transitions
     )
-    assert_in_delta 0.5, day.rate("wau_loss")
-    assert_equal 1.0, day.rate("curr")
-    assert_nil day.rate("nurr"), "nobody was new yesterday"
+    assert_in_delta 0.5, day.rate("nurr")
+    assert_in_delta 0.5, day.rate("days_off")
+    assert_nil day.rate("curr"), "nobody had built two days running yesterday"
+  end
+
+  test "the three groups that built on a day always sum to its DAU" do
+    built("first_timer", 0)
+    built("on_a_roll", 2, 1, 0)
+    built("back_after_two_days_off", 4, 0)
+
+    day = Growth.new(today: DAY + 1).days.last
+
+    assert_equal [ "new", "current", "returning" ], Growth::ACTIVE_STATES
+    assert_equal [ 1, 1, 1 ], Growth::ACTIVE_STATES.map { |state| day.count_for(state) }
+    assert_equal 3, day.dau
+    assert_equal day.dau, Growth::ACTIVE_STATES.sum { |state| day.count_for(state) }
   end
 
   test "only finished days of Save Point are modelled, and today is kept apart, as far as it's got" do
@@ -43,7 +53,7 @@ class GrowthTest < ActiveSupport::TestCase
     assert_equal [ true, nil ], stats[:days].find { |row| row[:date] == DAY + 1 }.values_at(:future, :dau)
     assert_equal Program::DATES.count, stats[:rates].size
     assert_equal [ 1, 1 ], stats[:today].values_at(:dau, :new), "the person building today, so far"
-    assert_equal 1, stats[:today][:at_risk_wau]
+    assert_equal 1, stats[:today][:at_risk]
     assert_nil stats[:projections]["word_of_mouth"], "nobody's been current a day yet, so there's nothing to project from"
     built("regular", 2, 1, 0)
     assert_equal Program::DATES.end - DAY, Growth.new(today: DAY + 1).to_h[:projections]["word_of_mouth"][:horizon_days]
@@ -51,7 +61,7 @@ class GrowthTest < ActiveSupport::TestCase
     assert_nil Growth.new(today: Program::DATES.end + 1).to_h[:projections]["flat"], "nothing left to project"
   end
 
-  test "the rates shown pool a week" do
+  test "the rates shown pool several days" do
     built("stayed", 1, 0)
     built("left", 1)
     built("stayed_earlier", 5, 4)
@@ -62,29 +72,20 @@ class GrowthTest < ActiveSupport::TestCase
     assert_equal DAY, rates[:date]
     assert_in_delta 0.6, rates[:nurr], 0.001, "three of the five newcomers this week built again the next day"
     assert_in_delta 0.5, rates[:curr], 0.001, "kept_on kept on; stayed_earlier didn't"
-    assert_nil rates[:surr]
+    assert_equal 0.0, rates[:days_off], "nobody came back after days off"
   end
 
-  test "states by when someone last built" do
-    dates = [ DAY - 40, DAY - 10, DAY - 3, DAY ]
+  test "states by what someone did on and before the day" do
+    dates = [ DAY - 8, DAY - 7, DAY - 3, DAY ]
 
-    assert_nil Growth.state_on(dates, DAY - 41)
-    assert_equal "new", Growth.state_on(dates, DAY - 40)
-    assert_equal "at_risk_wau", Growth.state_on(dates, DAY - 39)
-    assert_equal "at_risk_mau", Growth.state_on(dates, DAY - 33)
-    assert_equal "at_risk_mau", Growth.state_on(dates, DAY - 11), "29 days on is still the month"
-    assert_equal "dormant", Growth.state_on([ DAY - 40 ], DAY - 10)
-    assert_equal "resurrected", Growth.state_on(dates, DAY - 10)
-    assert_equal "current", Growth.state_on(dates, DAY)
-    assert_equal "reactivated", Growth.state_on([ DAY - 10, DAY ], DAY)
-  end
-
-  test "a builder counts from 60 seconds, not 59" do
-    assert_equal 60, Growth::ACTIVE_SECONDS
-    built("one_minute", 0, seconds: 60)
-    built("almost", 0, seconds: 59)
-
-    assert_equal 1, Growth.new(today: DAY + 1).days.last.dau
+    assert_nil Growth.state_on(dates, DAY - 9)
+    assert_equal "new", Growth.state_on(dates, DAY - 8)
+    assert_equal "current", Growth.state_on(dates, DAY - 7), "built the day before too"
+    assert_equal "at_risk", Growth.state_on(dates, DAY - 6), "built yesterday, not today"
+    assert_equal "lapsed", Growth.state_on(dates, DAY - 5)
+    assert_equal "returning", Growth.state_on(dates, DAY - 3), "built before, but not the day before"
+    assert_equal "returning", Growth.state_on(dates, DAY)
+    assert_equal "lapsed", Growth.state_on(dates, DAY - 1), "two days gone is still lapsed, never a month"
   end
 
   private

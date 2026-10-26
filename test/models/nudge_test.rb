@@ -36,6 +36,11 @@ class NudgeTest < ActiveSupport::TestCase
     @user.nudges.create!(kind:, arm:, delivered: true, sent_at: at)
   end
 
+  # The comeback DM for the day before `day`'s slot, already sent, so a test of the bandit isn't answered by one.
+  def comeback_sent!(day)
+    @user.nudges.create!(kind: "comeback", arm: "comeback", built_on: at_slot(day).to_date - 1, delivered: true, sent_at: at_slot(day - 1))
+  end
+
   def span(at, minutes)
     { "start_time" => at.to_f, "end_time" => (at + minutes.minutes).to_f, "duration" => minutes * 60 }
   end
@@ -62,7 +67,7 @@ class NudgeTest < ActiveSupport::TestCase
     @user.project.update!(repo_later: false)
     assert_equal "repo", deliver(at_slot(9)).arm
 
-    sent!("repo", kind: "setup", at: at_slot(9))
+    comeback_sent!(10) # the repo nudge went on day 9, and the weekly cap is 5
     assert_equal "bandit", deliver(at_slot(10)).kind, "the repo nudge waits a few days before saying it again"
   end
 
@@ -198,6 +203,7 @@ class NudgeTest < ActiveSupport::TestCase
 
   test "the bandit picks an arm that fits where you are, and logs the odds it picked it at" do
     sent!("first_session", kind: "milestone")
+    comeback_sent!(10)
     nudge = deliver(at_slot(10))
 
     assert_equal "lapsed", nudge.bucket # 1.5 hours, but nothing in the last couple of days
@@ -288,16 +294,37 @@ class NudgeTest < ActiveSupport::TestCase
     Nudge.define_singleton_method(:deliver_to, original)
   end
 
-  test "a nudge worked if you built 20 minutes in the six hours after it" do
+  test "a bandit or comeback nudge worked if you built at all in the two hours after it" do
     worked = sent!("tiny_step", at: at_slot(8))
-    didnt = sent!("pledge", at: at_slot(9))
-    opted_out = sent!("tiny_step", at: at_slot(10))
-    opted_out.update!(opted_out_at: at_slot(10) + 1.minute)
-    Hackatime.stubbed_spans = { "1001" => [ span(at_slot(8, hour: 21), 25), span(at_slot(9, hour: 18), 30) ] }
+    late = sent!("pledge", at: at_slot(9))
+    comeback = sent!("comeback", kind: "comeback", at: at_slot(10))
+    opted_out = sent!("tiny_step", at: at_slot(11))
+    opted_out.update!(opted_out_at: at_slot(11) + 1.minute)
+    Hackatime.stubbed_spans = { "1001" => [ span(at_slot(8) + 30.minutes, 2), span(at_slot(9) + 3.hours, 30), span(at_slot(10) + 110.minutes, 5), span(at_slot(11) + 5.minutes, 30) ] }
+
+    travel_to(at_slot(13)) { Nudge.score_due }
+
+    assert_equal [ 1, 0, 1, Nudge::OPT_OUT_PENALTY ], [ worked, late, comeback, opted_out ].map { |nudge| nudge.reload.reward }
+  end
+
+  test "a streak saver, milestone or program nudge still worked if you built 20 minutes in the six hours after it" do
+    worked = sent!("streak_saver", kind: "streak_saver", at: at_slot(8))
+    short = sent!("halfway", kind: "milestone", at: at_slot(9))
+    Hackatime.stubbed_spans = { "1001" => [ span(at_slot(8) + 5.hours, 25), span(at_slot(9) + 1.hour, 19) ] }
 
     travel_to(at_slot(11)) { Nudge.score_due }
 
-    assert_equal [ 1, 0, Nudge::OPT_OUT_PENALTY ], [ worked, didnt, opted_out ].map { |nudge| nudge.reload.reward }
+    assert_equal [ 1, 0 ], [ worked, short ].map { |nudge| nudge.reload.reward }
+  end
+
+  test "a nudge keeps the reward it was scored with" do
+    old = sent!("tiny_step", at: at_slot(8))
+    old.update!(reward: 0, rewarded_at: at_slot(8, hour: 23))
+    Hackatime.stubbed_spans = { "1001" => [ span(at_slot(8) + 30.minutes, 30) ] }
+
+    travel_to(at_slot(11)) { Nudge.score_due }
+
+    assert_equal 0, old.reload.reward
   end
 
   test "a setup nudge worked if the step it asked for got done, whether or not they built" do
@@ -327,7 +354,12 @@ class NudgeTest < ActiveSupport::TestCase
 
   test "the window has to close before a nudge is scored" do
     nudge = sent!("tiny_step", at: at_slot(8))
-    travel_to(at_slot(8, hour: 23)) { Nudge.score_due }
+    saver = sent!("streak_saver", kind: "streak_saver", at: at_slot(8))
+    travel_to(at_slot(8) + 1.hour) { Nudge.score_due }
     assert_nil nudge.reload.reward
+
+    travel_to(at_slot(8) + 3.hours) { Nudge.score_due }
+    assert_equal 0, nudge.reload.reward, "two hours is enough for a bandit nudge"
+    assert_nil saver.reload.reward, "the rest still have six"
   end
 end

@@ -28,7 +28,18 @@ class Reward < ApplicationRecord
   # A sync still looks this long after signup, so time logged near the end of the hour is seen once it has synced.
   STICKERS_CHECK_UNTIL = 2.hours
 
-  KEYS = (STREAK + HOURS + [ STICKERS ]).map { |reward| reward[:key] }.freeze
+  # A sticker pack earned by coming back after a missed day, within COMEBACK_WINDOW of the comeback DM (D-078). One key per
+  # pack, so each is its own row (a reward is a row per key).
+  COMEBACK_STICKER_KEYS = %w[comeback_stickers_1 comeback_stickers_2 comeback_stickers_3].freeze
+  STICKER_KEYS = ([ STICKERS[:key] ] + COMEBACK_STICKER_KEYS).freeze
+  # The most free sticker packs one person can earn and claim, the first-hour ones (D-051) counted in (Armand, 2026-10-26).
+  STICKER_PACKS_MAX = 3
+  # They have this long after the comeback DM goes out to code STICKERS_SECONDS, and a sync still looks for COMEBACK_CHECK_UNTIL
+  # more, so time logged near the end of the window is seen once it has synced.
+  COMEBACK_WINDOW = 24.hours
+  COMEBACK_CHECK_UNTIL = 2.hours
+
+  KEYS = (STREAK + HOURS + [ STICKERS ]).map { |reward| reward[:key] }.concat(COMEBACK_STICKER_KEYS).freeze
 
   belongs_to :user, optional: true
   belongs_to :pair, optional: true
@@ -44,6 +55,9 @@ class Reward < ApplicationRecord
   after_create_commit -> { RewardNotifier.earned(self) }
 
   def self.definition(key) = (STREAK + HOURS + [ STICKERS ]).find { |reward| reward[:key] == key }
+
+  # How many free sticker packs they have earned, whichever way.
+  def self.sticker_packs_earned(user) = where(user_id: user.id, key: STICKER_KEYS).count
 
   # Every streak reward your streak has reached.
   def self.award_streak!(user)
@@ -75,10 +89,56 @@ class Reward < ApplicationRecord
 
     # A fresh answer matters here: a ban must stop them. If Hackatime can't say, the next sync asks again.
     Hackatime.refresh_trust_level!(user)
-    earn(user:, key: "stickers") if user.sticker_eligible?
+    earn_sticker_pack!(user) { "stickers" } if user.sticker_eligible?
   rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
     # Looked at again on the next sync.
   end
+
+  # A sticker pack for each comeback DM that promised one (Nudge::Fixed.comeback) and that they coded STICKERS_SECONDS
+  # after, on the Hackatime projects linked to their game, within COMEBACK_WINDOW of it going out. The same checks as the
+  # first-hour stickers (D-051), and never past STICKER_PACKS_MAX. Only a promise still open costs a Hackatime request.
+  def self.award_comeback_stickers!(user, now = Time.current)
+    return unless user.project&.tracking? && sticker_packs_earned(user) < STICKER_PACKS_MAX
+
+    promised = user.nudges.delivered.where(kind: "comeback", stickers_promised: true, stickers_earned_at: nil,
+                                           sent_at: now - COMEBACK_WINDOW - COMEBACK_CHECK_UNTIL..)
+    promised.order(:sent_at).each do |nudge|
+      break if sticker_packs_earned(user) >= STICKER_PACKS_MAX
+      next unless user.ysws_eligible? && nudge.coded_after >= STICKERS_SECONDS
+
+      Hackatime.refresh_trust_level!(user)
+      earn_comeback_pack!(user, nudge, now) if user.sticker_eligible?
+    end
+  rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
+    # Looked at again on the next sync.
+  end
+
+  # Earns the next pack for this comeback DM, and notes on it that it did. Under a lock on the user, as every pack is
+  # (earn_sticker_pack!), so two syncs at once can't earn two for one DM or go past the cap.
+  def self.earn_comeback_pack!(user, nudge, now)
+    earn_sticker_pack!(user) do
+      next if nudge.reload.stickers_earned_at
+
+      key = COMEBACK_STICKER_KEYS.find { |each| !exists?(user_id: user.id, key: each) }
+      nudge.update!(stickers_earned_at: now) if key
+      key
+    end
+  end
+  private_class_method :earn_comeback_pack!
+
+  # Earns the pack the block names, unless they already have STICKER_PACKS_MAX (the block answers nil to earn nothing).
+  # Run under a lock on the user's row, so the count it checks is the count when it's earned.
+  def self.earn_sticker_pack!(user)
+    transaction do
+      User.lock.find(user.id)
+      next if sticker_packs_earned(user) >= STICKER_PACKS_MAX
+
+      key = yield
+      earn(user:, key:) if key
+    end
+    user.rewards.reset
+  end
+  private_class_method :earn_sticker_pack!
 
   def self.earn(**attributes)
     find_or_create_by!(**attributes)

@@ -37,7 +37,9 @@ module AdminMcp::Tools::Numbers
   class Nudges < AdminMcp::Tool
     reads "nudges", "How the nudges are doing",
           "What the Bandit page shows: nudges sent, clicked and scored, the bandit against the holdout, each bucket's arms with the bandit's current guess, the " \
-          "fixed nudges, sends per day, and the latest nudges (who by user ID, the arm, the message, the odds, clicks and result).",
+          "fixed nudges (comeback ones too), sends per day, and the latest nudges (who by user ID, the arm, the message, the odds, clicks and result). " \
+          "In each row, worked and didnt_work are of the scored ones (didnt_work is scored minus worked, an opt-out included, not a delivery failure); " \
+          "cannot_dm is how many people the bot couldn't DM.",
           { recent: { type: "integer", minimum: 0, maximum: 100, description: "How many of the latest nudges. Default 20." } }
 
     def self.run(args, _caller)
@@ -53,7 +55,7 @@ module AdminMcp::Tools::Numbers
         end }
     end
 
-    def self.row(row) = { **row.to_h, click_rate: row.click_rate, work_rate: row.work_rate, failed: row.failed }
+    def self.row(row) = { **row.to_h, click_rate: row.click_rate, work_rate: row.work_rate, didnt_work: row.didnt_work }
   end
 
   # The public Stats page: totals across everyone, the funnel, who builds each day, and Growth.

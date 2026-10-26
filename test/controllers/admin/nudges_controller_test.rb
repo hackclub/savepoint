@@ -24,7 +24,7 @@ class Admin::NudgesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select ".admin__tile", text: /Sent\s*5/
-    assert_select ".admin__tile", text: /Worked\s*67%\s*2 of 3 scored/
+    assert_select ".admin__tile", text: /Worked\s*67%\s*2 worked, 1 didn't, of 3 scored/
     assert_select "h2", "Lapsed"
     assert_select "h2", "Zero hours"
     assert_select "tr[data-leading] th", "Tiny step"

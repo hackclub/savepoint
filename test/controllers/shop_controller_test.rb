@@ -418,6 +418,27 @@ class ShopControllerTest < ActionDispatch::IntegrationTest
     assert_select "#shop-stickers", 0
   end
 
+  test "comeback packs are claimed one at a time, with their own words on the card, up to the 3 earned" do
+    sign_in_orpheus
+    users(:orpheus).update!(address: HQ_ADDRESS)
+    users(:orpheus).rewards.create!(key: "comeback_stickers_1")
+    users(:orpheus).rewards.create!(key: "comeback_stickers_2")
+    get shop_path
+    assert_select "#shop-stickers .sticker-claim__about", text: "You came back and worked on your game. Tell us where to send them."
+
+    2.times do
+      post shop_order_path, params: { order: { prize_key: "stickers" } }
+      assert_nil flash[:shop_error]
+    end
+    assert_equal 2, @project.orders.where(prize_key: "stickers").count
+    get shop_path
+    assert_select "#shop-stickers", 0
+
+    post shop_order_path, params: { order: { prize_key: "stickers" } }
+    assert_match(/bought already/, flash[:shop_error])
+    assert_equal 2, @project.orders.where(prize_key: "stickers").count
+  end
+
   test "the sticker sheet opens on its form, with no preview step, and says nothing about unavailable items" do
     sign_in_orpheus
     users(:orpheus).rewards.create!(key: "stickers")

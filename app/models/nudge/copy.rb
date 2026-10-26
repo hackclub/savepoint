@@ -109,7 +109,20 @@ module Nudge::Copy
     "last_day_done" => [ "last day of Save Point! you earned %{a_prize} building %{title} :yay:" ],
 
     # Before a streak ends.
-    "streak_saver" => [ "your %{streak}-day streak ends at midnight! 20 minutes saves it :cat-lock-in:" ]
+    "streak_saver" => [ "your %{streak}-day streak ends at midnight! 20 minutes saves it :cat-lock-in:" ],
+
+    # After a missed day (Nudge::Fixed.comeback), to someone who has built before. The first promises a free sticker pack for
+    # coding %{sticker_minutes} minutes in the next 24 hours, so it only goes to someone who can have one; the second doesn't.
+    "comeback_stickers" => [
+      "we missed you yesterday! code %{sticker_minutes} minutes on %{title} in the next 24 hours and a free sticker pack is yours :yayayayayay:",
+      "come back to %{title} for %{sticker_minutes} minutes in the next 24 hours and we'll send you free hack club stickers :)",
+      "%{title} misses you! %{sticker_minutes} minutes on it in the next 24 hours gets you a free sticker pack :yay:"
+    ],
+    "comeback" => [
+      "we missed you yesterday! %{title} is ready when you are, even a few minutes counts :)",
+      "hey, %{title} misses you! come back for a few minutes today, no pressure :)",
+      "you've built %{title} before and it's waiting for you! one small fix today? :cat-lock-in:"
+    ]
   }.freeze
 
   # Where each nudge's one button goes.
@@ -138,7 +151,9 @@ module Nudge::Copy
     "three_days_left_done" => [ "see your progress", :project ],
     "last_day" => [ "ship it", :project ],
     "last_day_done" => [ "see your progress", :project ],
-    "streak_saver" => [ "save your streak", :project ]
+    "streak_saver" => [ "save your streak", :project ],
+    "comeback_stickers" => [ "come back for stickers", :project ],
+    "comeback" => [ "open your project", :project ]
   }.freeze
 
   SLACK_MUTE = "stop these messages"

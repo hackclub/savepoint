@@ -166,6 +166,16 @@ class RewardTest < ActiveSupport::TestCase
     assert_equal [ "U0ORPHEUS" ], slack_messages.map(&:first), "a DM only, no post in the channel"
   end
 
+  test "the first-hour stickers are not earned past 3 packs" do
+    user = sticker_user
+    Reward::COMEBACK_STICKER_KEYS.each { |key| user.rewards.create!(key:) }
+    log_span(user, user.created_at + 10.minutes, 5)
+    award_stickers_at(user, user.created_at + 30.minutes)
+
+    assert_not user.reload.earned?("stickers")
+    assert_equal 3, Reward.sticker_packs_earned(user)
+  end
+
   test "four minutes is not enough" do
     user = sticker_user
     log_span(user, user.created_at + 10.minutes, 4)

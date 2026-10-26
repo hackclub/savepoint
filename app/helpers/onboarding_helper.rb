@@ -9,6 +9,25 @@ module OnboardingHelper
     ]
   end
 
+  # D-078 item 4: the progress strip counts signing in as done, then the four questions. 5 is the last step's number
+  # in onboarding_step_reached (Start building).
+  def onboarding_progress_labels
+    [ "Signed in" ] + onboarding_steps.map { |step| step[:label] }
+  end
+
+  # How far along the strip starts: the furthest step reached, at least the first screen. Signing in is done, so it is never 0.
+  def onboarding_done_count(user)
+    (user&.onboarding_step_reached || 1).clamp(1, onboarding_progress_labels.size)
+  end
+
+  # The free stickers (D-051) as the sheet's reward, only while they can still be earned: an account made since they began,
+  # YSWS-eligible and not banned, inside its first hour, without them already.
+  def onboarding_sticker_promise?(user, now: Time.current)
+    return false unless user&.created_at && user.created_at >= Reward::STICKERS_SINCE && user.sticker_eligible?
+
+    now < user.created_at + Reward::STICKERS_WINDOW && !user.earned?("stickers")
+  end
+
   # The tiles for the last step (D-037): each Project::BUILD_TIMES value with an icon and when its nudge arrives
   # (Nudge::SLOTS, so the hint and the nudge never disagree).
   def onboarding_build_times

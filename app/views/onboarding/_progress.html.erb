@@ -1,0 +1,22 @@
+<%# D-078 item 4: progress through the sheet with signing in already counted, so nobody starts at zero. The server draws it
+    from the furthest step reached (so it survives a reload); the onboarding controller moves it as the steps are passed.
+    With the free stickers (D-051) still to earn, they are the reward at the end. %>
+<% labels = onboarding_progress_labels %>
+<% done = onboarding_done_count(current_user) %>
+<section class="onboarding-progress" aria-label="Your progress">
+  <div class="onboarding-progress__head">
+    <p class="onboarding-progress__count"><b data-onboarding-target="progressCount"><%= done %> of <%= labels.size %> done</b></p>
+    <p class="onboarding-progress__next" data-onboarding-target="progressNext"><%= done < labels.size ? "Next: #{labels[done]}" : "Next: Start building" %></p>
+  </div>
+  <ol class="onboarding-progress__bar">
+    <% labels.each.with_index do |label, index| %>
+      <li class="onboarding-progress__seg" data-onboarding-target="progressSeg" <%= "data-done" if index < done %>><span class="onboarding-progress__sr"><%= label %></span></li>
+    <% end %>
+  </ol>
+  <% if onboarding_sticker_promise?(current_user) %>
+    <p class="onboarding-progress__reward">
+      <span class="onboarding-progress__art" aria-hidden="true"><%= image_tag "sticker-promise.svg", alt: "", width: 335, height: 432 %></span>
+      <span>Work on your game for <%= Reward::STICKERS_SECONDS / 60 %> minutes in your first hour and get free stickers.</span>
+    </p>
+  <% end %>
+</section>

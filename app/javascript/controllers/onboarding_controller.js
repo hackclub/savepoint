@@ -181,6 +181,7 @@ export default class extends Controller {
 
   #set(changes) {
     Object.assign(this.state, changes)
+    this.#saveAnswers() // so a reload keeps the answers and the open step
     this.#render()
   }
 

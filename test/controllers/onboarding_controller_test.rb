@@ -1,6 +1,44 @@
 require "test_helper"
 
 class OnboardingControllerTest < ActionDispatch::IntegrationTest
+  test "opening the sheet records step 1, and never lowers a later step" do
+    sign_in_as_orpheus
+    user = users(:orpheus)
+    user.update_columns(onboarding_step_reached: nil, onboarding_step_at: nil)
+
+    get onboarding_path
+    assert_response :success
+    assert_equal 1, user.reload.onboarding_step_reached
+    assert_not_nil user.onboarding_step_at
+
+    user.update_columns(onboarding_step_reached: 3)
+    get onboarding_path
+    assert_equal 3, user.reload.onboarding_step_reached
+  end
+
+  test "the sticker promise shows only to someone who can still earn the stickers" do
+    sign_in_as_orpheus
+    user = users(:orpheus)
+    user.update_columns(created_at: Time.current, ysws_eligible: true, hackatime_trust_level: "green")
+
+    get onboarding_path
+    assert_select ".onboarding-stickers", count: 1
+
+    user.update_columns(ysws_eligible: false)
+    get onboarding_path
+    assert_select ".onboarding-stickers", count: 0
+
+    user.update_columns(ysws_eligible: true, created_at: 2.hours.ago)
+    get onboarding_path
+    assert_select ".onboarding-stickers", count: 0, message: "past the first hour"
+  end
+
+  test "signed out sees no sticker line" do
+    get onboarding_path
+    assert_response :success
+    assert_select ".onboarding-stickers", count: 0
+  end
+
   test "progress needs you signed in" do
     post onboarding_progress_path, params: { step: 2 }
 

@@ -9,6 +9,14 @@ module OnboardingHelper
     ]
   end
 
+  # The free stickers (D-051) as the sheet's reward, only while they can still be earned: an account made since they began,
+  # YSWS-eligible and not banned, inside its first hour, without them already.
+  def onboarding_sticker_promise?(user, now: Time.current)
+    return false unless user&.created_at && user.created_at >= Reward::STICKERS_SINCE && user.sticker_eligible?
+
+    now < user.created_at + Reward::STICKERS_WINDOW && !user.earned?("stickers")
+  end
+
   # The tiles for the last step (D-037): each Project::BUILD_TIMES value with an icon and when its nudge arrives
   # (Nudge::SLOTS, so the hint and the nudge never disagree).
   def onboarding_build_times

@@ -254,3 +254,12 @@
 .pg-onboarding .onboarding-start { display: grid; justify-items: start; gap: var(--space-3); }
 .pg-onboarding .onboarding-start__error { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 700 14px/20px var(--font-body); color: var(--coral-ink); }
 .pg-onboarding .onboarding-start__error[hidden] { display: none; }
+
+/* ---------- Sticker banner (D-078, D-051): one line above the steps, for someone who can still earn the free stickers ---------- */
+/* A single box, nothing rounded inside it but the 40px art, which is square. */
+.pg-onboarding .onboarding-stickers {
+  display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-4); padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border-radius: var(--radius-md); background: var(--gold-soft); font: 800 14px/18px var(--font-body); color: var(--ink);
+}
+.pg-onboarding .onboarding-stickers__art { flex: none; display: grid; place-items: center; inline-size: 40px; block-size: 40px; }
+.pg-onboarding .onboarding-stickers__art img { display: block; inline-size: 40px; block-size: 40px; object-fit: contain; }

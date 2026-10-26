@@ -19,6 +19,7 @@
 
   <main class="onboarding__main">
     <h1 class="onboarding__title">Start building</h1>
+    <%= render "onboarding/stickers" if onboarding_sticker_promise?(current_user) %>
     <div class="onboarding__rows">
       <% onboarding_steps.each.with_index(1) do |step, number| %>
         <%= render "onboarding/row", step:, number: %>

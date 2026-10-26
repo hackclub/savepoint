@@ -2,7 +2,9 @@ class OnboardingController < ApplicationController
   # Save Point's own layout and style sheet (D-009).
   layout "save_point"
 
+  # Opening the sheet is step 1, recorded here and not by the page's script, so someone who leaves before any script ran still counts.
   def show
+    record_step(1) if current_user
   end
 
   # Step 2's rows again, for the code link typed in step 1 (D-064): a Hackatime project linked to a different repo goes last,
@@ -23,11 +25,16 @@ class OnboardingController < ApplicationController
     return head :unauthorized unless current_user
 
     step = Integer(params[:step].to_s, 10, exception: false)
-    if step && step.between?(1, 5) && step > current_user.onboarding_step_reached.to_i
+    record_step(step) if step&.between?(1, 5)
+    head :no_content
+  end
+
+  private
+    def record_step(step)
+      return unless step > current_user.onboarding_step_reached.to_i
+
       now = Time.current
       current_user.update_columns(onboarding_step_reached: step, onboarding_step_at: now,
                                  onboarding_step_times: current_user.onboarding_step_times.merge(step.to_s => now.utc.iso8601))
     end
-    head :no_content
-  end
 end

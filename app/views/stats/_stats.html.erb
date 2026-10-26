@@ -75,7 +75,7 @@
       <section class="stats__card sp-panel" aria-labelledby="stats-growth-heading" id="stats-growth">
         <h2 class="stats__heading sp-ribbon" id="stats-growth-heading"><span><%= sp_icon "user-3-fill" %>Who's building each day</span></h2>
         <p class="stats__note">
-          Everyone who built <%= growth[:active_minutes] %> minutes or more that day, sorted by when they last built, after
+          Everyone who built <%= pluralize(growth[:active_minutes], "minute") %> or more that day, sorted by when they last built, after
           <a href="https://blog.duolingo.com/growth-model-duolingo/" target="_blank" rel="noopener">Duolingo's growth model</a>.
           A day counts once it's over; today's column is how far it's got.
         </p>

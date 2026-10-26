@@ -45,6 +45,19 @@ class PublicStatsTest < ActiveSupport::TestCase
     end
   end
 
+  test "a day's builders count from 60 seconds, but every second is in its hours" do
+    enough, short = add_builders(2, hours: 0)
+    enough.streak_activities.first.update!(coded_seconds: 60)
+    short.streak_activities.first.update!(coded_seconds: 59)
+
+    travel_to Program::DATES.begin + 1 do
+      first_day = PublicStats.new.to_h[:daily].first
+
+      assert_equal 1, first_day[:builders]
+      assert_in_delta (119 / 3600.0).round(1), first_day[:hours]
+    end
+  end
+
   test "hours shipped are the hours on each shipped project's newest ship, as they were when it shipped" do
     ship = ->(project, hours) do
       project.ships.create!(title: "A game", description: "A game that's at least forty characters of description long.",

@@ -61,10 +61,10 @@ class PublicStats
       steps.map { |label, count| { label:, count:, share: (count.fdiv(first) if first.positive?) } }
     end
 
-    # Hours built each day of Save Point, by everyone who built that day.
+    # Hours built each day of Save Point, and how many built Growth::ACTIVE_SECONDS or more that day (the day's DAU, as Growth counts it).
     def daily
       days = StreakActivity.where(activity_date: Program::DATES, coded_seconds: 1..).group(:activity_date)
-                           .pluck(:activity_date, Arel.sql("SUM(coded_seconds)"), Arel.sql("COUNT(DISTINCT user_id)"))
+                           .pluck(:activity_date, Arel.sql("SUM(coded_seconds)"), Arel.sql("COUNT(DISTINCT user_id) FILTER (WHERE coded_seconds >= #{Growth::ACTIVE_SECONDS})"))
                            .to_h { |date, seconds, builders| [ date, [ seconds, builders ] ] }
       Program::DATES.map do |date|
         seconds, builders = days.fetch(date, [ 0, 0 ])

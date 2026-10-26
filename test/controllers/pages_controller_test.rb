@@ -94,6 +94,50 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to project_path
   end
 
+  test "/about is the landing page and its FAQ for a visitor who isn't signed in" do
+    get about_path
+
+    assert_response :success
+    assert_select "h1", /Finish that game you started/
+    assert_select "#faq"
+    assert_select "a.cta:not([href='#{onboarding_path}'])", 0
+  end
+
+  test "/about shows a signed-in person the landing page, and its buttons go to their project, not sign-up" do
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+    get about_path
+
+    assert_response :success
+    assert_select "#faq"
+    assert_select "a.cta", 3
+    assert_select "a.cta:not([href='#{project_path}'])", 0
+    assert_select ".hero a.cta", text: /Back to your project/
+    assert_select "a.cta[href='#{onboarding_path}']", 0
+  end
+
+  test "/about sends a signed-in person who has no project on to onboarding" do
+    sign_in_as(mock_hack_club_auth)
+    get about_path
+
+    assert_response :success
+    assert_select "a.cta:not([href='#{onboarding_path}'])", 0
+  end
+
+  test "signed-in pages link to the FAQ, in the account menu and the footer" do
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+    get project_path
+
+    assert_select "#top-bar-account a.top-bar__faq[href='#{about_path}#faq']"
+    assert_select "footer a[href='#{about_path}#faq']", text: "FAQ"
+  end
+
+  test "signed-out pages don't show the FAQ link" do
+    get shop_path
+
+    assert_select "a.top-bar__faq", 0
+    assert_select "footer a[href*='#faq']", 0
+  end
+
   private
     def sign_in_as(_auth)
       post "/auth/hackclub"

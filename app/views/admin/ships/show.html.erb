@@ -59,6 +59,8 @@
         </div>
       </section>
 
+      <div class="ash__layout">
+      <div class="ash__col">
       <%= render "admin/ships/evidence", evidence: @evidence, limits: @limits %>
       <%= render "admin/ships/hours_start", ship: @ship %>
 
@@ -131,7 +133,6 @@
       <%= render "admin/ships/readme", readme: @readme, ship: @ship %>
       <%= render "admin/ships/snapshot_edit", snapshot: @snapshot, ship: @ship %>
 
-      <div class="ash__split">
         <section class="sp-panel ash__panel ash__submitted admin__ship" aria-labelledby="admin-ship-submitted">
           <h2 class="sp-ribbon ash__ribbon" id="admin-ship-submitted"><span><%= sp_icon "rocket-fill" %>What they submitted</span></h2>
           <dl class="admin__ship-details ash__details">
@@ -145,8 +146,9 @@
             <dd class="admin__ship-description ash__description"><%= @ship.description %></dd>
           </dl>
         </section>
+      </div>
 
-        <div class="ash__side">
+        <aside class="ash__rail" aria-label="Checklist and decision">
         <%# D-049: the reviewer's checklist, saved on every tick (Admin::ShipsController#checklist). %>
         <% checklist = { "runs" => "The game runs from the demo link", "continued" => "It continues an earlier game, not a brand new one",
                          "readme" => "The README says how to run it", "screenshot" => "The screenshot shows the game running",
@@ -185,7 +187,7 @@
             <%= render "admin/ships/decided", ship: @ship, earlier_ship: @earlier_ship, status_icon: %>
           <% end %>
         </section>
-        </div>
+        </aside>
       </div>
 
       <%= render "admin/ships/send_backs", send_backs: @send_backs %>

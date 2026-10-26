@@ -53,6 +53,8 @@
 .pg-admin-home .admin__readout strong, .pg-admin-home .admin-chart figcaption strong { font: 900 italic 44px/1.05 var(--font-display); font-variant-numeric: tabular-nums; color: var(--ink); }
 .pg-admin-home .admin__readout small, .pg-admin-home .admin-chart figcaption small { font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
 .pg-admin-home .admin__readout abbr { text-decoration: none; }
+.pg-admin-home__sub a.pg-admin-home__more { color: var(--royal-ink); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.pg-admin-home__sub a.pg-admin-home__more:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .pg-admin-home__unit { font-size: 22px; }
 
 /* The charts. The hours bar's ends are rounded in CSS, 4px: the card's 16px inner radius less its 12px padding, so the
@@ -70,6 +72,9 @@
 .admin-chart__stage--waiting { fill: var(--violet); }
 .admin-chart__stage--ordered { fill: var(--mint); }
 .admin-chart__stage--projected { fill: var(--line-strong); }
+.admin-chart__stage--promoter { fill: var(--mint); }
+.admin-chart__stage--passive { fill: var(--gold); }
+.admin-chart__stage--detractor { fill: var(--coral); }
 .admin-chart__key { display: inline-block; width: 12px; height: 12px; margin-right: var(--space-2); border-radius: 4px; vertical-align: -1px; }
 .admin-chart__key--unapproved { background: var(--line-strong); }
 .admin-chart__key--pending { background: var(--gold); }
@@ -79,6 +84,9 @@
 .admin-chart__key--behind { background: var(--copper); }
 .admin-chart__key--waiting { background: var(--violet); }
 .admin-chart__key--projected { background: var(--line-strong); }
+.admin-chart__key--promoter { background: var(--mint); }
+.admin-chart__key--passive { background: var(--gold); }
+.admin-chart__key--detractor { background: var(--coral); }
 .admin-chart__key--new { background: var(--mint-line); }
 .admin-chart__key--current { background: var(--royal); }
 .admin-chart__key--reactivated { background: var(--copper); }

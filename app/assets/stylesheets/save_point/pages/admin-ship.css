@@ -78,13 +78,22 @@
 .pg-admin-ship .ash__tick { display: flex; align-items: flex-start; gap: var(--space-3); font: 600 15px/22px var(--font-body); }
 .pg-admin-ship .ash__tick .sp-check { flex: none; margin-top: 2px; }
 .pg-admin-ship .ash__auto { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--gold-soft); font: 800 11px/18px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-ink); cursor: help; }
-.pg-admin-ship .ash__split { display: grid; gap: var(--space-10); align-items: start; }
-@media (min-width: 1000px) {
-  .pg-admin-ship .ash__split { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); gap: var(--space-6); }
-  .pg-admin-ship .ash__decide { position: sticky; top: var(--space-8); }
+/* The evidence on the left, the checklist and the verdict on the right from 1200px; stacked below that. The side
+   column sticks under the top of the screen and scrolls inside itself when the verdict form is taller than the window. */
+.pg-admin-ship .ash__layout { display: grid; gap: var(--space-10); align-items: start; min-width: 0; }
+.pg-admin-ship .ash__col { display: grid; gap: var(--space-10); min-width: 0; }
+.pg-admin-ship .ash__rail { display: grid; gap: var(--space-6); min-width: 0; }
+@media (min-width: 1200px) {
+  .pg-admin-ship .ash__layout { grid-template-columns: minmax(0, 1fr) minmax(340px, 400px); gap: var(--space-6); }
+  .pg-admin-ship .ash__col { gap: var(--space-8); }
+  .pg-admin-ship .ash__col > .ash__changes:not(.ash__evidence) { grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+  .pg-admin-ship .ash__rail {
+    position: sticky; top: var(--space-4); max-height: calc(100vh - 2 * var(--space-4)); overflow-y: auto;
+    overscroll-behavior: contain; padding: var(--space-8) var(--space-2) var(--space-2) var(--space-2); margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-2)) calc(-1 * var(--space-2));
+  }
 }
-.pg-admin-ship .ash__panel { gap: var(--space-4); padding: var(--space-8) var(--space-4) var(--space-4); border-radius: var(--radius-lg); }
-@media (min-width: 600px) { .pg-admin-ship .ash__panel { padding: var(--space-8) var(--space-5) var(--space-5); } }
+.pg-admin-ship .ash__panel { --ash-inset: var(--space-4); gap: var(--space-4); padding: var(--space-8) var(--space-4) var(--space-4); border-radius: var(--radius-lg); }
+@media (min-width: 600px) { .pg-admin-ship .ash__panel { --ash-inset: var(--space-5); padding: var(--space-8) var(--space-5) var(--space-5); } }
 .pg-admin-ship .ash__ribbon { max-width: calc(100% - var(--space-8)); white-space: nowrap; }
 .pg-admin-ship .ash__ribbon .sp-icon { font-size: 20px; }
 @media (max-width: 519px) { .pg-admin-ship .ash__ribbon { padding-inline: 14px; font-size: 16px; } }
@@ -130,7 +139,7 @@
 .pg-admin-ship .ash__sha { font: 800 13px/22px ui-monospace, SFMono-Regular, Menlo, monospace; text-decoration: none; }
 .pg-admin-ship .ash__commit-message { min-width: 0; overflow-wrap: anywhere; }
 .pg-admin-ship .ash__commit small { grid-column: 2; font: 600 13px/18px var(--font-body); }
-.pg-admin-ship .ash__problem { display: flex; align-items: flex-start; gap: 8px; padding: var(--space-3) var(--space-4); border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--gold-soft); font: 700 15px/22px var(--font-body); color: var(--ink); }
+.pg-admin-ship .ash__problem { display: flex; align-items: flex-start; gap: 8px; padding: var(--space-3) var(--space-4); border-radius: calc(var(--radius-lg) - 2px - var(--ash-inset)); background: var(--gold-soft); font: 700 15px/22px var(--font-body); color: var(--ink); }
 .pg-admin-ship .ash__problem [data-icon] { flex: none; margin-top: 2px; font-size: 18px; color: var(--gold-ink); }
 .pg-admin-ship .ash__pair { display: grid; gap: var(--space-6); align-items: start; }
 @media (min-width: 800px) { .pg-admin-ship .ash__pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -203,7 +212,7 @@
 .pg-admin-ship .ash__limits,
 .pg-admin-ship .ash__justify {
   display: grid; gap: 0; margin: 0; padding: var(--space-2) var(--space-4);
-  border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--surface-sunken);
+  border-radius: calc(var(--radius-lg) - 2px - var(--ash-inset)); background: var(--surface-sunken);
 }
 .pg-admin-ship .ash__limits > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: 8px 0; border-top: 2px dashed var(--line); }
 .pg-admin-ship .ash__limits > div:first-child,
@@ -222,7 +231,7 @@
 /* Decided: a coin in the decision's colour, and what was decided. */
 .pg-admin-ship .ash__verdict {
   --v-hi: var(--mint-hi); --v-lo: var(--mint); --v-on: var(--on-mint); --v-soft: var(--mint-soft); --v-ink: var(--mint-ink);
-  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--v-soft);
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: calc(var(--radius-lg) - 2px - var(--ash-inset)); background: var(--v-soft);
 }
 .pg-admin-ship .ash__decide--coral .ash__verdict { --v-hi: var(--coral); --v-lo: var(--coral-ink); --v-on: var(--on-royal); --v-soft: var(--coral-soft); --v-ink: var(--coral-ink); }
 .pg-admin-ship .ash__verdict-icon {

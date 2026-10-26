@@ -7,6 +7,7 @@ class SlackAnnouncement
   CHANNEL = /\AC[A-Z0-9]{8,}\z/
   # The wrong tool's old channels. Never posted to.
   REFUSED_CHANNELS = %w[ C0C5UHLAAP5 C0C60KQ0XLJ ].freeze
+  TIMESTAMP = /\A\d+\.\d+\z/
   MAX_BLOCKS = 50
   BUILDER_URL = "https://app.slack.com/block-kit-builder/#"
 
@@ -29,6 +30,12 @@ class SlackAnnouncement
     raise Refused, "#{channel} is refused. Nothing posts to the wrong tool's channels." if REFUSED_CHANNELS.include?(channel.to_s)
     raise Refused, "#{channel.inspect} is not a channel ID (C followed by capitals and digits)." unless channel.to_s.match?(CHANNEL)
     channel
+  end
+
+  def self.check_timestamp!(ts)
+    raise Refused, "give the message ts: bin/rails \"slack:announce:update[C0123ABCD,1700000000.000100,announcements/example.json]\"" if ts.blank?
+    raise Refused, "#{ts.inspect} is not a message ts (digits, a dot, digits)." unless ts.to_s.match?(TIMESTAMP)
+    ts
   end
 
   attr_reader :blocks, :text
@@ -59,6 +66,15 @@ class SlackAnnouncement
     self.class.check_channel!(channel)
     client ||= Slack::Web::Client.new(token: self.class.token!)
     post(client, channel)
+  end
+
+  # Replaces the blocks and text of a message the token owner already posted, with chat.update. Returns the permalink, or the ts.
+  def update!(channel, ts, client: nil)
+    self.class.check_channel!(channel)
+    self.class.check_timestamp!(ts)
+    client ||= Slack::Web::Client.new(token: self.class.token!)
+    updated = client.chat_update(channel:, ts:, text:, blocks:)
+    permalink(client, updated) || updated.ts
   end
 
   private

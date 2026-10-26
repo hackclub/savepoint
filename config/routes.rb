@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   root "pages#home"
+  get "about" => "pages#about", as: :about # the landing page and its FAQ, for signed-in people too
   get "start" => "onboarding#show", as: :onboarding
   get "start/hackatime" => "onboarding#hackatime", as: :onboarding_hackatime
   post "start/progress" => "onboarding#progress", as: :onboarding_progress

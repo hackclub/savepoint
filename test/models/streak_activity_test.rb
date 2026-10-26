@@ -383,4 +383,19 @@ class StreakActivityTest < ActiveSupport::TestCase
       assert_equal [ 30 * 60, 0 ], [ day.coded_seconds, day.unconfirmed_seconds ]
     end
   end
+
+  test "D-086: a sync keeps the recent time in 5-minute pieces, held while the link is unconfirmed" do
+    travel_to Time.utc(2026, 11, 2, 12) do
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 11, 2, 9), 10) ] }
+      StreakActivity.sync_for_user!(@user)
+      assert_equal [ [ 300, 0 ], [ 300, 0 ] ], @user.coded_buckets.order(:bucket_at).pluck(:seconds, :unconfirmed_seconds)
+
+      @user.project.update_columns(hackatime_auto_linked: true)
+      StreakActivity.sync_for_user!(@user)
+      assert_equal [ [ 0, 300 ], [ 0, 300 ] ], @user.coded_buckets.order(:bucket_at).pluck(:seconds, :unconfirmed_seconds)
+
+      @user.project.update!(hackatime_auto_linked: false)
+      assert_equal [ [ 300, 0 ], [ 300, 0 ] ], @user.coded_buckets.order(:bucket_at).pluck(:seconds, :unconfirmed_seconds)
+    end
+  end
 end

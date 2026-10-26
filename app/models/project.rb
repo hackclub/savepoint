@@ -305,6 +305,14 @@ class Project < ApplicationRecord
     hackatime_linked? && hackatime_projects.none? && available_hackatime_projects&.none?
   end
 
+  # D-086: Hackatime's linked and has projects of yours (when we last asked it), but none is picked, and the page isn't
+  # waiting on a first heartbeat. Their hours can't count until they pick one. Not in the first half hour after linking,
+  # when the project they build on is still likely to link itself (D-048).
+  def needs_to_pick_hackatime_project?
+    hackatime_linked? && hackatime_projects.none? && hackatime_seen_count.to_i.positive? && !awaiting_first_heartbeat? &&
+      (user.hackatime_linked_at.nil? || user.hackatime_linked_at <= 30.minutes.ago)
+  end
+
   # D-078: Hackatime's linked but no time has ever arrived from you: none seen when we asked it, and no coded day synced.
   # The project page then waits for your first heartbeat.
   def awaiting_first_heartbeat?

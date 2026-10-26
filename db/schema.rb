@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -87,6 +87,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_190000) do
     t.index ["ship_id", "stage"], name: "index_claims_on_ship_id_and_stage", unique: true
     t.index ["ship_id"], name: "index_claims_on_ship_id"
     t.index ["user_id"], name: "index_claims_on_user_id"
+  end
+
+  create_table "coded_buckets", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.datetime "bucket_at", null: false
+    t.integer "seconds", default: 0, null: false
+    t.integer "unconfirmed_seconds", default: 0, null: false
+    t.index ["bucket_at"], name: "index_coded_buckets_on_bucket_at"
+    t.index ["user_id", "bucket_at"], name: "index_coded_buckets_on_user_id_and_bucket_at", unique: true
+    t.index ["user_id"], name: "index_coded_buckets_on_user_id"
   end
 
   create_table "extensions", force: :cascade do |t|
@@ -560,6 +570,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_190000) do
   add_foreign_key "buddy_pomodoros", "projects", column: "started_by_id"
   add_foreign_key "claims", "ships"
   add_foreign_key "claims", "users"
+  add_foreign_key "coded_buckets", "users"
   add_foreign_key "extensions", "projects"
   add_foreign_key "extensions", "users", column: "decided_by_id"
   add_foreign_key "nps_responses", "projects", on_delete: :nullify

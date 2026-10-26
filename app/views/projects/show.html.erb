@@ -52,6 +52,7 @@
         <% if set_up && project_goal_left?(@project) %><%= render "projects/goal_left", project: @project %><% end %>
 
         <% if @project.hackatime_auto_linked? %><%= render "projects/auto_linked", project: @project %><% end %>
+        <% if @project.needs_to_pick_hackatime_project? %><%= render "projects/pick_hackatime", project: @project %><% end %>
 
         <% if set_up %>
           <%# Setup finished and nothing put off: no setup card. A step other than Hackatime (?step=) opens it; the Hackatime

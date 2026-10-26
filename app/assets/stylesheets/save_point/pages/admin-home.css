@@ -170,15 +170,15 @@
   .pg-admin-home .admin__tile, .pg-admin-home .admin__readout { padding: var(--space-2) var(--space-3) var(--space-3); }
   .pg-admin-home .admin__tile strong, .pg-admin-home .admin__readout strong { font-size: 36px; }
   /* Each row stacks: the page and its count on one line, what it's for under them. The header stays for screen readers. */
-  .pg-admin-home .admin__table { font-size: 14px; line-height: 20px; }
-  .pg-admin-home .admin__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .pg-admin-home .admin__table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px var(--space-3); padding: 10px var(--space-2); border-bottom: 2px solid var(--surface-sunken); }
-  .pg-admin-home .admin__table tbody tr:last-child { border-bottom: 0; }
-  .pg-admin-home .admin__table tbody tr:hover > * { background: none; }
-  .pg-admin-home .admin__table tbody th, .pg-admin-home .admin__table td { display: block; padding: 0; border: 0; }
-  .pg-admin-home .admin__table tbody th { grid-row: 1; grid-column: 1; }
-  .pg-admin-home .admin__table td.pg-admin-home__now { grid-row: 1; grid-column: 2; }
-  .pg-admin-home .admin__table tbody td:not(.pg-admin-home__now) { grid-row: 2; grid-column: 1 / -1; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) { font-size: 14px; line-height: 20px; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px var(--space-3); padding: 10px var(--space-2); border-bottom: 2px solid var(--surface-sunken); }
+  .pg-admin-home .admin__table:not(.admin__table--wide) tbody tr:last-child { border-bottom: 0; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) tbody tr:hover > * { background: none; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) tbody th, .pg-admin-home .admin__table:not(.admin__table--wide) td { display: block; padding: 0; border: 0; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) tbody th { grid-row: 1; grid-column: 1; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) td.pg-admin-home__now { grid-row: 1; grid-column: 2; }
+  .pg-admin-home .admin__table:not(.admin__table--wide) tbody td:not(.pg-admin-home__now) { grid-row: 2; grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pg-admin-home .admin__tile:hover, .pg-admin-home .admin__tile:active { transform: none; }
@@ -186,3 +186,93 @@
 
 /* Waiting, not lost: the last two funnel steps, shown in the muted ink with the clock icon. */
 .admin-chart__waiting { display: inline-flex; align-items: center; gap: 4px; margin-left: var(--space-2); font-weight: 700; color: var(--ink-muted); }
+
+/* In-page jump links under the lead: one small pill each, to a section's id. The sections keep clear of the sticky admin bar. */
+.pg-admin-home__main > section[id] { scroll-margin-top: 96px; }
+.pg-admin-home__jump { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pg-admin-home__jump a {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 2px solid var(--line-strong); border-radius: var(--radius-full);
+  font: 800 13px/18px var(--font-body); color: var(--royal-ink); text-decoration: none; background: var(--surface);
+}
+.pg-admin-home__jump a .sp-icon { font-size: 16px; }
+.pg-admin-home__jump a:hover { background: var(--royal-soft); }
+.pg-admin-home__jump a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Lazy sections: the frame is a block with a placeholder card until it loads. Cards in a frame sit under the section's heading like the rest. */
+turbo-frame.pg-admin-home__frame, .pg-admin-home turbo-frame { display: block; }
+.pg-admin-home__loading { margin-top: var(--space-3); min-height: 96px; align-content: center; }
+.pg-admin-home .admin-chart + .pg-admin-home__sub { margin-top: var(--space-6); }
+
+/* Data tables inside a chart card (UTM, levers, history): they scroll sideways in the card and keep their header on a phone. */
+.pg-admin-home .admin__table--wide { min-width: max-content; }
+.pg-admin-home .admin__table--wide .admin__num, .pg-admin-home .admin__table--wide thead th.admin__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pg-admin-home .admin__table--wide td { color: var(--ink); }
+.pg-admin-home .admin-chart .pg-admin-home__scroll { margin-inline: 0; padding-inline: 0; border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
+.pg-admin-home .pg-admin-home__scroll:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-admin-home .admin__table--history tbody th { position: sticky; left: 0; background: var(--surface-sunken); }
+.pg-admin-home .admin__table--history td[data-none] { color: var(--ink-faint); }
+.pg-admin-home .admin__table--history td[data-latest], .pg-admin-home .admin__table--history th[data-latest] { background: var(--gold-soft); font-weight: 900; }
+.admin__change { margin-left: 4px; font: 800 11px/14px var(--font-body); color: var(--ink-muted); }
+.admin__change[data-up="true"] { color: var(--mint-ink); }
+.admin__change[data-up="false"] { color: var(--coral-ink); }
+.pg-admin-home .admin__table td.admin__up { color: var(--mint-ink); font-weight: 800; }
+.pg-admin-home .admin__table td.admin__down { color: var(--coral-ink); font-weight: 800; }
+
+/* The latest NPS answers: one card each, a score pill and who, then each question answered. Cards sit 12px in a column. */
+.admin-answers { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.admin-answer { gap: var(--space-2); }
+.admin-answer__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+.admin-answer__pill { display: inline-grid; place-items: center; min-width: 32px; height: 28px; padding: 0 8px; border-radius: 999px; font: 900 14px/1 var(--font-display); color: var(--ink); }
+.admin-answer__pill--promoter { background: var(--mint-soft); color: var(--mint-ink); }
+.admin-answer__pill--passive { background: var(--gold-soft); color: var(--gold-ink); }
+.admin-answer__pill--detractor { background: var(--coral-soft, var(--line)); color: var(--coral-ink); }
+.admin-answer__who { font: 800 15px/20px var(--font-body); }
+.admin-answer__who a { color: var(--royal-ink); }
+.admin-answer__meta { font: 700 12px/16px var(--font-body); color: var(--ink-muted); }
+.admin-answer__qa { display: grid; gap: var(--space-2); margin: 0; }
+.admin-answer__qa dt { font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.admin-answer__qa dd { margin: 0; font: 600 15px/22px var(--font-body); color: var(--ink); overflow-wrap: anywhere; }
+
+/* Details that hide the long part (more answers, the daily history): a pill summary, the content 12px under it. */
+.admin-more > summary {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; cursor: pointer; list-style: none;
+  border: 2px solid var(--line-strong); border-radius: var(--radius-full); background: var(--surface);
+  font: 800 14px/20px var(--font-body); color: var(--royal-ink);
+}
+.admin-more > summary::-webkit-details-marker { display: none; }
+.admin-more > summary .sp-icon { font-size: 18px; transition: transform 200ms; }
+.admin-more[open] > summary .sp-icon { transform: rotate(180deg); }
+.admin-more > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.admin-more[open] > :not(summary) { margin-top: var(--space-3); }
+.admin-answers + .admin-more { margin-top: var(--space-3); }
+
+/* The stats charts (Growth): the stats page's line charts and tables, under .pg-stats, in the home's cards. .pg-stats is a whole
+   page there, so its height and padding are cancelled; the cards give the 12px inset and the 18px corners, and anything nested
+   in a card (a scroll box, the toggle) takes the card's radius less its 2px border and 12px padding: 4px. */
+.pg-admin-home .pg-admin-home__stats { min-height: 0; padding: 0; overflow: visible; }
+.pg-admin-home__readouts--five { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.pg-admin-home .admin-chart--lines { gap: var(--space-2); }
+.pg-admin-home .admin-chart--lines .stats__lines { margin-top: var(--space-2); }
+.pg-admin-home .admin-chart__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); }
+.pg-admin-home .admin-chart__takeaway strong { font-weight: 900; color: var(--ink); }
+.pg-admin-home .pg-stats .stats__scroll { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
+.pg-admin-home .pg-stats .stats__table-view summary { font-size: 14px; }
+.pg-admin-home .pg-stats > .stats__table-view { margin-top: var(--space-6); }
+.pg-admin-home .pg-stats .stats__definitions { padding: var(--space-3); background: var(--surface-sunken); border: 2px solid var(--line); border-radius: var(--inner-radius); }
+.pg-admin-home__updated { display: flex; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-6); font-size: 13px; color: var(--ink-faint); }
+.pg-admin-home__updated .sp-icon { margin-top: 2px; }
+@media (max-width: 600px) {
+  .pg-admin-home__readouts--five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Concentric corners for what the stats and sign-ups sections nest. A control straight in a panel is 12px in, so it takes the
+   panel's inner radius (18px); one inside a card is 12px in from the card, so it takes the card's less its 2px border and
+   12px: 4px. The segmented toggle sits straight in the panel, beside its heading, and its options are inside it: 18px less
+   its 2px border and 4px padding, 12px. */
+.pg-admin-home__subrow { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-2) var(--space-4); margin: var(--space-6) 0 var(--space-3); }
+.pg-admin-home__subrow > .pg-admin-home__sub { margin: 0; }
+.pg-admin-home .pg-stats .stats__toggle { border-radius: var(--inner-radius); }
+.pg-admin-home .pg-stats .stats__toggle-option, .pg-admin-home .pg-stats .stats__pill { border-radius: calc(var(--inner-radius) - 2px - 4px); }
+.pg-admin-home .admin-more > summary, .pg-admin-home .pg-stats > .stats__table-view summary { border-radius: var(--inner-radius); }
+.pg-admin-home .admin-chart .stats__table-view summary { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
+.pg-admin-home .admin-answer__pill { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }

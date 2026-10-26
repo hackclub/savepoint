@@ -25,31 +25,39 @@ class AdminSummaryTest < ActiveSupport::TestCase
     assert_equal 0, summary[:dau], "ana built yesterday, not today"
   end
 
-  test "DAU is the participants who have built a minute or more today so far, not the last finished day" do
+  def bucket(user, minutes_ago, seconds, held: false)
+    CodedBucket.create!(user:, bucket_at: CodedBucket.floor(minutes_ago.minutes.ago), seconds: held ? 0 : seconds, unconfirmed_seconds: held ? seconds : 0)
+  end
+
+  test "D-086: DAU is the participants who built a minute or more in the last 24 hours" do
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
     eve = User.create!(hca_id: "ident!eve", first_name: "Eve")
-    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: Growth::ACTIVE_SECONDS)
-    dee.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: Growth::ACTIVE_SECONDS - 30)
-    users(:orpheus).streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 3600)
-    eve.streak_activities.create!(activity_date: Date.new(2026, 10, 23), coded_seconds: 3600)
+    bucket(@ana, 23 * 60, Growth::ACTIVE_SECONDS)
+    bucket(dee, 60, Growth::ACTIVE_SECONDS - 30)
+    bucket(users(:orpheus), 60, 3600)
+    bucket(eve, 25 * 60, 3600)
     summary = AdminSummary.new.to_h
 
-    assert_equal 1, summary[:dau], "ana's 60 s counts; dee's 30 s, the admin's hour and eve's yesterday don't"
+    assert_equal 1, summary[:dau], "ana's 60 s counts, across the date line; dee's 30 s, the admin's hour and eve's 25 hours ago don't"
     assert_nil summary[:dau_on_site], "no visit recorded yet"
-    assert_equal 1, summary[:today_row][:dau]
-    assert_equal true, summary[:today_row][:partial]
+  end
+
+  test "D-086: several pieces in the window add up to a minute" do
+    bucket(@ana, 120, 30)
+    bucket(@ana, 10, 30)
+
+    assert_equal 1, AdminSummary.new.to_h[:dau]
   end
 
   test "D-084: DAU counts confirmed builders only and says how many more are unconfirmed" do
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
-    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 600)
-    dee.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 0, unconfirmed_seconds: 600)
-    users(:orpheus).streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 0, unconfirmed_seconds: 600)
+    bucket(@ana, 30, 600)
+    bucket(dee, 30, 600, held: true)
+    bucket(users(:orpheus), 30, 600, held: true)
     summary = AdminSummary.new.to_h
 
     assert_equal 1, summary[:dau]
     assert_equal 1, summary[:dau_unconfirmed], "dee's held ten minutes; the admin's don't count"
-    assert_equal 1, summary[:today_row][:dau]
   end
 
   test "the site count beside today's DAU is today's, 0 once visits are being recorded" do

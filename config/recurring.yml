@@ -13,9 +13,10 @@ production:
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
+  # D-086: every 10 minutes, spread over 3 (StreakSweepJob).
   streak_sweep:
     class: StreakSweepJob
-    schedule: every hour at minute 15
+    schedule: every 10 minutes
   # D-066: a game submitted to the jame gam only counts time after the submission.
   jame_gam_sweep:
     class: JameGamSweepJob

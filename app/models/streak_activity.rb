@@ -43,6 +43,7 @@ class StreakActivity < ApplicationRecord
       counted = clip_to_start(spans, project.hours_start)
       daily_seconds = bucket_spans_by_streak_day(counted, user.timezone)
       note_first_coded(project, counted)
+      CodedBucket.rewrite_for(user, counted, held: project.hackatime_auto_linked?)
 
       # D-084: an unconfirmed auto-link is still synced, but its time is held, not counted.
       held = project.hackatime_auto_linked?
@@ -60,6 +61,7 @@ class StreakActivity < ApplicationRecord
 
     # D-084: the person confirmed their link, so the time held for it counts, without asking Hackatime.
     def release_held!(user)
+      CodedBucket.release_held!(user)
       user.streak_activities.where("unconfirmed_seconds > 0")
           .update_all("coded_seconds = coded_seconds + unconfirmed_seconds, unconfirmed_seconds = 0, updated_at = CURRENT_TIMESTAMP")
     end

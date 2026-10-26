@@ -353,6 +353,21 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "save-point-game" ], projects(:orpheus).hackatime_projects
   end
 
+  test "D-086: linked to Hackatime with projects on it but none picked, you're asked to pick one" do
+    link_hackatime(users(:orpheus))
+    users(:orpheus).update!(hackatime_linked_at: 2.hours.ago)
+    projects(:orpheus).update_columns(hackatime_projects: [], hackatime_seen_count: 2, hackatime_seen_seconds: 600)
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    with_hackatime_projects(Hackatime::Project.new("save-point-game", 0)) { get project_path }
+    assert_select "#project-pick-hackatime-title", "Which Hackatime project is your game?"
+    assert_select ".project__auto-linked a[href=?]", project_path(step: "hackatime_project"), "Pick it"
+
+    projects(:orpheus).update_columns(hackatime_projects: [ "rhythm-game" ])
+    with_hackatime_projects(Hackatime::Project.new("save-point-game", 0)) { get project_path }
+    assert_select "#project-pick-hackatime-title", count: 0
+  end
+
   test "picking your Hackatime projects yourself replaces one that linked itself, and nothing links itself after" do
     link_hackatime(users(:orpheus))
     projects(:orpheus).update!(hackatime_baseline: [ "rhythm-game", "beat-sheet-art" ], hackatime_projects: [ "dotfiles" ],

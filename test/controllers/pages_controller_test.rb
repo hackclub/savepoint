@@ -149,6 +149,40 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "footer a[href*='#faq']", 0
   end
 
+  test "signed-in people see the landing sticker offer only while they can still earn it" do
+    user = users(:orpheus)
+    sign_in_as(mock_hack_club_auth(uid: user.hca_id, slack_id: "U0ORPHEUS"))
+
+    user.update_columns(created_at: 10.minutes.ago)
+    get about_path
+    assert_select ".hero #sticker-promise", 1
+
+    user.update_columns(created_at: 2.hours.ago)
+    get about_path
+    assert_select ".hero #sticker-promise", 0
+    assert_select ".hero .when", 1
+
+    user.update_columns(created_at: 10.minutes.ago)
+    user.rewards.create!(key: "stickers")
+    get about_path
+    assert_select "#sticker-promise", 0
+
+    user.rewards.destroy_all
+    user.update_columns(created_at: Reward::STICKERS_SINCE - 1.day)
+    get about_path
+    assert_select "#sticker-promise", 0
+  end
+
+  test "signed-in people who can't have stickers don't see the landing offer" do
+    user = users(:orpheus)
+    sign_in_as(mock_hack_club_auth(uid: user.hca_id, slack_id: "U0ORPHEUS"))
+    user.update_columns(created_at: 10.minutes.ago, hackatime_trust_level: "red")
+
+    get about_path
+
+    assert_select "#sticker-promise", 0
+  end
+
   private
     def sign_in_as(_auth)
       post "/auth/hackclub"

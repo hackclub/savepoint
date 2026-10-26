@@ -39,11 +39,13 @@
           <div class="hero__cta cta-watch" data-dock-target="watch">
             <%= landing_join_cta User.participant_count %>
           </div>
-          <%# The sticker promise (D-051), above the fold: the sticker art in a round tile, and the offer. %>
-          <p class="promise" id="sticker-promise">
-            <span class="promise__art" aria-hidden="true"><%= image_tag "sticker-promise.svg", alt: "", width: 335, height: 432 %></span>
-            <span class="promise__text">Work on your game for <b>5 minutes</b> in your first hour. <b>Free stickers.</b></span>
-          </p>
+          <%# The sticker promise (D-051), above the fold: the sticker art in a round tile, and the offer. Signed-out visitors always see it; signed-in people only while they can still earn it. %>
+          <% if !signed_in? || onboarding_sticker_promise?(current_user) %>
+            <p class="promise" id="sticker-promise">
+              <span class="promise__art" aria-hidden="true"><%= image_tag "sticker-promise.svg", alt: "", width: 335, height: 432 %></span>
+              <span class="promise__text">Work on your game for <b>5 minutes</b> in your first hour. <b>Free stickers.</b></span>
+            </p>
+          <% end %>
           <div class="when">
             <div class="when__dates"><%= sp_icon "calendar-fill" %><span>Ends <%= tag.b utc_end_text, data: { controller: "local-time", local_time_at_value: Program::ENDS_AT.iso8601 } %></span></div>
             <%= render "pages/landing/countdown" %>

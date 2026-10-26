@@ -45,7 +45,7 @@ export default class extends Controller {
 
   #start() {
     this.#stop()
-    this.statusTarget.lastChild.textContent = "Checking Hackatime every 30 seconds"
+    this.statusTarget.hidden = true
     this.panelTarget.dataset.state = "waiting"
     this.timer = setInterval(() => this.check(), CHECK_EVERY)
     this.giveUp = setTimeout(() => this.#giveUp(), GIVE_UP_AFTER)
@@ -59,7 +59,7 @@ export default class extends Controller {
   #giveUp() {
     this.#stop()
     this.panelTarget.dataset.state = "stopped"
-    this.statusTarget.lastChild.textContent = "Stopped checking. Still nothing from your editor."
+    this.statusTarget.hidden = false
     this.againTarget.hidden = false
   }
 

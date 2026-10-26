@@ -9,10 +9,9 @@
   <div class="project__heartbeat-text" role="status" aria-live="polite">
     <h2 class="project__heartbeat-title" id="project-heartbeat-title" data-first-heartbeat-target="title">Waiting for your first heartbeat</h2>
     <p class="project__heartbeat-note" data-first-heartbeat-target="note">
-      Open your editor on your game and type for a minute. Hackatime counts it through its plugin, and your hours start here.
-      Not set up yet? <%= link_to "Set up the plugin", hackatime_url, target: "_blank", rel: "noopener" %>.
+      We haven't seen any time tracked yet, have you <%= link_to "set up hackatime", hackatime_url, target: "_blank", rel: "noopener" %> yet?
     </p>
-    <p class="project__heartbeat-status" data-first-heartbeat-target="status"><span class="project__heartbeat-dot" aria-hidden="true"></span>Checking Hackatime every 30 seconds</p>
+    <p class="project__heartbeat-status" data-first-heartbeat-target="status" hidden><span class="project__heartbeat-dot" aria-hidden="true"></span>Stopped checking. Still nothing from your editor.</p>
   </div>
   <button type="button" class="sp-btn sp-btn--gold sp-btn--sm project__heartbeat-again" data-first-heartbeat-target="again" data-action="first-heartbeat#again" hidden>Check again</button>
 </section>

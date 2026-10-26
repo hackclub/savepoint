@@ -151,6 +151,17 @@ module ProjectsHelper
     ]
   end
 
+  # D-078: in the last third of the program (Program::GOAL_SALIENCE_STARTS_AT) the page leads with the minutes left to the goal
+  # prize, while there are some.
+  def project_goal_left?(project)
+    Program.goal_salient? && project.tracking? && project.chosen_prize.present? && project.hours_to_go.positive?
+  end
+
+  # The same hours_to_go the Done by tile and the schedule use, in minutes.
+  def project_minutes_left(project)
+    (project.hours_to_go * 60).round
+  end
+
   # The Done by tile: reached, or the day you'd finish at your pace, never one after the deadline.
   def project_done_by(project)
     if project.hours_to_go.zero? then { label: "Done by", value: "Reached", note: "you've logged enough" }
@@ -235,7 +246,13 @@ module ProjectsHelper
   def project_schedule(project, today: project.user.streak_today_date)
     days = project.build_days(today:)
     deadline = project.deadline
-    target = project_day_time(project.pace_minutes * 60)
+    # Each day still to come takes your pace, but the last one only what's left of your goal.
+    left = project_minutes_left(project)
+    sessions = days.select { |day| day >= today }.to_h do |day|
+      minutes = left.positive? ? [ project.pace_minutes, left ].min : project.pace_minutes
+      left -= project.pace_minutes
+      [ day, project_day_time(minutes * 60) ]
+    end
     seconds = project.user.streak_activities.for_range(days.first..today).pluck(:activity_date, :coded_seconds).to_h
     cells = days.map.with_index do |day, index|
       label = index.zero? || day.day == 1 ? project_date(day) : day.day.to_s
@@ -244,15 +261,15 @@ module ProjectsHelper
       # Ahead of today a day shows the time it takes at your pace, with its marker (Goal, Party, Due) under it. Today
       # shows what you've built (its tooltip, of how much), or the time it takes while you've built nothing.
       state, value, note =
-        if day == today then [ "today", built.zero? ? target : project_day_time(built) ]
+        if day == today then [ "today", built.zero? ? sessions[day] : project_day_time(built) ]
         elsif day < today then [ how, built.zero? ? "0" : project_day_time(built) ]
-        elsif day == deadline then [ "due", "Due", (target unless index == days.size - 1) ]
-        elsif index == days.size - 1 then [ "goal", target, "Goal" ]
-        elsif day == Program::PLAY_PARTY_ON then [ "party", target, "Party" ]
-        else [ nil, target ]
+        elsif day == deadline then [ "due", "Due", (sessions[day] unless index == days.size - 1) ]
+        elsif index == days.size - 1 then [ "goal", sessions[day], "Goal" ]
+        elsif day == Program::PLAY_PARTY_ON then [ "party", sessions[day], "Party" ]
+        else [ nil, sessions[day] ]
         end
       { date: label, state:, value:, note:, built: (how if day == today && !built.zero?),
-        title: (day == today ? "#{project_day_time(built)} of #{target} today" : nil) }
+        title: (day == today ? "#{project_day_time(built)} of #{sessions[day]} today" : nil) }
     end
     cells = days.zip(cells).reject { |day, _| day > deadline }.map(&:last)
     if days.last < deadline
@@ -273,9 +290,10 @@ module ProjectsHelper
     safe_join([ tag.span(date.strftime("%b"), class: "project__event-month"), tag.span(date.day, class: "project__event-day") ])
   end
 
-  # "Today: 45 min, this evening"
+  # "Today: 45 min, this evening". Your pace, or what's left of your goal if that's less.
   def project_today(project)
-    "Today: #{project_pace_label(project.pace_minutes)}, #{BUILD_TIME_SOON.fetch(project.build_time)}"
+    minutes = project.hours_to_go.positive? ? [ project.pace_minutes, project_minutes_left(project) ].min : project.pace_minutes
+    "Today: #{project_pace_label(minutes)}, #{BUILD_TIME_SOON.fetch(project.build_time)}"
   end
 
   # When your streak was last checked with Hackatime: "Checked just now", "Checked 5 minutes ago".

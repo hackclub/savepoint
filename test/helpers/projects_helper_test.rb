@@ -93,6 +93,25 @@ class ProjectsHelperTest < ActionView::TestCase
     assert_equal "0", days[5][:value]
   end
 
+  test "today's pace and the last day's tile never exceed what's left of your goal" do
+    project = projects(:orpheus) # 45 min a day, evenings
+    with_hours_needed(1.0) do
+      assert_equal "Today: 45 min, this evening", project_today(project)
+      days = project_schedule(project, today: Date.new(2026, 10, 23))
+      assert_equal [ "45m", "15m" ], days.first(2).map { _1[:value] }, "the second session is only the 15 minutes left"
+      assert_equal "goal", days[1][:state]
+    end
+
+    with_hours_needed(0.5) do
+      assert_equal "Today: 30 min, this evening", project_today(project)
+      assert_equal "30m", project_schedule(project, today: Date.new(2026, 10, 23)).first[:value]
+    end
+
+    with_hours_needed(0.0) do
+      assert_equal "Today: 45 min, this evening", project_today(project), "nothing left to cap it"
+    end
+  end
+
   test "the schedule has a goal day, a gap and the deadline when your hours would be in well before it" do
     project = projects(:orpheus)
     project.update!(pace_minutes: 60)

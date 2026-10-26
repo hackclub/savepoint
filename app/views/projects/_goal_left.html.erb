@@ -4,7 +4,7 @@
   <span class="project__left-coin" aria-hidden="true"><%= sp_icon "flag-1-fill" %></span>
   <div class="project__left-text">
     <h2 class="project__left-title" id="project-left-title">
-      <span class="project__left-number"><%= project_minutes_left(project) %></span> min left to your <%= project.prize_name %>
+      <span class="project__left-number"><%= project_pace_label(project_minutes_left(project)) %></span> left to your <%= project.prize_name %>
     </h2>
     <p class="project__left-note"><%= project_hours_label(project, project.hours_unspent_logged) %> logged</p>
   </div>

@@ -508,8 +508,9 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
 
     travel_to(Program::GOAL_SALIENCE_STARTS_AT + 1.hour) do
       get project_path
-      assert_select ".project__left-title", /114 min left to your #{projects(:orpheus).prize_name}/ # 1.9 hrs of the 6.5 to go
+      assert_select ".project__left-title", /1 hr 54 min left to your #{projects(:orpheus).prize_name}/ # 1.9 hrs of the 6.5 to go
       assert_select ".project__left-pace", /45 min, this evening/
+      assert_select ".project__today-text h2", "Today: 45 min, this evening"
     end
   end
 
@@ -713,7 +714,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     next_step_page(hours: 1.5) do
       assert_select ".project__day-cell[data-state='']", minimum: 1
       assert_equal [ "45m" ], css_select(".project__day-cell[data-state=''] .project__day-value").map(&:text).uniq
-      assert_select ".project__day-cell[data-state=goal] .project__day-value", "45m"
+      assert_select ".project__day-cell[data-state=goal] .project__day-value", "30m", "the last day is what's left of the 5 hours"
       assert_select ".project__day-cell[data-state=goal] .project__day-note", "Goal"
     end
   end

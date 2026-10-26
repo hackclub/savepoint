@@ -3,7 +3,7 @@ module AdminMcp::Tools::Numbers
   class Metrics < AdminMcp::Tool
     reads "metrics", "Save Point's numbers",
           "What the Numbers page shows: each metric (funnel counts, hours, builders, bandit nudges, and more) per day for the last `days` days, " \
-          "the NPS of the last 7 days with the newest answers (score, who by public name, the three answers), and where sign-ups come from (UTM source, " \
+          "builders per day and how many of them also opened the site (D-076, from the day it shipped), the NPS of the last 7 days with the newest answers (score, who by public name, the three answers), and where sign-ups come from (UTM source, " \
           "medium and campaign: landing-page visits, sign-ups, rate, and the untagged ones). Participants only.",
           { days: { type: "integer", minimum: 1, maximum: 120, description: "How many of the latest days. Default 14." } }
 
@@ -12,7 +12,7 @@ module AdminMcp::Tools::Numbers
       shown = days.last(args[:days] || 14)
       { days: shown, metrics: Metric::DEFINITIONS.map { |definition| { key: definition.key, label: definition.label, cumulative: definition.cumulative,
                                                                          values: shown.map { values.dig(definition.key, it) } } },
-        nps: nps, utm: utm }
+        site_days: SiteDay.builders_by_date.last(args[:days] || 14), nps: nps, utm: utm }
     end
 
     def self.nps

@@ -52,7 +52,7 @@ class UtmCaptureTest < ActionDispatch::IntegrationTest
     Rails.configuration.x.admin_slack_ids = [ users(:orpheus).slack_id ]
     sign_in_as(users(:orpheus))
 
-    assert_no_difference -> { Visit.count } do
+    assert_no_difference -> { Visit.count + SiteDay.count } do
       get shop_path
       get admin_root_path
       post admin_user_impersonation_path(users(:ana))
@@ -70,6 +70,7 @@ class UtmCaptureTest < ActionDispatch::IntegrationTest
       assert_difference -> { Visit.count }, 1 do
         get shop_path
       end
+      assert_equal [ [ users(:ana).id, StreakActivity.streak_date_for(Time.current, users(:ana).timezone) ] ], SiteDay.pluck(:user_id, :date)
       assert_equal [ Time.current, "/shop" ], [ users(:ana).reload.last_seen_at, users(:ana).last_seen_path ]
     end
 

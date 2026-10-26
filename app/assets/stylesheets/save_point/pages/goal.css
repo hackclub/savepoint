@@ -1,0 +1,26 @@
+/* The project page's "you've earned it" popup (projects/_goal_popup). It is the shop's prize sheet (shop.css .order-sheet), so
+   the card, rays, wave and buttons are that file's. Concentric as there: the card is 28px with a 3px border (25px inside), and what
+   sits 14px in from its sides is 25 - 14 = 11px. The upsell card is that 11px, with a 2px border (9px inside); its "Keep going"
+   strip is flush with the card's inside (inset 0), so the card's own clip rounds it and the gap is 0 on every near side. */
+.order-sheet--goal { --radius-in: calc(var(--inner) - var(--inset)); }
+.order-sheet--goal .order-sheet__bottom[data-prize-sheet-target="details"] { padding-bottom: var(--inset); }
+.order-sheet--goal .order-sheet__actions { margin-top: 0; }
+
+.order-sheet--goal .order-sheet__bottom > .goal-popup__upsell:not(.never) { padding-inline: 0; }
+.goal-popup__upsell { display: grid; overflow: hidden; border: 2px solid var(--line-strong); border-radius: var(--radius-in, 11px); background: var(--surface); }
+.goal-popup__upsell-body { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; }
+.goal-popup__upsell-art { flex: none; display: grid; place-items: center; inline-size: 64px; block-size: 56px; font-size: 40px; color: var(--royal-ink); }
+.goal-popup__upsell-art img { max-inline-size: 100%; max-block-size: 100%; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(10, 16, 56, .25)); }
+.goal-popup__upsell-text { display: grid; gap: 2px; min-inline-size: 0; margin: 0; font: 800 15px/20px var(--font-body); color: var(--ink); }
+.goal-popup__upsell-text b { font: 900 italic 17px/20px var(--font-display); color: var(--gold-ink); font-variant-numeric: tabular-nums; }
+.goal-popup__upsell-form { display: grid; margin: 0; }
+.goal-popup__upsell-go { display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 44px; padding: 0 var(--space-4); border: 0; border-radius: 0; cursor: pointer;
+  color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); box-shadow: inset 0 2px 0 var(--gloss); font: 900 italic 19px/1 var(--font-display); }
+.goal-popup__upsell-go .sp-icon { font-size: 20px; }
+.goal-popup__upsell-go:hover { filter: brightness(1.06); }
+.goal-popup__upsell-go:active { filter: brightness(.95); }
+.goal-popup__upsell-go:focus-visible, .goal-popup__later:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.goal-popup__later { justify-self: center; min-block-size: 40px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-in, 11px); background: none; cursor: pointer;
+  font: 800 16px/20px var(--font-body); color: var(--royal-ink); text-decoration: underline; text-underline-offset: 3px; }
+.goal-popup__later:hover { color: var(--royal); }

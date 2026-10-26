@@ -1,0 +1,25 @@
+<%# The description and the link preview (Open Graph, which Slack reads, and Twitter's card). The image is
+    public/og-image-v4.png, a 1200x630 dark-mode card: the landing hero's own wavy-checker grid (the --wave-tile SVG and
+    the dark ramp from landing.css) with the logo centered in the middle square safe zone. Slack center-crops a link image
+    to a square, so the centered logo survives that crop while the full card shows on X and others. Its URL is absolute
+    because a crawler resolves nothing. Cloudflare caches /og-image*.png for a year, so a new card goes in a new file
+    (bump the -vN suffix) to get a fresh cache key.
+    A page sets its own title and description with content_for(:title) and content_for(:description). %>
+<% page_title = content_for(:title) || "Save Point" %>
+<% page_description = content_for(:description) || site_description %>
+<% image_url = "#{request.base_url}/og-image-v4.png" %>
+<meta name="description" content="<%= page_description %>">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Save Point">
+<meta property="og:title" content="<%= page_title %>">
+<meta property="og:description" content="<%= page_description %>">
+<meta property="og:url" content="<%= request.base_url + request.path %>">
+<meta property="og:image" content="<%= image_url %>">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Save Point by Hack Club: finish that game you started and get a Steam card, controller or keyboard.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<%= page_title %>">
+<meta name="twitter:description" content="<%= page_description %>">
+<meta name="twitter:image" content="<%= image_url %>">
+<meta name="twitter:image:alt" content="Save Point by Hack Club: finish that game you started and get a Steam card, controller or keyboard.">

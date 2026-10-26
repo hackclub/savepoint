@@ -1,0 +1,76 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Redirect",
+      "warning_code": 18,
+      "fingerprint": "18254b75ca2695e71abc4ca14cf4df18452b5441d69a968a9326d845c8501a51",
+      "check_name": "Redirect",
+      "message": "Possible unprotected redirect",
+      "file": "app/controllers/nudge_links_controller.rb",
+      "line": 10,
+      "code": "redirect_to(Nudge.includes(:user).find_by(:token => params[:token]).destination_url, :allow_other_host => true)",
+      "confidence": "Weak",
+      "note": "destination_url is written by the server when it builds a nudge (Nudge), never taken from the request."
+    },
+    {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 4,
+      "fingerprint": "33bbc4fcf595738a519deee76a81b1f1be6f8609d10636802bac2b185221dccb",
+      "check_name": "LinkToHref",
+      "message": "Potentially unsafe model attribute in `link_to` href",
+      "file": "app/views/admin/ships/show.html.erb",
+      "line": 39,
+      "code": "link_to(Ship.includes(:decided_by, :project => :user).find(params[:id]).demo_url, Ship.includes(:decided_by, :project => :user).find(params[:id]).demo_url, :target => \"_blank\", :rel => \"noopener\")",
+      "confidence": "Weak",
+      "note": "Project and Ship only accept http(s) links (Project validates repo_url, Ship::URL), so the href can't be javascript:."
+    },
+    {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 4,
+      "fingerprint": "654578402bcd5583656d98933481a2d8d82873d427aaea7b5d8301f558d949cf",
+      "check_name": "LinkToHref",
+      "message": "Potentially unsafe model attribute in `link_to` href",
+      "file": "app/views/admin/projects/show.html.erb",
+      "line": 60,
+      "code": "link_to(Project.includes(:user, :ships => :decided_by).find(params[:id]).repo_url, Project.includes(:user, :ships => :decided_by).find(params[:id]).repo_url, :target => \"_blank\", :rel => \"noopener\")",
+      "confidence": "Weak",
+      "note": "Project and Ship only accept http(s) links (Project validates repo_url, Ship::URL), so the href can't be javascript:."
+    },
+    {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 4,
+      "fingerprint": "7f29641c749ce86076a022c95faa7910c0fe7f7afc85b254466ae3ed1e8c49a4",
+      "check_name": "LinkToHref",
+      "message": "Potentially unsafe model attribute in `link_to` href",
+      "file": "app/views/admin/ships/show.html.erb",
+      "line": 38,
+      "code": "link_to(Ship.includes(:decided_by, :project => :user).find(params[:id]).repo_url, Ship.includes(:decided_by, :project => :user).find(params[:id]).repo_url, :target => \"_blank\", :rel => \"noopener\")",
+      "confidence": "Weak",
+      "note": "Project and Ship only accept http(s) links (Project validates repo_url, Ship::URL), so the href can't be javascript:."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "aab13fa28f045ac7024dcab4a8a205cfd408d4208cf6cb6d05bbc2d8ec8f7be9",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/mcp/admin_mcp/tools/analytics.rb",
+      "line": 58,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "ActiveRecord::Base.connection.exec_query(\"select * from (select * from (\\n#{AdminMcp::SqlGuard.check(args[:sql], :schemas => ActiveRecord::Base.connection.select_values(\"select nspname from pg_namespace\"))}\\n) as mcp_query limit #{((args[:max_rows] or 500).clamp(1, 500) + 1)}) as mcp_capped where case when pg_column_size(mcp_capped.*) > #{256000} then ('#{\"mcp_row_too_large\"}' || pg_column_size(mcp_capped.*))::int else 1 end = 1\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "AdminMcp::Tools::Analytics::QuerySql",
+        "method": "self.run"
+      },
+      "user_input": "AdminMcp::SqlGuard.check(args[:sql], :schemas => ActiveRecord::Base.connection.select_values(\"select nspname from pg_namespace\"))",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "query_sql runs the admin's own SELECT on purpose (D-046): AdminMcp::SqlGuard checks its text, and it runs in a read-only transaction over the insights schema."
+    }
+  ],
+  "brakeman_version": "8.1.0"
+}

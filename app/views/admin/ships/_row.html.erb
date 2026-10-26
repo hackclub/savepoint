@@ -1,0 +1,24 @@
+<%# locals: (ship:) %>
+<%# One ship in the list: who, their project, what they shipped (a link to it in full), the hours it took, when, and
+    where it stands. %>
+<% project = ship.project %>
+<% user = project.user %>
+<tr id="<%= dom_id(ship) %>" data-status="<%= ship.status %>">
+  <th scope="row">
+    <%= admin_avatar_link(user, "admin__avatar") %>
+    <%= admin_person_link(user) %>
+    <small class="admin__muted"><%= user.email %><% if user.slack_display_name.present? %> · <%= name_with_slack(user, name: user.slack_display_name) %><% end %></small>
+  </th>
+  <td>
+    <%= link_to ship.title, admin_ship_path(ship) %>
+    <small class="admin__muted"><%= ship.hackatime_projects.join(", ").presence || "no Hackatime project" %></small>
+  </td>
+  <td class="leaderboard__number"><%= project_hours(ship.hours) %></td>
+  <td><%= ship.created_at.strftime("%b %-d") %></td>
+  <td data-decision="<%= ship.status %>">
+    <span class="pg-admin-ships__status"><%= ship_status_label(ship) %></span>
+    <% unless ship.pending? %>
+      <small class="admin__muted"><%= ship.decided_by&.first_name.presence || "someone" %> · <%= ship.decided_at.strftime("%b %-d") %></small>
+    <% end %>
+  </td>
+</tr>

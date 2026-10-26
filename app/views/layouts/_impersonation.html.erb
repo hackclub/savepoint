@@ -1,0 +1,10 @@
+<%# An admin's seeing the site as someone (Admin::ImpersonationsController). Floats over the sheet, like Sheets'
+    "Saving…" snackbar, since the sheet takes the whole viewport. %>
+<div class="impersonation" role="status">
+  <span class="impersonation__text">
+    Viewing as <strong><%= current_user.name.presence || current_user.public_name %></strong>
+    <span class="impersonation__detail">(you're <%= true_user&.first_name.presence || "an admin" %>)</span>
+  </span>
+  <%= button_to "Stop", admin_impersonation_path, method: :delete, class: "impersonation__stop",
+        form: { class: "impersonation__form", data: { turbo: false } } %>
+</div>

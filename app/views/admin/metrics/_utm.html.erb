@@ -1,0 +1,35 @@
+<%# locals: (utm:) %>
+<%# Where sign-ups come from (UtmStats, D-043): landing visits and sign-ups per source, medium and campaign. Styled in
+    admin-metrics.css. %>
+<section class="am__utm" aria-labelledby="am-utm-title">
+  <h2 id="am-utm-title">Where sign-ups come from</h2>
+  <% if !utm.any? %>
+    <p class="am__note">No tagged visits yet. A link with <code>?utm_source=…</code> on it records one.</p>
+  <% else %>
+    <p class="am__note">A visit is a load of the landing page (<code>/</code>), so one person can count more than once. Sign-ups carry the first tags their browser saw, and leave out admins.</p>
+    <div class="am__panel">
+      <div class="am__scroll" tabindex="0" role="region" aria-label="Sign-ups by UTM tags">
+        <table class="am__table am__utm-table">
+          <thead>
+            <tr><th scope="col">Source</th><th scope="col">Medium</th><th scope="col">Campaign</th>
+              <th class="am__num" scope="col">Visits</th><th class="am__num" scope="col">Sign-ups</th><th class="am__num" scope="col">Sign-ups per visit</th></tr>
+          </thead>
+          <tbody>
+            <% utm.rows.each do |row| %>
+              <tr>
+                <td><%= row.source || "—" %></td><td><%= row.medium || "—" %></td><td><%= row.campaign || "—" %></td>
+                <td class="am__num"><%= row.visits %></td><td class="am__num"><%= row.signups %></td>
+                <td class="am__num"><%= row.rate ? number_to_percentage(row.rate, precision: 0) : "—" %></td>
+              </tr>
+            <% end %>
+            <tr>
+              <th scope="row" colspan="3">No tags</th>
+              <td class="am__num"><%= utm.untagged_visits %></td><td class="am__num"><%= utm.untagged %></td>
+              <td class="am__num"><%= utm.untagged_rate ? number_to_percentage(utm.untagged_rate, precision: 0) : "—" %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</section>

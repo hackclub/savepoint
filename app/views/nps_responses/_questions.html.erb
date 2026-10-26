@@ -1,0 +1,29 @@
+<%# locals: (nps:, idp: "nps") %>
+<%# The NPS questions (NpsResponse::QUESTIONS): the score from 0 to 10 as a row of boxes, then the text questions, the
+    optional one last. The send button of the form around them stays off until each required part has an answer
+    (nps_form_controller.js), and the hint says what is missing. idp keeps ids apart when two forms share a page. %>
+<div class="nps__questions" data-controller="nps-form" data-action="input->nps-form#check change->nps-form#check">
+  <fieldset class="nps__score sp-fieldset">
+    <legend class="sp-label">How likely are you to recommend Save Point to a friend? <span class="nps__star" aria-hidden="true">*</span></legend>
+    <div class="nps__boxes">
+      <% NpsResponse::SCORES.each do |score| %>
+        <label class="nps__box">
+          <%= radio_button_tag "nps_response[score]", score, nps.score == score, id: "#{idp}_score_#{score}", required: true %>
+          <span><%= score %></span>
+        </label>
+      <% end %>
+    </div>
+    <p class="nps__ends" aria-hidden="true"><span>0 = not at all</span><span>10 = very likely</span></p>
+  </fieldset>
+  <% NpsResponse::QUESTIONS.each do |key, question| %>
+    <div class="sp-field">
+      <label class="sp-label" for="<%= idp %>_<%= key %>">
+        <%= question[:label] %>
+        <%= question[:required] ? tag.span("*", class: "nps__star", aria: { hidden: true }) : tag.span("Optional", class: "nps__optional") %>
+      </label>
+      <%= text_area_tag "nps_response[#{key}]", nps[key], id: "#{idp}_#{key}", rows: question[:required] ? 3 : 2,
+                        maxlength: NpsResponse::MAX_LENGTH, required: question[:required], class: "sp-input" %>
+    </div>
+  <% end %>
+  <p class="sp-help nps__hint" data-nps-form-target="hint">Pick a number and fill in the * ones to send.</p>
+</div>

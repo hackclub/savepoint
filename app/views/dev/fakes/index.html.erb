@@ -1,0 +1,138 @@
+<% content_for :title, "Fake people · Save Point dev" %>
+<% content_for :stylesheets, " save_point/prize_tag save_point/pages/project" %>
+
+<%# Development only. The fake people from bin/rails dev:fake. "View as" is the admin impersonation: Stop in the strip
+    at the bottom brings you back. %>
+<div class="sp-page">
+  <main class="sp-container" style="padding-block: 32px; display: grid; gap: 20px;">
+    <h1>Fake people</h1>
+    <% if flash[:notice] %><p class="sp-toast sp-toast--gold"><%= flash[:notice] %></p><% end %>
+    <% if flash[:alert] %><p class="sp-toast sp-toast--coral" role="alert"><%= flash[:alert] %></p><% end %>
+    <% if impersonating? %>
+      <p class="sp-toast sp-toast--gold">You're viewing as <%= current_user.public_name %>. Stop in the strip at the bottom to come back.</p>
+    <% end %>
+
+    <section class="sp-panel" style="padding: 20px; display: grid; gap: 12px;">
+      <h2>Pretend it's day N</h2>
+      <p>
+        <% if session[:dev_now] %>Pretending it's <b><%= Time.current.utc.strftime("%b %-d, %H:%M") %> UTC</b>: <%= Program.day_label %>.
+        <% else %>Now is the real time (<%= Time.current.utc.strftime("%b %-d, %H:%M") %> UTC): <%= Program.day_label %>.<% end %>
+        Save Point runs <%= Program::STARTS_AT.utc.strftime("%b %-d, %H:%M") %> to <%= Program::ENDS_AT.utc.strftime("%b %-d, %H:%M") %> UTC.
+      </p>
+      <%= form_with url: dev_clock_path, method: :post, data: { turbo: false }, style: "display: flex; gap: 8px; flex-wrap: wrap;" do %>
+        <%= select_tag :now, options_for_select(DevClock.options.map { |label, time| [ label, time.iso8601 ] }, session[:dev_now]), include_blank: "Real time" %>
+        <%= submit_tag "Go", class: "sp-btn sp-btn--royal" %>
+      <% end %>
+      <p>Development only: the choice lives in your session, and every page you open runs inside <code>travel_to</code>. It
+        does not exist in production or tests. Note <code>bin/rails dev:fake</code> seeds hours on all 11 program dates, so
+        totals include days that are still ahead until you pretend you're past them.</p>
+    </section>
+
+    <%# Walk through the goal and the shop on your own project. The hours are pretend: logged ones come through the fake Hackatime,
+        approved ones are a made-up approved ship. Levels are a percent of your goal prize's hours. %>
+    <% mine = @me&.project %>
+    <section class="sp-panel" style="padding: 20px; display: grid; gap: 12px;">
+      <h2>My hours and prizes</h2>
+      <% if mine %>
+        <% goal_hours = mine.hours_needed %>
+        <p>Goal: <b><%= mine.prize_short %></b>, <%= project_hours(goal_hours) %> hrs. Logged <b><%= project_hours(mine.hours_logged) %></b>,
+          approved to spend <b><%= project_hours(mine.hours_to_spend) %></b>, spent <b><%= project_hours(mine.hours_spent) %></b>
+          (<%= pluralize(mine.orders.size, "order") %>).</p>
+        <% { "logged" => "Set my logged hours", "approved" => "Set my approved hours" }.each do |kind, title| %>
+          <div style="display: grid; gap: 6px;">
+            <h3><%= title %></h3>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <% Dev::MyProject::PERCENTS.each do |percent| %>
+                <%= button_to "#{percent}% · #{project_hours(Dev::MyProject.hours_at(goal_hours, percent).to_f)} hrs", dev_hours_path(kind:, percent:), class: "sp-btn sp-btn--sm sp-btn--royal", form: { data: { turbo: false } } %>
+              <% end %>
+              <% if kind == "logged" %><%= button_to "Back to made-up hours", dev_hours_path(kind: "auto"), class: "sp-btn sp-btn--sm sp-btn--ghost", form: { data: { turbo: false } } %><% end %>
+            </div>
+          </div>
+        <% end %>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <%= button_to "Reset my orders", dev_reset_orders_path, class: "sp-btn sp-btn--sm sp-btn--coral", form: { data: { turbo: false } } %>
+          <%= button_to "Show goal popup again", dev_reset_goal_popup_path, class: "sp-btn sp-btn--sm sp-btn--gold", form: { data: { turbo: false } } %>
+          <%= link_to "My project", project_path, class: "sp-btn sp-btn--sm sp-btn--ghost" %>
+          <%= link_to "Shop", shop_path, class: "sp-btn sp-btn--sm sp-btn--ghost" %>
+        </div>
+        <p>Development only. Pinned logged hours are kept in <code>tmp/dev_pinned_hours.json</code> and survive syncs. The popup shows when
+          your approved hours cover your goal and you haven't claimed it, once per goal.</p>
+      <% else %>
+        <p>Sign in and set up your project first.</p>
+      <% end %>
+    </section>
+
+    <% if mine %>
+      <section class="sp-panel" style="padding: 20px; display: grid; gap: 28px;">
+        <h2>The hours bar at every level</h2>
+        <p>The real hours bar for your goal, the <%= mine.prize_short %>, drawn at each level of its <%= project_hours(mine.hours_needed) %> hrs.</p>
+        <% [ 0, 10, 25, 50, 75, 99, 100, 130 ].each do |percent| %>
+          <% hours = Dev::MyProject.hours_at(mine.hours_needed, percent).to_f %>
+          <div class="pg-project" style="min-height: 0; padding: 0; background: none;">
+            <h3 style="margin: 0 0 8px;"><%= percent %>% · <%= project_hours(hours) %> hrs</h3>
+            <%= render "projects/hours_track", project: mine, logged: hours %>
+          </div>
+        <% end %>
+      </section>
+    <% end %>
+
+    <section class="sp-panel" style="padding: 20px; display: grid; gap: 12px;">
+      <h2>Make a buddy</h2>
+      <% if @invite %>
+        <p>Your invite link: <code><%= @invite %></code></p>
+        <p>Open it as a fake person: View as one below who has no buddy, open the link, accept, then Stop. Or skip that:</p>
+        <%= button_to "A fake person accepts my invite", dev_buddy_path, class: "sp-btn sp-btn--royal", form: { data: { turbo: false } } %>
+      <% else %>
+        <p>Sign in and set up your project first.</p>
+      <% end %>
+    </section>
+
+    <section class="sp-panel" style="padding: 20px;">
+      <h2 style="margin-top: 0;">Sticker promise (D-051)</h2>
+      <p>Walk the whole thing: a fresh sign-up (the first hour starts then), onboarding, five fake minutes on the game, the claim, and the waiting order on <%= link_to "/admin/orders", admin_orders_path %>.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <%= button_to "Fresh sign-up (become a brand-new fake)", dev_sticker_fresh_path, class: "sp-btn sp-btn--royal", form: { data: { turbo: false } } %>
+        <%= button_to "Log 5 fake minutes in my first hour", dev_sticker_minutes_path(minutes: 5), class: "sp-btn sp-btn--gold", form: { data: { turbo: false } } %>
+        <%= button_to "Log 4 (not enough)", dev_sticker_minutes_path(minutes: 4), class: "sp-btn sp-btn--ghost", form: { data: { turbo: false } } %>
+      </div>
+      <% if @me %>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px;">
+          <%= button_to(@me.ysws_eligible? ? "Make me ineligible" : "Make me eligible", dev_sticker_eligible_path, class: "sp-btn sp-btn--ghost", form: { data: { turbo: false } }) %>
+          <%= button_to(@me.hackatime_banned? ? "Unban me" : "Hackatime-ban me", dev_sticker_ban_path, class: "sp-btn sp-btn--ghost", form: { data: { turbo: false } }) %>
+          <span>Now: <b><%= @me.ysws_eligible? ? "eligible" : "not eligible" %>, trust <%= @me.hackatime_trust_level.presence || "unknown" %></b>
+            (<%= @me.sticker_eligible? ? "stickers on" : "stickers off" %>)</span>
+        </div>
+      <% end %>
+      <p style="margin-bottom: 0;"><small>The minutes land just after the account was made, so they only earn on an account younger than an hour (the seeded fakes are too old, and the gate needs <code>STICKERS_SINCE</code> in <code>.env</code> to reach today).</small></p>
+    </section>
+
+    <section class="sp-panel" style="padding: 20px;">
+      <% if @people.empty? %>
+        <p>Nobody yet. Run <code>bin/rails dev:fake</code>.</p>
+      <% else %>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead><tr style="text-align: left;"><th>Who</th><th>Game</th><th>Hours</th><th>Streak</th><th>Buddy</th><th></th></tr></thead>
+          <tbody>
+            <% @people.each do |person| %>
+              <% project = person.project %>
+              <tr>
+                <td><%= avatar_tag(person) %> <%= person.public_name %></td>
+                <td><%= project&.title %></td>
+                <td><%= project&.hours_logged %></td>
+                <td><%= person.current_streak %></td>
+                <td><%= project&.buddy ? project.buddy.user.public_name : (project&.buddy_invited? ? "invite out" : "none") %></td>
+                <td>
+                  <%= button_to "Be them", dev_take_over_path(person), class: "sp-btn sp-btn--ghost", form: { data: { turbo: false } } %>
+                  <% unless impersonating? %>
+                    <%= button_to "View as", admin_user_impersonation_path(person), class: "sp-btn sp-btn--ghost", form: { data: { turbo: false } } %>
+                  <% end %>
+                  <% if project %><%= link_to "Invite link", buddy_invite_path(project.buddy_code!), class: "sp-btn sp-btn--ghost" %><% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </section>
+  </main>
+</div>

@@ -1,0 +1,56 @@
+<%# One line chart, a slot per day of Save Point so it lines up with the columns: `rows` (one per day, with :date and
+    the series' keys, nil where there's nothing yet) drawn as `series` (key, label, colour token, dashed?). Every
+    day is a hit target that shows all the series' values; the ends are labelled; the table has it all. %>
+<% percent = local_assigns.fetch(:percent, false) %>
+<% axis_max = percent ? 1 : stat_axis_max(rows.flat_map { |row| series.map { |one| row[one[:key]] } }.compact.max) %>
+<% format = ->(value) { percent ? stat_percent(value) : stat(value.is_a?(Float) ? value.round(1) : value) } %>
+<div class="stats__lines">
+  <div class="stats__grid" aria-hidden="true">
+    <% [ axis_max, axis_max / 2.0, 0 ].each do |tick| %>
+      <span><%= percent ? number_to_percentage(tick * 100, precision: 0) : number_with_delimiter(tick % 1 == 0 ? tick.to_i : tick) %></span>
+    <% end %>
+  </div>
+  <svg class="stats__lines-svg" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    <% series.each do |one| %>
+      <% stat_line_runs(rows, one[:key], axis_max).each do |points| %>
+        <polyline class="stats__line" points="<%= points %>" style="--series: var(--<%= one[:color] %>)" <%= tag.attributes(stroke_dasharray: "6 4") if one[:dashed] %> />
+      <% end %>
+    <% end %>
+  </svg>
+  <div class="stats__lines-ends" aria-hidden="true">
+    <% stat_line_ends(rows, series, axis_max).each do |one| %>
+      <span class="<%= class_names("stats__line-end", "stats__line-end--flip" => one[:x] > 80) %>" style="left: <%= one[:x].round(2) %>%; top: <%= one[:y] %>%; --series: var(--<%= one[:series][:color] %>)">
+        <i></i><%= format.call(one[:value]) %>
+      </span>
+    <% end %>
+  </div>
+  <div class="stats__hits">
+    <% rows.each do |row| %>
+      <% date = row[:date].strftime("%b %-d") %>
+      <% values = series.filter_map { |one| "#{one[:label]} #{format.call(row[one[:key]])}" unless row[one[:key]].nil? } %>
+      <% tip = values.any? ? "#{date}: #{values.join(', ')}" : "#{date}: still to come" %>
+      <div class="stats__hit" tabindex="0" data-tooltip="<%= tip %>" aria-label="<%= tip %>">
+        <span class="stats__column-date"><%= row[:date].day %></span>
+      </div>
+    <% end %>
+  </div>
+</div>
+<ul class="stats__legend">
+  <% series.each do |one| %>
+    <li><span class="<%= class_names("stats__legend-key", "stats__legend-key--dashed" => one[:dashed]) %>" style="--series: var(--<%= one[:color] %>)"></span> <%= one[:label] %></li>
+  <% end %>
+</ul>
+<details class="stats__table-view">
+  <summary><%= sp_icon "down-fill" %>Show as a table</summary>
+  <div class="stats__scroll">
+  <table class="leaderboard__table">
+    <thead><tr><th scope="col">Day</th><% series.each do |one| %><th class="leaderboard__number" scope="col"><%= one[:label] %></th><% end %></tr></thead>
+    <tbody>
+      <% rows.each do |row| %>
+        <% next if series.all? { |one| row[one[:key]].nil? } %>
+        <tr><th scope="row"><%= row[:date].strftime("%b %-d") %></th><% series.each do |one| %><td class="leaderboard__number"><%= row[one[:key]].nil? ? "" : format.call(row[one[:key]]) %></td><% end %></tr>
+      <% end %>
+    </tbody>
+  </table>
+  </div>
+</details>

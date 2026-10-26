@@ -1,0 +1,5 @@
+/* The page between Hack Club sign-in and Hackatime (sessions/hackatime_step). One small centred panel. */
+.pg-sign-in-hackatime { display: grid; place-items: center; padding: var(--space-8) 16px; }
+.pg-sign-in-hackatime .sign-in-hackatime { width: min(100%, 440px); justify-items: start; }
+.pg-sign-in-hackatime .sign-in-hackatime p { margin: 0; font: 700 16px/1.5 var(--font-body); color: var(--ink-muted); }
+.pg-sign-in-hackatime .sign-in-hackatime form { max-width: 100%; }

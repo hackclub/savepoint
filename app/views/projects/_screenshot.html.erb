@@ -1,0 +1,22 @@
+<%# locals: (project:) %>
+<%# A screenshot of your game: pick one and it uploads; click it again to replace it. %>
+<% saved = project.screenshot.attached? && project.screenshot.blob.persisted? %>
+<%= form_with model: project, url: project_path, method: :patch, multipart: true, class: "project__shot",
+      data: { controller: "project-screenshot" } do |form| %>
+  <label class="project__shot-slot" <%= "data-filled" if saved %>>
+    <% if saved %>
+      <%= image_tag url_for(project.screenshot), alt: "Screenshot of #{project.title}", class: "project__shot-image" %>
+      <span class="project__shot-replace"><%= sp_icon "upload-2-fill" %>Replace screenshot</span>
+    <% else %>
+      <span class="project__shot-placeholder"><%= sp_icon "pic-fill" %>Add a screenshot</span>
+    <% end %>
+    <%= form.file_field :screenshot, accept: Project::SCREENSHOT_TYPES.join(","), class: "visually-hidden",
+          data: { action: "project-screenshot#upload" } %>
+  </label>
+  <noscript><%= form.button "Upload", class: "sp-btn sp-btn--sm" %></noscript>
+  <% if project.errors[:screenshot].any? %>
+    <span class="project__shot-error" role="alert"><%= project.errors.full_messages_for(:screenshot).first %></span>
+  <% else %>
+    <span class="project__shot-note">Shows on the leaderboard and your ship post.</span>
+  <% end %>
+<% end %>

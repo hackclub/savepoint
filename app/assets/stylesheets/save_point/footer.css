@@ -1,0 +1,45 @@
+/* The footer on every participant page (shared/_footer): the landing page's, the last step of its colour ramp, the
+   deepest navy and the quietest zone: no pattern, only its vignette. Loads on every page, after tokens and components.
+   The landing page tucks it under the FAQ's slanted foot (landing.css); other pages sit it at the bottom of the screen. */
+.zone--foot {
+  position: relative; isolation: isolate; padding-top: 64px;
+  --foot-vignette: radial-gradient(ellipse farthest-corner at 50% 30%, transparent 0, transparent 50%, color-mix(in oklch, oklch(0.17 0.13 270) 22%, transparent) 64%, color-mix(in oklch, oklch(0.17 0.13 270) 55%, transparent) 80%, color-mix(in oklch, oklch(0.17 0.13 270) 100%, transparent) 100%);
+}
+.zone--foot::before, .zone--foot::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.zone--foot::before { background: var(--foot-vignette), oklch(0.15 0.12 270); background-blend-mode: multiply, normal; }
+.zone--foot::after { display: none; }
+.zone--foot > .wrap { width: 100%; max-width: var(--content-max); margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 600px) { .zone--foot > .wrap { padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); } }
+.foot { display: grid; gap: var(--space-3); justify-items: center; padding-block: var(--space-12) calc(var(--space-8) + env(safe-area-inset-bottom, 0px)); text-align: center; color: #c7d0f5; font-size: 14px; line-height: 20px; }
+.foot a { color: var(--gold-hi); }
+.foot p { margin: 0; }
+.foot .muted { color: color-mix(in oklch, #c7d0f5 72%, transparent); }
+
+/* Every page but the landing page: the page grows to fill the screen, so a short page leaves the footer at the bottom. */
+body.sp-has-foot { display: flex; flex-direction: column; min-height: 100dvh; box-sizing: border-box; }
+.sp-shell { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
+.sp-shell__page { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
+body .sp-shell__page > * { flex: 1 0 auto; min-height: 0; }
+.sp-shell > .zone--foot { flex: none; }
+
+/* Every page but the landing page: no dark zone, only the two lines on the page's own checker, with modest space around
+   them. Light-background colours from the tokens: navy links (underlined), a muted second line. Scoped to .foot--plain so
+   the landing footer above is untouched. */
+.wrap-plain { width: 100%; max-width: var(--content-max); margin-inline: auto; box-sizing: border-box;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)); }
+@media (min-width: 600px) { .wrap-plain { padding-inline: max(24px, env(safe-area-inset-left, 0px)); } }
+.foot.foot--plain { padding-block: var(--space-10) calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); color: var(--ink-muted); }
+.foot--plain a { color: var(--royal-ink); font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: color-mix(in oklch, currentColor 40%, transparent); }
+.foot--plain a:hover { text-decoration-color: currentColor; }
+.foot--plain .muted { color: var(--ink-muted); }
+.sp-shell > .wrap-plain { flex: none; }
+/* The checker runs under the footer too: the shell carries the same ground as .sp-page (components.css), aligned to it. */
+.sp-shell {
+  background-color: var(--sky);
+  background-image:
+    linear-gradient(45deg, var(--sky-check) 25%, transparent 25%, transparent 75%, var(--sky-check) 75%),
+    linear-gradient(45deg, var(--sky-check) 25%, transparent 25%, transparent 75%, var(--sky-check) 75%);
+  background-size: 48px 48px;
+  background-position: 0 0, 24px 24px;
+}

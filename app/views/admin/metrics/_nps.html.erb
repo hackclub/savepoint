@@ -1,0 +1,49 @@
+<%# locals: (nps:) %>
+<%# How likely participants are to recommend Save Point (NpsStats): the NPS of the last 7 days, the three groups, and
+    the newest written answers, one card per answer (score, person, when, where from, then each question that was
+    answered). Styled in admin-metrics.css. %>
+<section class="am__nps" aria-labelledby="am-nps-title">
+  <h2 id="am-nps-title">Would they recommend Save Point?</h2>
+  <% if !nps.any? %>
+    <p class="am__note">Nobody has answered yet. Participants answer when they ship, and the project page asks every 12 hours.</p>
+  <% else %>
+    <% week = nps.last_7_days %>
+    <p class="am__note">NPS is the share of promoters minus the share of detractors, from -100 to 100. Each person counts once, by their latest answer in the 7 days. Days are UTC.</p>
+    <div class="am__nps-summary">
+      <div class="am__nps-headline"><span class="am__nps-big"><%= nps_value(week.nps) %></span><span>NPS, last 7 days</span></div>
+      <% if week.people.zero? %>
+        <p class="am__note">Nobody answered in the last 7 days.</p>
+      <% else %>
+        <table class="am__nps-groups">
+          <% { "promoter" => [ "Promoters, 9 or 10", week.promoters ], "passive" => [ "Passives, 7 or 8", week.passives ],
+               "detractor" => [ "Detractors, 0 to 6", week.detractors ] }.each do |group, (label, count)| %>
+            <tr><th scope="row"><span class="am__nps-key am__nps-key--<%= group %>"></span><%= label %></th><td><%= count %></td><td><%= number_to_percentage(100.0 * count / week.people, precision: 0) %></td></tr>
+          <% end %>
+          <tr><th scope="row">People who answered</th><td><%= week.people %></td><td></td></tr>
+        </table>
+      <% end %>
+    </div>
+
+    <h3>The latest answers</h3>
+    <div class="am__panel">
+      <ol class="am__nps-answers" aria-label="The latest NPS answers">
+        <% nps.latest.each do |answer| %>
+          <li class="am__nps-card">
+            <header class="am__nps-card-head">
+              <span class="am__nps-pill am__nps-pill--<%= nps_group(answer.score) %>" title="<%= nps_group(answer.score) %>"><%= answer.score %></span>
+              <span class="am__nps-who"><%= link_to answer.user.public_name, admin_user_path(answer.user), class: "admin-person" %></span>
+              <span class="am__nps-meta"><%= answer.created_at.utc.strftime("%b %-d, %H:%M") %> UTC</span>
+              <span class="am__nps-meta"><%= answer.source == "ship" ? "Ship#{" (#{answer.project.title})" if answer.project}" : "Popup" %></span>
+            </header>
+            <dl class="am__nps-qa">
+              <% NpsResponse::QUESTIONS.each do |key, question| %>
+                <% next if answer[key].blank? %>
+                <div><dt><%= question[:label] %></dt><dd class="am__nps-text"><%= answer[key] %></dd></div>
+              <% end %>
+            </dl>
+          </li>
+        <% end %>
+      </ol>
+    </div>
+  <% end %>
+</section>

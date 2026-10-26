@@ -1,0 +1,61 @@
+/* The prize tag: the hanging card from _shop_shapes, drawn by shared/_prize_tag. The landing page's shop and /shop both use
+   it, and _shop_shapes loads this file. Loads after save_point/tokens and save_point/components. */
+
+/* The card is the tag drawn in _shop_shapes. Everything on it is placed in its own units: 1cqw is 4 of the
+   drawing's 400, and the drawing starts 40 above the tag for the clip. */
+.shop-card { --sc-card: var(--surface); --sc-outline: url(#sp-navy-line); --sc-lip: var(--frame-lip); --sc-band: var(--frame); --sc-price-line: var(--line);
+  --sc-muted: #3a4690; /* the price panel is light in both themes */
+  --sc-panel: color-mix(in srgb, var(--mint) 82%, #ffffff); --sc-panel-line: var(--mint-line); --sc-dots: var(--mint-line); --sc-light: color-mix(in srgb, var(--mint-hi) 45%, #ffffff);
+  position: relative; display: block; width: 100%; aspect-ratio: 400 / 594; container-type: inline-size; padding: 0; border: 0; background: none;
+  font: inherit; color: var(--ink); text-align: center; cursor: pointer; transform-origin: 65% 2%;
+  transition: transform 260ms cubic-bezier(.3, 1.6, .5, 1); -webkit-tap-highlight-color: transparent; }
+.shop-card--rare { --sc-panel: var(--royal-hi); --sc-panel-line: var(--royal); --sc-dots: var(--royal); --sc-light: color-mix(in srgb, var(--logo-fill) 70%, #ffffff); }
+.shop-card--epic { --sc-panel: color-mix(in srgb, var(--violet) 85%, #ffffff); --sc-panel-line: color-mix(in srgb, var(--violet) 55%, var(--violet-ink));
+  --sc-dots: var(--sc-panel-line); --sc-light: color-mix(in srgb, var(--violet) 30%, #ffffff); }
+/* tag_swing_controller.js sets --swing as the cursor moves across a tag. `rotate` composes with the tilt below. */
+.shop-card { rotate: var(--swing, 0deg); }
+@media (prefers-reduced-motion: reduce) { .shop-card { rotate: none; } }
+.shop-card:hover { transform: rotate(-2.5deg); }
+.shop-card:nth-child(even):hover { transform: rotate(2.5deg); }
+.shop-card:active { transform: scale(.97); }
+.shop-card:focus-visible { outline: none; }
+.shop-card:focus-visible .shop-card__shape { filter: drop-shadow(0 0 0 var(--royal-lip)) drop-shadow(0 0 3px var(--royal-lip)) drop-shadow(0 1.6cqw 1.6cqw rgba(10, 16, 56, .2)); }
+.shop-card > span { position: absolute; }
+.shop-card__shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1.6cqw 1.6cqw rgba(10, 16, 56, .2)); }
+
+.shop-card__art { left: 10cqw; top: 39cqw; width: 80cqw; height: 51cqw; display: flex; align-items: center; justify-content: center; font-size: 22cqw; color: var(--on-royal); }
+.shop-card__art img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 1.6cqw 1.2cqw rgba(10, 16, 56, .35)); }
+.shop-card__label { text-align: left; left: 12cqw; right: 12cqw; top: 91.6cqw; height: 16.4cqw; display: grid; align-content: center; gap: .4cqw; }
+.shop-card__name { font: 700 max(12px, 5.4cqw)/1.1 var(--font-display); color: var(--on-frame); overflow-wrap: anywhere; }
+.shop-card__kind { font: 500 max(10px, 3.9cqw)/1.15 var(--font-display); color: var(--frame-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The price: the pace a day, big, beside the hourglass, and the hours in all beneath it. */
+.shop-card__price { left: 12cqw; right: 8cqw; top: 110cqw; height: 30cqw; display: flex; align-items: center; justify-content: flex-start; gap: 2.6cqw; }
+.shop-card__price img { flex: none; width: auto; height: 15cqw; filter: drop-shadow(0 .6cqw 0 rgba(10, 16, 56, .15)); }
+.shop-card__cost { display: grid; justify-items: start; gap: .6cqw; min-width: 0; text-align: left; }
+.shop-card__pace { font: 900 italic max(17px, 9.4cqw)/1 var(--font-display); color: var(--frame); white-space: nowrap; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.shop-card__pace small { font-size: .64em; font-weight: 900; }
+.shop-card__total { font: 800 italic max(11px, 5cqw)/1 var(--font-display); color: var(--sc-muted); font-variant-numeric: tabular-nums; }
+@container (max-width: 210px) { .shop-card__kind { display: none; } }
+
+/* Your goal: the card goes gold, with a deeper gold edge (gradients in _shop_shapes) and a gold enchantment glint
+   sliding over all of it. */
+.shop-card.is-goal { --sc-card: url(#sp-goal-fill); --sc-outline: url(#sp-goal-line); --sc-lip: var(--gold-lip); }
+.shop-card__glint { position: absolute; inset: 0; z-index: 1; display: none; width: 100%; height: 100%; overflow: visible; pointer-events: none; mix-blend-mode: soft-light; opacity: .55; }
+.shop-card__glint--tint { mix-blend-mode: normal; opacity: .08; }
+.shop-card.is-goal .shop-card__glint { display: block; }
+@media (prefers-reduced-motion: reduce) { .shop-card.is-goal .shop-card__glint { display: none; } }
+.shop-card.is-goal .shop-card__shape { filter: drop-shadow(0 0 6px var(--gold-hi)) drop-shadow(0 1.6cqw 1.6cqw rgba(10, 16, 56, .2)); }
+
+/* On /shop the tag is not a button: no hover tilt, and what you can do with it sits under it. */
+.shop-card--static { cursor: default; }
+.shop-card--static:hover, .shop-card--static:nth-child(even):hover, .shop-card--static:active { transform: none; }
+.shop-card--static.is-claimed .shop-card__art img { opacity: .55; }
+
+/* A prize's place in the shop grid: the tag, then its Claim button or how it stands. */
+.shop-tag { display: grid; justify-items: center; align-content: start; gap: var(--space-2); min-width: 0; margin: 0; }
+.shop-tag > .button_to { display: contents; }
+.shop-tag__action { max-width: 100%; }
+.shop-tag__status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: var(--radius-full); text-align: center;
+  font: 800 italic 13px/1.2 var(--font-display); color: var(--ink-muted); background: var(--surface-sunken); box-shadow: inset 0 -2px 0 var(--shade); font-variant-numeric: tabular-nums; }
+.shop-tag__status[data-state="claimed"] { color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--royal-lip); }
+.shop-tag__status .sp-icon { font-size: 16px; }

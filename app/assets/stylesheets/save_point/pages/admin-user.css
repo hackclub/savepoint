@@ -1,0 +1,103 @@
+/* The admin page for one person (admin/users/show): the nav, who they are and a button to see the site as them, their
+   details, then their projects as cards with ships and orders. A tool, so dense and plain, in the style sheet's colours
+   and lips. Every rule is scoped under .pg-admin-user. The admin nav styles itself (admin-nav.css).
+   Corners: the panel is 32px with a 2px border, so 30px inside. Its cards sit 12px from the sides and the card's 4px
+   lip is counted in the bottom padding, so their radius is 30 - 12 = 18px. */
+
+.pg-admin-user { min-height: 100vh; padding-block: var(--space-2) var(--space-16); color: var(--ink); overflow-x: clip; }
+.pg-admin-user a { color: var(--royal-ink); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.pg-admin-user a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.pg-admin-user p, .pg-admin-user ul, .pg-admin-user dl { margin: 0; }
+.pg-admin-user .au { display: grid; gap: var(--space-6); }
+.pg-admin-user .au__main { display: grid; gap: var(--space-10); min-width: 0; }
+.pg-admin-user .au__muted { color: var(--ink-muted); font-weight: 600; }
+
+/* Head: back link, picture and name, the view-as button. */
+.pg-admin-user .au__head { display: grid; gap: var(--space-3); justify-items: start; }
+.pg-admin-user .au__back a { display: inline-flex; align-items: center; gap: 4px; font: 800 14px/20px var(--font-body); text-decoration: none; }
+.pg-admin-user .au__back a:hover { text-decoration: underline; }
+.pg-admin-user .au__back .sp-icon { font-size: 18px; }
+.pg-admin-user .au__who { display: flex; align-items: center; gap: var(--space-4); min-width: 0; max-width: 100%; }
+.pg-admin-user .au__who-text { min-width: 0; }
+.pg-admin-user .au__title {
+  margin: 0; font: 900 italic clamp(30px, 4.4vw, 46px)/1.08 var(--font-display); color: var(--ink);
+  letter-spacing: -0.01em; text-wrap: balance; overflow-wrap: anywhere;
+}
+.pg-admin-user .au__avatar {
+  flex: none; display: grid; place-items: center; width: 64px; height: 64px; padding: 6px; border-radius: 50%; overflow: hidden;
+  background: var(--avatar-color, var(--royal-soft)); box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--line);
+}
+.pg-admin-user .au__avatar svg, .pg-admin-user .au__avatar img { width: 100%; height: 100%; display: block; }
+.pg-admin-user .au__actions form { margin: 0; }
+.pg-admin-user .au__alert { max-width: 640px; color: var(--coral-ink); }
+
+/* Panels: the style sheet's panel with a ribbon for its heading. The bottom padding takes the card's lip. */
+.pg-admin-user .au__panel { gap: var(--space-3); padding: var(--space-8) var(--space-3) calc(var(--space-3) + var(--lip-depth)); }
+.pg-admin-user .au__ribbon .sp-icon { font-size: 20px; }
+.pg-admin-user .au__count { font-variant-numeric: tabular-nums; opacity: 0.8; }
+.pg-admin-user .au__empty { padding: var(--space-4); border-radius: 18px; background: var(--surface-sunken); color: var(--ink-muted); font-weight: 700; text-align: center; }
+
+/* Details: label and value in two columns, a dashed line between rows. */
+.pg-admin-user .au__details, .pg-admin-user .au__facts { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); font-size: 15px; line-height: 22px; }
+.pg-admin-user .au__details { padding-inline: var(--space-2); }
+.pg-admin-user dt, .pg-admin-user dd { padding: 9px 0; border-top: 2px dashed var(--line); }
+.pg-admin-user dt:first-of-type, .pg-admin-user dt:first-of-type + dd { border-top: 0; }
+.pg-admin-user dt { padding-right: var(--space-4); font: 800 12px/22px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-admin-user dd { margin: 0; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.pg-admin-user dd small { font: 600 13px/18px var(--font-body); }
+
+/* Project cards: a lip like every card, radius 18px inside the 30px panel (see the top). */
+.pg-admin-user .au__projects { display: grid; gap: var(--space-4); padding: 0; list-style: none; }
+.pg-admin-user .au__card {
+  display: grid; gap: var(--space-2); min-width: 0; padding: var(--space-3);
+  background: var(--surface); border: 2px solid var(--line); border-radius: 18px;
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-admin-user .au__card:target { background: var(--gold-soft); }
+.pg-admin-user .au__card-title { margin: 0; font: 800 italic 22px/28px var(--font-display); overflow-wrap: anywhere; }
+.pg-admin-user .au__card-title a { color: var(--ink); text-decoration: none; }
+.pg-admin-user .au__card-title a:hover { text-decoration: underline; }
+
+/* Chips: Hackatime state and pace, pills in the card's flow. */
+.pg-admin-user .au__chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pg-admin-user .au__chip {
+  --t-ink: var(--ink-muted); --t-soft: var(--surface-sunken);
+  display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: var(--radius-full);
+  background: var(--t-soft); color: var(--t-ink); font: 800 12px/1 var(--font-body); white-space: nowrap;
+  box-shadow: inset 0 -2px 0 var(--shade);
+}
+.pg-admin-user .au__chip--mint { --t-ink: var(--mint-ink); --t-soft: var(--mint-soft); }
+.pg-admin-user .au__chip--gold { --t-ink: var(--gold-ink); --t-soft: var(--gold-soft); }
+
+.pg-admin-user .au__goal { display: inline-flex; align-items: center; gap: var(--space-3); }
+.pg-admin-user .au__goal-thumb {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-md); overflow: hidden;
+  background: var(--surface-sunken); color: var(--ink-muted); font-size: 22px;
+}
+.pg-admin-user .au__goal-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* Ships and orders: one line each (title, then hours and date, then status as a coloured dot and word). */
+.pg-admin-user .au__list { display: grid; gap: 6px; padding: 0; list-style: none; }
+.pg-admin-user .au__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-3); }
+.pg-admin-user .au__row .au__muted { font-size: 13px; }
+.pg-admin-user .au__status { margin-left: auto; white-space: nowrap; font-weight: 800; color: var(--gold-ink); }
+.pg-admin-user .au__status::before {
+  content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 2px 0 var(--gold-lip);
+}
+.pg-admin-user [data-decision="approved"] .au__status { color: var(--mint-ink); }
+.pg-admin-user [data-decision="approved"] .au__status::before { background: var(--mint); box-shadow: 0 2px 0 var(--mint-lip); }
+.pg-admin-user [data-decision="rejected"] .au__status { color: var(--coral-ink); }
+.pg-admin-user [data-decision="changes_needed"] .au__status { color: var(--coral-ink); }
+.pg-admin-user [data-decision="rejected"] .au__status::before { background: var(--coral); box-shadow: 0 2px 0 var(--coral-ink); }
+.pg-admin-user [data-decision="changes_needed"] .au__status::before { background: var(--coral); box-shadow: 0 2px 0 var(--coral-ink); }
+
+/* Phone: the facts stack, label over value. */
+@media (max-width: 599px) {
+  .pg-admin-user .au__facts { grid-template-columns: minmax(0, 1fr); }
+  .pg-admin-user .au__facts dt { padding: 9px 0 0; border-top: 2px dashed var(--line); }
+  .pg-admin-user .au__facts dd { padding-top: 2px; border-top: 0; }
+  .pg-admin-user .au__facts dt:first-of-type { border-top: 0; }
+  /* Every ship and order: title and meta on the first line, the status always on its own line under them. */
+  .pg-admin-user .au__row .au__status { flex-basis: 100%; margin-left: 0; }
+}

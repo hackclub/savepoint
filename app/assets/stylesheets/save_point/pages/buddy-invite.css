@@ -1,0 +1,125 @@
+/* A buddy invite (buddy_invites/show): one card in the style of the landing page's claim popup. A royal top with the
+   halftone and a wave holds who's inviting you and their game, the bottom lists what a pair earns, and a big gold
+   button pairs you up. Loads after save_point/tokens and save_point/components. Everything is under .pg-buddy-invite. */
+
+.pg-buddy-invite { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow: clip; }
+.pg-buddy-invite p { margin: 0; }
+.pg-buddy-invite a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* An animal on its colour (avatar_tag). */
+.pg-buddy-invite .avatar { --avatar-color: var(--royal); display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--avatar-color); color: #ffffff; }
+.pg-buddy-invite .avatar svg { width: 64%; height: 64%; }
+
+/* ---------- Stage ---------- */
+.pg-buddy-invite__main { flex: 1; display: grid; place-items: start center; padding: var(--space-8) max(var(--space-4), env(safe-area-inset-left, 0px)) var(--space-16); }
+.pg-buddy-invite__defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.pg-buddy-invite__stage { position: relative; display: grid; justify-items: center; gap: var(--space-6); width: min(100%, 480px); padding-top: 40px; }
+
+/* ---------- Card ---------- */
+.pg-buddy-invite__sheet { position: relative; z-index: 2; width: 100%; animation: pg-buddy-invite-pop 420ms cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes pg-buddy-invite-pop { from { transform: translateY(24px) scale(.88); opacity: 0; } to { transform: none; opacity: 1; } }
+.pg-buddy-invite__card { position: relative; overflow: hidden; background: var(--surface-sunken); border: 3px solid var(--royal-soft); border-radius: 28px;
+  box-shadow: 0 0 0 3px var(--royal-line), 0 6px 0 3px var(--royal-lip), 0 22px 48px -12px rgba(10, 16, 56, .55); }
+
+.pg-buddy-invite__banner { position: absolute; z-index: 4; top: -34px; left: -14px; right: -14px; container-type: inline-size; pointer-events: none;
+  filter: drop-shadow(0 6px 5px rgba(10, 16, 56, .35)); }
+.pg-buddy-invite__banner img { display: block; width: 100%; height: auto; }
+.pg-buddy-invite__banner-text { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); white-space: nowrap;
+  font: 900 italic 9.5cqw/1 var(--font-display); color: #ffffff; letter-spacing: .01em; text-shadow: 0 .07em 0 var(--coral-ink), 0 .12em .2em rgba(120, 10, 40, .35); }
+
+.pg-buddy-invite__top { position: relative; display: grid; gap: var(--space-5); padding: 120px 24px 64px; color: var(--on-royal);
+  background: linear-gradient(160deg, var(--royal-hi), var(--royal) 70%); }
+.pg-buddy-invite__dots { position: absolute; left: 0; bottom: 0; width: 100%; height: auto; fill: #ffffff; opacity: .16; }
+.pg-buddy-invite__head { position: relative; z-index: 2; display: grid; gap: var(--space-3); text-align: center; }
+.pg-buddy-invite__title { margin: 0; font: 900 italic clamp(26px, 6.4vw, 34px)/1.08 var(--font-display); color: var(--on-royal); text-shadow: 0 3px 0 var(--royal-lip);
+  text-wrap: balance; overflow-wrap: anywhere; }
+.pg-buddy-invite__lead { font: 700 16px/1.45 var(--font-body); color: var(--on-royal); text-wrap: pretty; }
+
+/* Their game: the screenshot on slowly turning rays, then a navy plate with their animal, and the game. */
+.pg-buddy-invite__project { position: relative; z-index: 2; display: grid; gap: var(--space-4); justify-items: center; }
+.pg-buddy-invite__shot { position: relative; display: grid; place-items: center; width: 100%; padding: var(--space-2) var(--space-6); }
+@property --pg-buddy-invite-turn { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.pg-buddy-invite__rays { position: absolute; inset: -18% -4%; background: repeating-conic-gradient(from var(--pg-buddy-invite-turn), rgba(255, 255, 255, .2) 0 9deg, transparent 9deg 18deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 100%); mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
+  animation: pg-buddy-invite-spin 18s linear infinite; }
+@keyframes pg-buddy-invite-spin { to { --pg-buddy-invite-turn: 360deg; } }
+.pg-buddy-invite__shot img { position: relative; display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md);
+  border: 4px solid var(--on-royal); transform: rotate(-2deg); box-shadow: 0 5px 0 var(--royal-lip), 0 16px 22px -8px rgba(10, 16, 56, .5); }
+
+.pg-buddy-invite__plate { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: 10px 14px 10px 10px; border-radius: var(--radius-md);
+  background: var(--frame); color: var(--on-frame); box-shadow: 0 var(--lip-depth) 0 var(--frame-lip), var(--shadow-soft); }
+.pg-buddy-invite__face.avatar { width: 52px; height: 52px; box-shadow: 0 0 0 3px var(--frame-track); }
+.pg-buddy-invite__who { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.pg-buddy-invite__game { font: 800 italic 19px/1.15 var(--font-display); overflow-wrap: anywhere; }
+.pg-buddy-invite__note { font: 700 14px/1.2 var(--font-body); color: var(--frame-muted); font-variant-numeric: tabular-nums; }
+.pg-buddy-invite__wave { position: absolute; z-index: 1; left: 0; right: 0; bottom: -1px; width: 100%; height: 48px; fill: var(--surface-sunken); }
+
+/* ---------- Actions ---------- */
+.pg-buddy-invite__bottom { display: grid; gap: var(--space-5); padding: 6px 22px 24px; }
+
+.pg-buddy-invite__error { display: flex; align-items: center; gap: var(--space-2); padding: 12px 14px; border-radius: var(--radius-md);
+  background: var(--coral-soft); color: var(--coral-ink); font: 800 15px/1.35 var(--font-body); }
+.pg-buddy-invite__error .sp-icon { font-size: 22px; }
+
+.pg-buddy-invite__actions { display: flex; gap: var(--space-3); align-items: stretch; }
+.pg-buddy-invite__actions .sp-btn { min-height: 64px; border-radius: 18px; }
+.pg-buddy-invite__later { flex: none; padding: 0 var(--space-5); }
+.pg-buddy-invite__later:only-child { flex: 1; }
+.pg-buddy-invite__go-form { flex: 1; display: flex; margin: 0; }
+.pg-buddy-invite__go { flex: 1; width: 100%; gap: 10px; font: 900 italic 24px/1 var(--font-display);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--b-lip), 0 0 28px color-mix(in srgb, var(--gold) 45%, transparent); }
+.pg-buddy-invite__go .sp-icon { font-size: 28px; filter: drop-shadow(0 2px 0 var(--gold-lip)); }
+.pg-buddy-invite__go [data-icon="heart-fill"] { color: var(--coral); }
+.pg-buddy-invite__go:focus-visible { box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--b-lip), var(--focus-ring); }
+
+/* The old sheet's sticky note, now a sticker under the card. */
+.pg-buddy-invite__sticker { position: relative; z-index: 2; font-size: 20px; line-height: 1.2; text-align: center; transform: rotate(-3deg); }
+
+/* ---------- Light and celebration, behind the card ---------- */
+.pg-buddy-invite__fx { position: absolute; z-index: 1; left: 50%; top: 70px; width: 0; height: 0; pointer-events: none; }
+.pg-buddy-invite__fx > * { position: absolute; pointer-events: none; }
+.pg-buddy-invite__glow { left: -300px; top: -220px; width: 600px; height: 440px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 244, 204, .9), rgba(255, 199, 39, .35) 45%, transparent);
+  animation: pg-buddy-invite-fade 600ms both, pg-buddy-invite-glow 3.2s 600ms ease-in-out infinite alternate; }
+.pg-buddy-invite__beams { left: -800px; top: -800px; width: 1600px; height: 1600px;
+  background: repeating-conic-gradient(from -4deg at 50% 50%, rgba(255, 244, 204, .55) 0deg 7deg, transparent 7deg 24deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 8%, transparent 60%); mask-image: radial-gradient(closest-side, #000 8%, transparent 60%);
+  animation: pg-buddy-invite-fade 700ms 100ms both, pg-buddy-invite-sway 9s ease-in-out infinite alternate; }
+@keyframes pg-buddy-invite-fade { from { opacity: 0; } }
+@keyframes pg-buddy-invite-glow { from { opacity: .75; transform: scale(.94); } to { opacity: 1; transform: scale(1.06); } }
+@keyframes pg-buddy-invite-sway { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+
+/* Particles fly out from behind the card once, then drift down and fade. The twinkles keep blinking. */
+.pg-buddy-invite__p { --k: 1; left: 0; top: 0; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); background: var(--c); opacity: 0; }
+.pg-buddy-invite__p--star { clip-path: polygon(50% 0, 62% 35%, 98% 38%, 69% 59%, 79% 95%, 50% 74%, 21% 95%, 31% 59%, 2% 38%, 38% 35%); }
+.pg-buddy-invite__p--spark, .pg-buddy-invite__p--twinkle { clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); }
+.pg-buddy-invite__p--dot { border-radius: 50%; }
+.pg-buddy-invite__p--bit { height: calc(var(--s) * .45); border-radius: 2px; }
+.pg-buddy-invite__p:not(.pg-buddy-invite__p--twinkle) { animation: pg-buddy-invite-burst 1700ms var(--d) cubic-bezier(.1, .7, .3, 1) both; }
+.pg-buddy-invite__p--twinkle { transform: translate(calc(var(--dx) * var(--k) * 1px), calc(var(--dy) * var(--k) * 1px + 120px));
+  animation: pg-buddy-invite-twinkle 2200ms var(--d) ease-in-out infinite both; }
+@keyframes pg-buddy-invite-burst {
+  from { opacity: 1; transform: translate(0, 150px) scale(.2) rotate(0); }
+  55% { opacity: 1; transform: translate(calc(var(--dx) * var(--k) * 1px), calc(var(--dy) * var(--k) * 1px + 150px)) scale(1) rotate(var(--r)); }
+  to { opacity: 0; transform: translate(calc(var(--dx) * var(--k) * 1px), calc(var(--dy) * var(--k) * 1px + 210px)) scale(.7) rotate(calc(var(--r) * 1.4)); }
+}
+@keyframes pg-buddy-invite-twinkle {
+  0%, 100% { opacity: 0; scale: .3; rotate: 0deg; }
+  50% { opacity: .95; scale: 1; rotate: 45deg; }
+}
+
+/* ---------- Narrow screens ---------- */
+@media (max-width: 520px) {
+  .pg-buddy-invite__main { padding-top: var(--space-6); }
+  .pg-buddy-invite__p { --k: .55; }
+  .pg-buddy-invite__banner { top: -30px; }
+  .pg-buddy-invite__top { padding: 100px 16px 56px; }
+  .pg-buddy-invite__bottom { padding: 4px 16px 18px; }
+  .pg-buddy-invite__later { padding: 0 var(--space-4); }
+  .pg-buddy-invite__go { font-size: 21px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-buddy-invite__p { display: none; }
+  .pg-buddy-invite__sheet, .pg-buddy-invite__rays, .pg-buddy-invite__glow, .pg-buddy-invite__beams { animation: none; }
+}

@@ -1,0 +1,249 @@
+/* The shop (shop/show): a top bar with the nav, the title and your hours, the dialogue box that types out a line,
+   then every prize as the landing page's hanging tag, coloured by its hours like a game's rarity.
+   Loads after save_point/tokens and save_point/components. Every rule sits under .pg-shop. */
+
+.pg-shop {
+  min-height: 100vh;
+  padding-bottom: var(--space-16);
+  color: var(--ink);
+  overflow-x: clip;
+}
+.pg-shop [hidden] { display: none !important; }
+.pg-shop h1, .pg-shop p { margin: 0; }
+.pg-shop a { color: var(--royal-ink); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.pg-shop a:focus-visible, .pg-shop button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-shop .shop-shapes { position: absolute; width: 0; height: 0; overflow: hidden; }
+.pg-shop .hours-coin { width: auto; }
+
+/* An animal on its colour (avatar_tag). */
+.pg-shop .avatar {
+  --avatar-color: var(--royal);
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--avatar-color); color: var(--on-royal);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--line-strong), 0 7px 0 0 var(--line-lip);
+}
+.pg-shop .avatar svg { width: 64%; height: 64%; }
+
+/* ---------- Page ---------- */
+.pg-shop__main {
+  width: 100%; max-width: calc(1200px + 2 * var(--space-8)); margin-inline: auto;
+  padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px));
+}
+@media (min-width: 600px) {
+  .pg-shop__main { padding-inline: max(var(--space-6), env(safe-area-inset-left, 0px)); }
+}
+@media (min-width: 960px) {
+  .pg-shop__main { padding-inline: var(--space-8); }
+}
+
+/* ---------- Title and your hours ---------- */
+.pg-shop .shop { position: relative; display: grid; gap: var(--space-4); min-width: 0; border-radius: var(--radius-lg); }
+.pg-shop__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-6); padding-top: var(--space-4); }
+.pg-shop .shop__title { display: inline-flex; align-items: center; gap: var(--space-3); font: 900 italic clamp(36px, 5vw, 52px)/1 var(--font-display); color: var(--ink); letter-spacing: -0.01em; }
+.pg-shop .shop__title-icon { flex: none; font-size: 1.25em; line-height: 1; transform: rotate(-6deg); }
+.pg-shop .shop__title-icon .sp-color-icon { display: block; }
+.pg-shop__stats { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-width: 0; }
+.pg-shop .shop__stat {
+  display: inline-grid; grid-template-columns: auto auto; grid-template-areas: "key label" "key value"; align-items: center; column-gap: 10px;
+  min-height: 52px; padding: 5px 20px 5px 6px; border-radius: var(--radius-full);
+  background: var(--frame); color: var(--on-frame); box-shadow: 0 3px 0 var(--frame-lip);
+}
+.pg-shop .shop__stat-key { grid-area: key; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  font-size: 22px; color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss); }
+.pg-shop .shop__stat-key--coin { background: linear-gradient(180deg, var(--royal-soft), var(--surface)); }
+.pg-shop .shop__stat-key img { height: 28px; }
+.pg-shop .shop__stat-label { grid-area: label; align-self: end; font: 800 11px/14px var(--font-body); letter-spacing: 0.08em; color: var(--frame-muted); }
+.pg-shop .shop__stat-value { grid-area: value; align-self: start; font: 900 italic 20px/24px var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-shop .shop__stat-value[data-tone="none"] { color: var(--frame-muted); }
+.pg-shop .shop__stat-value[data-tone="review"] { color: var(--gold-hi); }
+
+/* ---------- The prizes ---------- */
+.pg-shop .shop__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin: var(--space-6) 0 0; padding: 0; list-style: none; }
+@media (min-width: 700px) { .pg-shop .shop__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); } }
+@media (min-width: 1000px) { .pg-shop .shop__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* The prizes are the landing page's tags (prize_tag.css, shared/_prize_tag). The grid leaves room above each row for its clip. */
+.pg-shop .shop__grid { row-gap: var(--space-10, 40px); padding-top: var(--space-6); }
+.pg-shop .shop-tag .shop-card { width: 100%; }
+@media (max-width: 599px) {
+  .pg-shop__head { padding-top: var(--space-2); }
+  .pg-shop .shop__stat { min-height: 46px; padding-right: 16px; }
+  .pg-shop .shop__stat-key { width: 34px; height: 34px; font-size: 19px; }
+  .pg-shop .shop__stat-value { font-size: 18px; line-height: 22px; }
+}
+
+/* What the claim said (shop/show). The toast's 36px badge sits 8px in, so its 26px corners are concentric with it; a longer
+   line wraps inside the same 26px corners instead of turning into a pill. The error is the toast's coral. */
+.pg-shop .shop__notice { max-width: 100%; border-radius: 26px; }
+.pg-shop .shop__notice .sp-toast__icon { align-self: flex-start; }
+.pg-shop .shop__notice:not(.sp-toast--coral) { animation: sp-pop 320ms cubic-bezier(.3, 1.6, .5, 1); }
+/* The claimed prize's tag, once, after the claim: a gold glow that settles. */
+.pg-shop .shop-prize--just-claimed .shop-card { animation: shop-claimed-glow 1600ms ease-out 2; }
+@keyframes shop-claimed-glow { 0%, 100% { filter: none; } 40% { filter: drop-shadow(0 0 14px var(--gold)) drop-shadow(0 0 4px var(--gold-hi)); } }
+@media (prefers-reduced-motion: reduce) {
+  .pg-shop .shop__notice:not(.sp-toast--coral) { animation: none; }
+  .pg-shop .shop-prize--just-claimed .shop-card { animation: none; filter: drop-shadow(0 0 10px var(--gold)); }
+}
+
+.pg-shop .shop__address-notice { margin-top: var(--space-6); }
+.pg-shop .shop__address-notice a { color: inherit; font-weight: 800; text-decoration: underline; }
+
+/* A tag opens its sheet: it lifts as well as tilts, and keeps a focus ring for the keyboard. The tilt composes with tag_swing's --swing. */
+.pg-shop .shop-tag .shop-card { transition: transform 260ms cubic-bezier(.3, 1.6, .5, 1); }
+.pg-shop .shop-tag .shop-card:hover { transform: translateY(-6px) rotate(-2.5deg); }
+.pg-shop .shop__grid > .shop-tag:nth-child(even) .shop-card:hover { transform: translateY(-6px) rotate(2.5deg); }
+.pg-shop .shop-tag .shop-card:active { transform: translateY(-2px) scale(.97); }
+.pg-shop .shop-card.is-claimed .shop-card__art img { opacity: .55; }
+@media (prefers-reduced-motion: reduce) { .pg-shop .shop-tag .shop-card:hover, .pg-shop .shop__grid > .shop-tag:nth-child(even) .shop-card:hover { transform: none; } }
+
+/* ---------- A prize's sheet ---------- */
+/* The landing page's claim popup (landing.css .claim) in the shop's colours. Every rounded thing in it is concentric: the card
+   is 28px with a 3px border, so its inside is 25px, and what sits 14px in from its sides and bottom is 25 - 14 = 11px. A button's
+   4px lip counts as part of its height, so the bottom padding is 14 - 4. */
+.order-sheet { --inset: 14px; --inner: 25px; width: min(100%, 460px); max-width: 100%; max-height: 100%; margin: auto; padding: var(--space-6) 16px; border: 0; background: transparent; color: var(--ink); overflow: auto; overscroll-behavior: contain; }
+.order-sheet::backdrop { background: rgba(10, 16, 56, .72); }
+html:has(.order-sheet[open]) { overflow: hidden; }
+.order-sheet__card { position: relative; overflow: hidden; background: var(--surface-sunken); border: 3px solid var(--royal-soft); border-radius: 28px;
+  box-shadow: 0 0 0 3px var(--royal-line), 0 18px 48px -12px rgba(10, 16, 56, .6); }
+.order-sheet[open] .order-sheet__card { animation: order-sheet-pop 420ms cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes order-sheet-pop { from { transform: translateY(24px) scale(.88); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.order-sheet__top { position: relative; overflow: hidden; padding: 26px var(--inset) 44px; text-align: center; color: var(--on-royal); background: linear-gradient(160deg, var(--royal-hi), var(--royal) 70%); }
+.order-sheet__head { position: relative; z-index: 2; display: grid; justify-items: center; gap: 4px; padding: 0 var(--space-2); }
+.order-sheet__name { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font: 900 italic clamp(30px, 8.4vw, 36px)/1.1 var(--font-display); color: var(--on-royal); text-shadow: 0 3px 0 var(--royal-lip); overflow-wrap: anywhere; }
+.order-sheet__kind { margin: 0; font: 800 clamp(17px, 4.6vw, 19px)/1.3 var(--font-body); color: var(--on-royal); }
+/* The picture stands straight on the rays, with no box round it, and its foot goes behind the wave. The rays are in the
+   picture's own box, so they turn about its middle at any width. The card's rounded clip is all that trims them. */
+.order-sheet__art { position: relative; z-index: 1; display: grid; place-items: center; height: 200px; margin: var(--space-4) 0 0; font-size: 84px; color: var(--on-royal); }
+.order-sheet__art img { position: relative; max-width: 80%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 14px 14px rgba(10, 16, 56, .45)); }
+.order-sheet[open] .order-sheet__art img { animation: order-sheet-pop 520ms 80ms cubic-bezier(.3, 1.6, .5, 1) both; }
+.order-sheet__rays { position: absolute; z-index: 0; left: 50%; top: 50%; width: 520px; aspect-ratio: 1; translate: -50% -50%; background: repeating-conic-gradient(rgba(255, 255, 255, .2) 0 9deg, transparent 9deg 18deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 18%, transparent 78%); mask-image: radial-gradient(closest-side, #000 18%, transparent 78%);
+  will-change: transform; animation: order-sheet-turn 40s linear infinite; }
+@keyframes order-sheet-turn { to { rotate: 360deg; } }
+.order-sheet__wave { position: absolute; z-index: 4; left: 0; right: 0; bottom: -1px; width: 100%; height: 30px; fill: var(--surface-sunken); }
+@media (prefers-reduced-motion: reduce) { .order-sheet__rays, .order-sheet[open] .order-sheet__card, .order-sheet[open] .order-sheet__art img { animation: none; } }
+
+/* 14px in at the sides and under the wave, and at the bottom 10px of padding under a button's 4px lip. */
+.order-sheet__bottom { display: grid; gap: var(--space-4); padding: var(--inset) var(--inset) 10px; }
+.order-sheet__bottom[hidden] { display: none; }
+.order-sheet__bottom > :not(.order-sheet__actions):not(.order-sheet__field):not(.order-sheet__meter) { padding-inline: var(--space-2); }
+.order-sheet__facts { display: grid; gap: var(--space-2); margin: 0; padding: 0 var(--space-2); list-style: none; }
+.order-sheet__facts li { display: flex; gap: 8px; align-items: flex-start; font: 700 15px/21px var(--font-body); color: var(--ink); }
+.order-sheet__facts .sp-icon { flex: none; margin-top: 2px; font-size: 18px; color: var(--royal-ink); }
+/* The terms (D-061): a hairline, then a muted "Terms" line that opens the small print. No box, so there is no nested corner to match. */
+.order-sheet__terms { border-top: 2px solid var(--line); padding-top: var(--space-2); }
+.order-sheet__terms summary { display: flex; align-items: center; gap: 6px; padding: 4px 6px; margin-inline: -6px; border-radius: var(--radius-xs); list-style: none; cursor: pointer;
+  font: 800 14px/20px var(--font-body); color: var(--ink-muted); }
+.order-sheet__terms summary::-webkit-details-marker { display: none; }
+.order-sheet__terms summary:hover { color: var(--royal-ink); }
+.order-sheet__terms summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.order-sheet__terms summary .sp-icon { flex: none; font-size: 16px; }
+.order-sheet__terms-chevron { margin-left: auto; display: grid; transition: rotate 160ms ease; }
+.order-sheet__terms[open] .order-sheet__terms-chevron { rotate: 180deg; }
+.order-sheet__terms ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0 0 0 18px; }
+.order-sheet__terms li { font: 600 13px/18px var(--font-body); color: var(--ink-muted); }
+@media (prefers-reduced-motion: reduce) { .order-sheet__terms-chevron { transition: none; } }
+.order-sheet__link { justify-self: center; font: 800 14px/20px var(--font-body); color: var(--royal-ink); text-decoration: underline; text-underline-offset: 3px; }
+.order-sheet__link:hover { color: var(--royal); }
+.order-sheet__price { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.order-sheet__price img { width: auto; height: 52px; filter: drop-shadow(0 2px 0 rgba(10, 16, 56, .15)); }
+.order-sheet__cost { display: grid; gap: 6px; min-width: 0; }
+.order-sheet__hours { margin: 0; font: 900 italic 22px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.order-sheet__hours b { font-size: 36px; font-weight: 900; }
+.order-sheet__pace { margin: 0; font: 800 italic 15px/20px var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.order-sheet__pace small { font-size: 1em; font-weight: 800; }
+/* Approved hours against the price: a track, its fill clipped by the track's own rounded inside. */
+.order-sheet__meter { display: grid; gap: 6px; margin-inline: var(--space-2); }
+.order-sheet__meter-row { display: flex; justify-content: space-between; gap: var(--space-3); font: 800 italic 15px/20px var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.order-sheet__meter-row b { color: var(--gold-ink); font-weight: 900; }
+.order-sheet__track { height: 16px; overflow: hidden; border: 2px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: inset 0 2px 0 var(--shade); }
+.order-sheet__track span { display: block; height: 100%; border-radius: 6px; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss); }
+.order-sheet__status { display: flex; justify-content: center; align-items: center; gap: 6px; justify-self: center; margin: 0; padding: 6px 14px; border-radius: var(--radius-full); font: 800 italic 15px/20px var(--font-display);
+  color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--royal-lip); }
+.order-sheet__status--goal { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip); }
+.order-sheet__status .sp-icon { font-size: 18px; }
+.order-sheet__goal-form { display: grid; justify-items: center; }
+.order-sheet__goal-form[hidden], .order-sheet__status[hidden], .order-sheet__error[hidden] { display: none; }
+.order-sheet .order-sheet__status--goal { margin: 4px 0; } /* 32px + 8px = the 40px of the button it replaces, so nothing under it moves */
+.order-sheet__status--goal .sp-icon { transform-origin: 20% 90%; } /* the flag waves from its pole */
+.order-sheet__error { justify-self: center; margin: 0; font: 800 15px/20px var(--font-body); color: var(--danger-ink, #b3261e); text-align: center; }
+/* The claim's "Claimed!" (prize_sheet_controller.js, #claimed): a mint badge, a line, and the way on. It takes the claim step's place,
+   with the same 14px inset, so its 64px button keeps the 11px corners concentric with the card's 25px inside. */
+.order-sheet__done { justify-items: center; text-align: center; }
+.order-sheet__done-badge { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; font-size: 40px; color: var(--on-mint);
+  background: linear-gradient(180deg, var(--mint-hi), var(--mint)); box-shadow: inset 0 2px 0 var(--gloss), 0 4px 0 var(--mint-lip); }
+.order-sheet__done-title { margin: 0; font: 900 italic 30px/1.1 var(--font-display); color: var(--ink); }
+.order-sheet__done-text { margin: 0; font: 700 16px/22px var(--font-body); color: var(--ink-muted); }
+.order-sheet__done .order-sheet__actions { justify-self: stretch; }
+/* A star of the burst when a goal is set (prize_sheet_controller.js), laid over the card where the pill is. */
+.order-sheet__spark { position: absolute; z-index: 6; pointer-events: none; clip-path: polygon(50% 0, 62% 36%, 100% 38%, 70% 60%, 80% 100%, 50% 76%, 20% 100%, 30% 60%, 0 38%, 38% 36%); }
+
+.order-sheet__field { gap: 6px; }
+.order-sheet__input { border-radius: calc(var(--inner) - var(--inset)); }
+
+.order-sheet__actions { display: flex; gap: var(--inset); align-items: stretch; margin-top: var(--space-2); }
+.order-sheet__x { flex: none; display: grid; place-items: center; width: 64px; height: 64px; padding: 0; border: 3px solid var(--line-strong); border-radius: calc(var(--inner) - var(--inset));
+  background: var(--surface); color: var(--royal-ink); font-size: 30px; cursor: pointer; box-shadow: 0 4px 0 var(--line-lip); }
+.order-sheet__x:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--line-lip); }
+.order-sheet__go { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 64px; padding: 0 var(--space-5); border-radius: calc(var(--inner) - var(--inset)); cursor: pointer;
+  color: var(--on-gold); text-decoration: none; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 4px 0 var(--gold-lip); font: 900 italic 24px/1 var(--font-display); }
+.order-sheet__go--gold { box-shadow: inset 0 2px 0 var(--gloss), 0 4px 0 var(--gold-lip), 0 0 28px var(--gold-soft); }
+.order-sheet__go--royal { color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); border-color: var(--royal-line); box-shadow: inset 0 2px 0 var(--gloss), 0 4px 0 var(--royal-lip); }
+.order-sheet__go span { font: inherit; }
+.order-sheet a.order-sheet__go { color: var(--on-gold); } /* a link wears the button's colour, not the page's link blue */
+.order-sheet a.order-sheet__go--royal { color: var(--on-royal); }
+.order-sheet__go:hover { filter: brightness(1.06); }
+.order-sheet__go:active { transform: translateY(2px); }
+.order-sheet__go:disabled { filter: grayscale(.4) brightness(.95); cursor: wait; }
+.order-sheet__x:focus-visible, .order-sheet__go:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.order-sheet__actions > form { flex: 1; display: flex; min-width: 0; }
+.order-sheet__actions > form > .order-sheet__go { flex: 1; }
+@media (max-width: 420px) {
+  .order-sheet { padding-inline: 12px; }
+  .order-sheet__art { height: 160px; }
+  .order-sheet__go { font-size: 22px; }
+}
+
+/* The free stickers' sheet opens on the form, so it keeps its header (title and art) but compact, to keep "Claim it" close. */
+.order-sheet--stickers .order-sheet__top { padding-block: 22px 40px; }
+.order-sheet--stickers .order-sheet__art { height: 150px; margin-top: var(--space-3); }
+@media (max-width: 420px) {
+  .order-sheet--stickers .order-sheet__top { padding-block: 18px 36px; }
+  .order-sheet--stickers .order-sheet__art { height: 96px; margin-top: var(--space-2); }
+}
+
+/* ---------- The claim step's address (D-024) ---------- */
+/* The fields sit in the same 14px inset as the name's, so their 11px corners stay concentric with the card's 25px inside. */
+.order-sheet__field.order-sheet__address { gap: var(--space-3); }
+.order-sheet__legend { display: block; padding: 0; margin-bottom: var(--space-3); }
+.order-sheet__address > .sp-help { padding-inline: var(--space-2); }
+.order-sheet__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); align-items: start; }
+.order-sheet__problem[hidden] { display: none; }
+.order-sheet__field.sp-field--error .order-sheet__input { border-radius: calc(var(--inner) - var(--inset)); }
+.order-sheet__field .order-sheet__problem { padding-inline: var(--space-2); }
+
+/* Fine print that says what happens when a prize can't be sent (shop/_unavailable_note). */
+.pg-shop .shop__note { margin: var(--space-6) 0 0; }
+.order-sheet__note { padding-inline: var(--space-2); }
+
+/* ---------- The free stickers' claim card (D-051, shop/_sticker_claim) ----------
+   Above the grid, only for someone who earned the stickers. Every rounded shape in it is concentric: the card is 32px and
+   everything inside sits 12px in from its edges (the measured gap), so the sticker tile and the button, which touch that
+   gap, are 32 - 12 = 20px. The button is 40px tall, so its pill is 20px too. */
+.pg-shop .sticker-claim { --gap: 12px; --outer: 32px; --inner: calc(var(--outer) - var(--gap));
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--gap); padding: var(--gap);
+  border-radius: var(--outer); background: var(--gold-soft); color: var(--ink); box-shadow: 0 4px 0 var(--line-lip); }
+.pg-shop .sticker-claim__art { display: grid; place-items: center; width: 80px; height: 80px; border-radius: var(--inner); background: var(--surface); }
+.pg-shop .sticker-claim__art img { width: auto; height: 64px; transform: rotate(-6deg); }
+.pg-shop .sticker-claim__text { display: grid; gap: 2px; min-width: 0; }
+.pg-shop .sticker-claim__title { margin: 0; font: 900 italic clamp(20px, 3vw, 26px)/1.15 var(--font-display); color: var(--ink); }
+.pg-shop .sticker-claim__about { margin: 0; font: 700 15px/21px var(--font-body); color: var(--ink); }
+.pg-shop .sticker-claim__form { margin: 0; }
+.pg-shop .sticker-claim__action { min-height: 40px; border-radius: var(--inner); white-space: nowrap; }
+@media (max-width: 599px) {
+  .pg-shop .sticker-claim { grid-template-columns: auto 1fr; }
+  .pg-shop .sticker-claim__form { grid-column: 1 / -1; }
+  .pg-shop .sticker-claim__action { width: 100%; justify-content: center; }
+}

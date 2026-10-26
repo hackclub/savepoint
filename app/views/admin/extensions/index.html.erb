@@ -1,0 +1,96 @@
+<% content_for :title, "Extensions · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-extensions" %>
+
+<%# Everyone who's asked for more time to ship: who, why, and a button each way while it's waiting; then the ones
+    decided, and who decided. Real names and emails are here. %>
+<div class="pg-admin-extensions sp-page">
+  <div class="pg-admin-extensions__wrap">
+    <main class="pg-admin-extensions__main">
+      <header class="pg-admin-extensions__head">
+        <div class="pg-admin-extensions__title-row">
+          <h1 class="pg-admin-extensions__title">Who's asked for more time</h1>
+          <output class="pg-admin-extensions__count"><%= sp_icon "time-fill" %><span><%= @pending.size %> waiting</span></output>
+        </div>
+        <p class="pg-admin-extensions__note">
+          Nobody can ask any more: everyone's due <%= Program::DATES.end.strftime("%b %-d") %>, where an extension would have taken them, so
+          approving moves no dates. They get a DM on Slack either way.
+        </p>
+        <% if flash[:alert] %>
+          <p class="pg-admin-extensions__alert" role="alert"><%= sp_icon "warning-fill" %><span><%= flash[:alert] %></span></p>
+        <% end %>
+      </header>
+
+      <section class="sp-panel pg-admin-extensions__panel" aria-labelledby="admin-extensions-waiting">
+        <h2 class="sp-ribbon sp-ribbon--gold" id="admin-extensions-waiting"><span><%= sp_icon "lock-fill" %>Waiting</span></h2>
+        <% if @pending.empty? %>
+          <p class="pg-admin-extensions__empty"><%= sp_icon "check-circle-fill" %><span>Nobody's waiting.</span></p>
+        <% else %>
+          <div class="pg-admin-extensions__scroll">
+            <table class="pg-admin-extensions__table">
+              <thead>
+                <tr>
+                  <th scope="col">Who</th>
+                  <th scope="col">Project</th>
+                  <th scope="col">Why</th>
+                  <th scope="col">Asked</th>
+                  <th scope="col"><span class="pg-admin-extensions__hidden">Decide</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @pending.each do |extension| %>
+                  <%= render "admin/extensions/row", extension: do %>
+                    <td class="pg-admin-extensions__actions">
+                      <%= button_to admin_extension_path(extension), method: :patch, params: { decision: "approved" },
+                            class: "sp-btn sp-btn--mint sp-btn--sm", form: { data: { turbo: false } } do %>
+                        <%= sp_icon "check-fill" %>Approve
+                      <% end %>
+                      <%= button_to admin_extension_path(extension), method: :patch, params: { decision: "denied" },
+                            class: "sp-btn sp-btn--sm pg-admin-extensions__deny", form: { data: { turbo: false } } do %>
+                        <%= sp_icon "close-fill" %>Deny
+                      <% end %>
+                    </td>
+                  <% end %>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </section>
+
+      <section class="sp-panel pg-admin-extensions__panel" aria-labelledby="admin-extensions-decided">
+        <h2 class="sp-ribbon" id="admin-extensions-decided"><span><%= sp_icon "check-circle-fill" %>Decided</span></h2>
+        <% if @decided.empty? %>
+          <p class="pg-admin-extensions__empty"><%= sp_icon "information-fill" %><span>None yet.</span></p>
+        <% else %>
+          <div class="pg-admin-extensions__scroll">
+            <table class="pg-admin-extensions__table">
+              <thead>
+                <tr>
+                  <th scope="col">Who</th>
+                  <th scope="col">Project</th>
+                  <th scope="col">Why</th>
+                  <th scope="col">Asked</th>
+                  <th scope="col">Decision</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @decided.each do |extension| %>
+                  <%= render "admin/extensions/row", extension: do %>
+                    <td class="pg-admin-extensions__decision" data-decision="<%= extension.status %>" data-label="Decision">
+                      <span class="sp-badge <%= extension.approved? ? "sp-badge--mint" : "sp-badge--coral" %>">
+                        <%= sp_icon(extension.approved? ? "check-fill" : "close-fill") %><%= extension.status.capitalize %>
+                      </span>
+                      <small class="pg-admin-extensions__muted">
+                        <%= extension.decided_by&.first_name.presence || "someone" %> · <%= extension.decided_at.strftime("%b %-d") %>
+                      </small>
+                    </td>
+                  <% end %>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </section>
+    </main>
+  </div>
+</div>

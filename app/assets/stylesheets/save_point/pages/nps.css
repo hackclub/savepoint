@@ -1,0 +1,42 @@
+/* The NPS form: its own page (nps_responses/show) and the popup on the project page (nps_responses/_popup). The
+   popup's rules sit under .nps-popup, the page's under .pg-nps. Colours, sizes and radii are tokens. */
+
+.nps__form { display: grid; gap: var(--space-5); }
+.nps__questions { display: grid; gap: var(--space-5); min-width: 0; }
+.nps__score { gap: var(--space-3); }
+.nps__star { color: var(--coral-ink); }
+.nps__optional { text-transform: none; letter-spacing: 0; color: var(--ink-faint); font-weight: 700; }
+.nps__boxes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-2); }
+@media (min-width: 520px) { .nps__boxes { grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 6px; } }
+.nps__box { position: relative; min-width: 0; }
+.nps__box input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.nps__box span {
+  display: grid; place-items: center; height: 48px; border-radius: var(--radius-md); font: 900 italic 20px/1 var(--font-display); color: var(--ink-muted);
+  background: var(--surface-sunken); border: 2px solid var(--line-strong); box-shadow: inset 0 2px 0 var(--shade);
+  transition: background 120ms, color 120ms, transform 120ms;
+}
+.nps__box input:hover + span { color: var(--ink); border-color: var(--royal-ink); }
+.nps__box input:checked + span { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip); transform: translateY(-1px); }
+.nps__box input:focus-visible + span { box-shadow: var(--focus-ring); }
+.nps__ends { display: flex; justify-content: space-between; gap: var(--space-3); margin: 0; font: 700 13px/16px var(--font-body); color: var(--ink-faint); }
+.nps__hint[hidden] { display: none; }
+.nps__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.nps button[disabled], .nps-popup button[disabled] { opacity: .55; cursor: not-allowed; }
+
+/* ---------- The page ---------- */
+.pg-nps { min-height: 100vh; padding-bottom: var(--space-16); }
+.pg-nps .nps { max-width: 720px; padding-top: var(--space-8); }
+.pg-nps .nps__card { padding: var(--space-10) 14px 14px; gap: var(--space-4); }
+.pg-nps .nps__card > :not(.sp-ribbon) { margin-inline: var(--space-2); }
+.pg-nps .nps__title { margin: 0; font: 900 italic clamp(30px, 5vw, 44px)/1.05 var(--font-display); color: var(--ink); text-wrap: balance; }
+.pg-nps .nps__lead { margin: 0; font: 700 16px/22px var(--font-body); color: var(--ink-muted); }
+@media (min-width: 640px) { .pg-nps .nps__card { padding-inline: var(--space-6); } }
+
+/* ---------- The popup ---------- */
+.nps-popup .nps-popup__dialog { width: min(100%, 560px); max-height: 100%; margin: auto; padding: var(--space-6) 16px; border: 0; background: transparent; color: var(--ink); overflow: auto; overscroll-behavior: contain; }
+.nps-popup .nps-popup__dialog::backdrop { background: rgba(10, 16, 56, .72); }
+.nps-popup .nps-popup__dialog[open] .nps-popup__modal { animation: nps-pop 420ms cubic-bezier(.3, 1.6, .5, 1); }
+.nps-popup .nps-popup__modal { width: 100%; }
+.nps-popup .nps__box span { height: 44px; font-size: 17px; }
+@keyframes nps-pop { from { transform: translateY(24px) scale(.88); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .nps-popup .nps-popup__dialog[open] .nps-popup__modal { animation: none; } }

@@ -1,0 +1,198 @@
+/* The ship page (ships/show): the form with the ship checker beside it, and the card it becomes once shipped, closed,
+   or waiting on an address. Every rule sits under .pg-ship. Colours, sizes and radii are tokens (tokens.css). */
+
+.pg-ship { min-height: 100vh; padding-bottom: var(--space-16); overflow-x: clip; }
+.pg-ship [hidden] { display: none !important; }
+.pg-ship .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pg-ship h1, .pg-ship h2 { text-wrap: balance; }
+
+/* ---------- Header ---------- */
+.pg-ship .ship__bar { display: flex; align-items: center; gap: var(--space-4); padding-block: var(--space-6) var(--space-4); }
+.pg-ship .ship__back { flex: none; }
+.pg-ship .ship__titles { display: grid; gap: var(--space-1); min-width: 0; flex: 1; }
+.pg-ship .ship__project { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font: 800 13px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--royal-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-ship .ship__project .sp-icon { font-size: 18px; }
+.pg-ship .ship__heading { margin: 0; font: 900 italic clamp(30px, 5vw, 52px)/1.05 var(--font-display); letter-spacing: -0.01em; color: var(--ink); }
+
+/* ---------- Layout: the form, and the checker beside it ---------- */
+.pg-ship .ship__changes-needed { margin: var(--space-4) 0 0; max-width: 100%; }
+.pg-ship .ship__reviewer-note { margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-4); border-left: 4px solid var(--gold-line); font: 600 15px/22px var(--font-body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.pg-ship .ship__body { display: grid; gap: var(--space-10); margin-top: var(--space-8); }
+.pg-ship .ship__main { display: grid; gap: var(--space-10); min-width: 0; }
+.pg-ship .ship__panel { padding: var(--space-10) 14px 14px; /* 14px: the panel's inner radius 30px - 14px = 16px for the box in its corner */ gap: var(--space-5); }
+@media (min-width: 960px) {
+  .pg-ship .ship__body { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; gap: var(--space-8); }
+  .pg-ship .ship__checker { position: sticky; top: var(--space-8); }
+}
+
+/* ---------- Fields ---------- */
+.pg-ship .ship__label-row { display: flex; align-items: center; gap: var(--space-3); }
+.pg-ship .ship__count { font: 800 13px/16px var(--font-body); color: var(--ink-faint); }
+.pg-ship .ship__count[data-enough] { color: var(--mint-ink); }
+.pg-ship .ship__textarea { min-height: 156px; }
+.pg-ship .ship__textarea--short { min-height: 108px; }
+.pg-ship .ship__input--title { font: 800 20px/28px var(--font-body); }
+.pg-ship .ship__pair { display: grid; gap: var(--space-5); }
+@media (min-width: 640px) {
+  .pg-ship .ship__pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.pg-ship .ship__error { display: flex; align-items: flex-start; gap: 6px; font: 700 14px/20px var(--font-body); color: var(--coral-ink); }
+.pg-ship .ship__error .sp-icon { font-size: var(--icon-sm); margin-top: 2px; }
+
+.pg-ship .ship__link { color: var(--royal-ink); font-weight: 800; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.pg-ship .ship__link:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--focus-ring); }
+
+/* ---------- Screenshot ---------- */
+.pg-ship .ship__shot {
+  position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; width: 100%; max-height: 320px; overflow: hidden; cursor: pointer;
+  background: var(--surface-sunken); border: 3px dashed var(--line-strong); border-radius: var(--radius-lg);
+  transition: border-color 120ms, background 120ms;
+}
+.pg-ship .ship__shot:hover { border-color: var(--royal); background: var(--royal-soft); }
+.pg-ship .ship__shot:focus-within { border-color: var(--royal); box-shadow: var(--focus-ring); }
+.pg-ship .ship__shot:has(.ship__shot-image:not([hidden])) { border-style: solid; border-color: var(--line); }
+.pg-ship .ship__shot--error { border-color: var(--coral); background: var(--coral-soft); }
+.pg-ship .ship__shot-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pg-ship .ship__shot-placeholder { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-4); text-align: center; font: 800 16px/22px var(--font-body); color: var(--ink-muted); }
+.pg-ship .ship__shot-icon {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; font-size: 32px; color: var(--on-royal);
+  background: linear-gradient(180deg, var(--royal-hi), var(--royal)); border: 2px solid var(--royal-line);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--royal-lip);
+  transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1);
+}
+.pg-ship .ship__shot:hover .ship__shot-icon { transform: translateY(-3px); }
+/* A big, see-through upload icon over a light scrim: hover or focus on a screenshot says clicking replaces it. On touch screens it
+   stays showing, faintly, since there is no hover. The empty box has its own icon coin. */
+.pg-ship .ship__shot-replace { position: absolute; inset: 0; z-index: 1; display: none; place-items: center; font-size: clamp(72px, 22%, 128px); color: var(--royal); background: color-mix(in srgb, var(--surface) 55%, transparent); opacity: 0; pointer-events: none; transition: opacity 140ms; }
+.pg-ship .ship__shot:has(.ship__shot-image:not([hidden])) .ship__shot-replace { display: grid; }
+.pg-ship .ship__shot-replace .sp-icon { font-size: 96px; opacity: 0.7; }
+.pg-ship .ship__shot:hover .ship__shot-replace, .pg-ship .ship__shot:focus-within .ship__shot-replace { opacity: 1; }
+@media (hover: none) { .pg-ship .ship__shot-replace { opacity: 0.6; } }
+
+.pg-ship .ship__confirm { align-items: flex-start; padding: 12px; border-radius: 16px; /* panel inner radius 30px - 14px inset; the 24px box below is 4px = 16 - 12 */ background: var(--surface-sunken); line-height: 24px; transition: background 120ms; }
+.pg-ship .ship__confirm .sp-check { border-radius: 4px; }
+.pg-ship .ship__confirm:has(:checked) { background: var(--royal-soft); }
+.pg-ship .ship__confirm--error:not(:has(:checked)) { background: var(--coral-soft); }
+
+/* ---------- The ship checker ---------- */
+.pg-ship .ship__checker { padding: var(--space-10) 14px 14px; gap: var(--space-4); }
+.pg-ship .ship__checker-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.pg-ship .ship__checker-head h2 { margin: 0; font: 900 italic 24px/28px var(--font-display); }
+.pg-ship .ship__progress { font-variant-numeric: tabular-nums; }
+.pg-ship .ship__progress:empty { display: none; }
+.pg-ship .ship__checks { display: flex; flex-direction: column; margin: 0 0 -8px; padding: 0; list-style: none; }
+.pg-ship .ship__checks:empty { display: none; }
+.pg-ship .ship__preview { display: flex; align-items: center; gap: var(--space-3); padding: 8px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 2px solid var(--line); }
+.pg-ship .ship__preview-shot { position: relative; flex: none; display: grid; place-items: center; width: 80px; height: 56px; overflow: hidden; border-radius: 6px; /* card inner radius 14px - 8px inset */ background: var(--surface); color: var(--ink-faint); font-size: 24px; }
+.pg-ship .ship__preview-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pg-ship .ship__preview-text { display: grid; gap: 2px; min-width: 0; }
+.pg-ship .ship__preview-title { font: 800 16px/20px var(--font-body); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-ship .ship__preview-hours { font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
+
+/* A row is a 48px-tall pill-ish card (radius 24px, border 2px), so the 32px mark sits 6px from each near side and its radius is
+   24 - 2 - 6 = 16px: a circle. The Fix pill is 32px tall with the same 6px. */
+.pg-ship .ship__check { grid-template-columns: 32px minmax(0, 1fr) auto; row-gap: 0; align-items: start; padding: 6px; margin-bottom: 8px; border-radius: var(--radius-lg); transition: background 160ms, border-color 160ms; }
+.pg-ship .ship__check[data-gone], .pg-ship .ship__check[data-hidden] { display: none; }
+.pg-ship .ship__check[data-leaving] { height: 0 !important; margin-bottom: 0; padding-block: 0; border-width: 0; opacity: 0; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-ship .ship__check[data-leaving] { transition: height 300ms ease, margin 300ms ease, padding 300ms ease, border-width 300ms ease, opacity 200ms ease; }
+}
+.pg-ship .ship__allset { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font: 800 16px/24px var(--font-body); color: var(--mint-ink); }
+.pg-ship .ship__allset .sp-icon { font-size: 22px; }
+.pg-ship .ship__check .sp-item__title { display: flex; align-items: center; min-height: 32px; padding: 0 var(--space-2) 0 0; }
+.pg-ship .ship__fix { grid-row: 1; grid-column: 3; align-self: start; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: var(--radius-full); font: 800 14px/1 var(--font-body); color: var(--royal-ink); background: var(--royal-soft); text-decoration: none; }
+.pg-ship .ship__fix:hover { background: var(--surface-sunken); }
+.pg-ship .ship__fix:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-ship .ship__check[data-done] .ship__fix, .pg-ship .ship__check[data-state="checking"] .ship__fix { display: none; }
+.pg-ship .ship__check .sp-item__mark { grid-row: 1; align-self: start; }
+.pg-ship .ship__check .sp-item__title { padding-top: 0; font-size: 15px; line-height: 20px; }
+.pg-ship .ship__check .sp-item__mark [data-icon] { display: none; }
+.pg-ship .ship__check[data-done] { background: var(--mint-soft); border-color: transparent; }
+.pg-ship .ship__check[data-done] .sp-item__title { color: var(--mint-ink); }
+.pg-ship .ship__check[data-done] .sp-item__mark { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); border-color: var(--mint-line); box-shadow: inset 0 2px 0 var(--gloss); }
+.pg-ship .ship__check[data-done] .ship__mark-done { display: inline-flex; }
+.pg-ship .ship__check[data-error]:not([data-done]) { background: var(--coral-soft); border-color: var(--coral); }
+.pg-ship .ship__check[data-error]:not([data-done]) .sp-item__title { color: var(--coral-ink); }
+.pg-ship .ship__check[data-error]:not([data-done]) .sp-item__mark { color: var(--coral-ink); background: var(--surface); border-color: var(--coral); }
+.pg-ship .ship__check[data-error]:not([data-done]) .ship__mark-error { display: inline-flex; }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-ship .ship__check[data-done] .sp-item__mark { animation: ship-tick 320ms cubic-bezier(.3, 1.6, .5, 1); }
+}
+
+.pg-ship .ship__check-detail { grid-column: 2; grid-row: 2; padding: 0 var(--space-3) 4px 0; font: 600 13px/18px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
+.pg-ship .ship__check[data-warn]:not([data-done]) { background: var(--gold-soft); border-color: var(--gold-line); }
+.pg-ship .ship__check[data-warn]:not([data-done]) .sp-item__mark { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold-line); }
+.pg-ship .ship__check[data-warn]:not([data-done]) .ship__mark-warn { display: inline-flex; }
+.pg-ship .ship__check[data-state="checking"] .sp-item__title { color: var(--ink-muted); }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-ship .ship__check[data-state="checking"] { animation: ship-checking 900ms ease-in-out infinite alternate; }
+}
+
+.pg-ship .ship__submit { position: relative; width: 100%; min-height: 72px; overflow: hidden; font: 900 italic 26px/1 var(--font-display); letter-spacing: 0.01em; border-radius: var(--radius-lg); }
+.pg-ship .ship__submit .sp-icon { font-size: 30px; }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-ship .ship__submit:not(:disabled)::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%, var(--gloss) 50%, transparent 65%);
+    transform: translateX(-100%); animation: ship-shine 2.6s ease-in-out 400ms infinite;
+  }
+}
+.pg-ship .ship__text-button { width: 100%; color: var(--royal-ink); }
+.pg-ship .ship__text-button:focus-visible { box-shadow: var(--focus-ring); }
+
+/* ---------- Shipped, closed, or waiting on an address ---------- */
+.pg-ship .ship__done { display: grid; justify-items: center; margin-top: var(--space-6); }
+.pg-ship .ship__card { width: min(100%, 580px); justify-items: center; gap: var(--space-4); padding: var(--space-8) var(--space-6); text-align: center; }
+.pg-ship .ship__stage { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: var(--space-4); width: 100%; min-height: 190px; padding-bottom: var(--space-3); }
+.pg-ship .ship__stage::after {
+  content: ""; position: absolute; left: 50%; bottom: 0; z-index: 0; width: min(100%, 320px); height: 28px; transform: translateX(-50%);
+  border-radius: 50%; background: var(--royal-soft); box-shadow: inset 0 -4px 0 var(--shade);
+}
+.pg-ship [data-state="shipped"] .ship__stage::after { background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 -4px 0 var(--gold-lip); }
+.pg-ship [data-state="closed"] .ship__stage::after { background: var(--surface-sunken); }
+
+.pg-ship .ship__polaroid {
+  position: relative; z-index: 1; display: grid; gap: 6px; width: 176px; margin: 0 0 var(--space-4);
+  padding: 8px 8px 6px; background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-md);
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft); transform: rotate(-6deg);
+}
+.pg-ship .ship__polaroid img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: var(--radius-xs); background: var(--surface-sunken); }
+.pg-ship .ship__polaroid figcaption { font: 800 13px/16px var(--font-body); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pg-ship .ship__burst { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pg-ship .ship__burst [data-icon] { position: absolute; color: var(--gold); filter: drop-shadow(0 2px 0 var(--gold-lip)); font-size: 22px; }
+.pg-ship .ship__burst [data-icon]:nth-child(1) { left: 6%; top: 10%; font-size: 28px; }
+.pg-ship .ship__burst [data-icon]:nth-child(2) { left: 18%; top: 62%; color: var(--violet); filter: none; }
+.pg-ship .ship__burst [data-icon]:nth-child(3) { right: 8%; top: 4%; font-size: 30px; }
+.pg-ship .ship__burst [data-icon]:nth-child(4) { right: 16%; top: 56%; color: var(--mint); filter: none; }
+.pg-ship .ship__burst [data-icon]:nth-child(5) { left: 40%; top: -4%; font-size: 18px; }
+.pg-ship .ship__burst [data-icon]:nth-child(6) { right: 34%; top: 2%; color: var(--coral); filter: none; font-size: 18px; }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-ship .ship__burst [data-icon] { animation: ship-pop 520ms cubic-bezier(.3, 1.6, .5, 1) both, ship-float 3.2s ease-in-out 600ms infinite alternate; }
+  .pg-ship .ship__burst [data-icon]:nth-child(2n) { animation-delay: 120ms, 900ms; }
+  .pg-ship .ship__burst [data-icon]:nth-child(3n) { animation-delay: 240ms, 1200ms; }
+}
+
+.pg-ship .ship__status { height: 34px; padding: 0 14px 0 6px; font-size: 14px; } /* the 22px coin from .sp-badge > i: 6px from the top, bottom and left */
+.pg-ship .ship__done-title { margin: 0; font: 900 italic clamp(36px, 8vw, 56px)/1.05 var(--font-display); color: var(--ink); }
+.pg-ship [data-state="shipped"] .ship__done-title {
+  padding-inline: 0.12em; letter-spacing: 0.01em;
+  background: linear-gradient(180deg, var(--gold-hi) 25%, var(--gold) 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.08em var(--gold-lip); paint-order: stroke fill;
+  filter: drop-shadow(0 3px 0 var(--gold-lip));
+}
+.pg-ship .ship__done-text { max-width: 44ch; margin: 0; font: 600 17px/26px var(--font-body); color: var(--ink-muted); text-wrap: pretty; }
+.pg-ship .ship__done-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
+.pg-ship .ship__done-actions form { margin: 0; }
+
+@media (max-width: 599px) {
+  .pg-ship .ship__card { padding-inline: var(--space-4); }
+  .pg-ship .ship__polaroid { width: 128px; }
+}
+
+@keyframes ship-tick { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }
+@keyframes ship-shine { 0% { transform: translateX(-100%); } 45%, 100% { transform: translateX(100%); } }
+@keyframes ship-pop { 0% { opacity: 0; transform: scale(0.2) rotate(-40deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes ship-float { 0% { translate: 0 0; } 100% { translate: 0 -8px; } }
+@keyframes ship-checking { 0% { opacity: 1; } 100% { opacity: 0.55; } }

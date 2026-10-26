@@ -1,0 +1,48 @@
+<%# The claim popup: a prize card or a reel card makes that prize the goal and opens this with a pop (the goal
+    controller). "Claim it" goes on to onboarding; the pick waits in localStorage for it. %>
+<dialog class="claim" aria-labelledby="claim-title" data-goal-target="dialog" data-action="click->goal#closeOutside">
+  <div class="claim__sheet">
+  <div class="claim__card">
+    <div class="claim__top">
+      <%# The prize cards' halftone (LandingHelper#claim_popup_halftone, 40 wider each side than the card), melted by their goo filter in _shop_shapes. %>
+      <svg class="claim__dots" viewBox="-40 0 480 240" aria-hidden="true" focusable="false">
+        <g filter="url(#sp-goo)"><% claim_popup_halftone.each do |x, y, r| %><circle cx="<%= x %>" cy="<%= y %>" r="<%= r %>"/><% end %></g>
+      </svg>
+      <div class="claim__head">
+        <h2 class="claim__name" id="claim-title" data-goal-target="claimName"></h2>
+        <p class="claim__kind" data-goal-target="claimKind"></p>
+      </div>
+      <div class="claim__art"><span class="claim__art-rays" aria-hidden="true"></span><img src="" alt="" data-goal-target="claimImage"></div>
+      <svg class="claim__wave" viewBox="0 0 400 48" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 70 6, 130 4, 200 22 S 330 48, 400 14 V 48 H 0 Z"/></svg>
+    </div>
+    <div class="claim__bottom">
+      <%# One price block, like the prize tag's: the hourglass spans two lines, the daily pace on top, the totals under it. %>
+      <div class="claim__stats">
+        <%= hours_coin %>
+        <p class="claim__pace" data-goal-target="claimPace"></p>
+        <p class="claim__totals"><b data-goal-target="claimTotal"></b> hrs total · <b data-goal-target="claimDays"></b> days</p>
+      </div>
+      <div class="claim__actions">
+        <button type="button" class="claim__x" aria-label="Not yet" data-action="goal#close"><%= sp_icon "close-fill" %></button>
+        <%# The price stays in the page for the goal controller (and for assistive tech), but the stats row already shows it. %>
+        <%= link_to onboarding_path, class: "claim__go cta", data: { action: "goal#remember" } do %>
+          <b class="visually-hidden" data-goal-target="claimPrice"></b><span>Claim it</span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  <%# Armand's banner art straddles the card's top edge. Its tails overhang the card by the same amount on both sides. The
+      text is real text on an arc that follows the ribbon's curve (viewBox 1200 x 381, like the image). %>
+  <div class="claim__banner" aria-hidden="true">
+    <%= image_tag "save_point/claim-banner.png", alt: "", width: 1200, height: 381 %>
+    <svg viewBox="0 0 1200 381" focusable="false">
+      <defs>
+        <path id="claim-arc" d="M 150 222 Q 600 122 1050 222"/>
+        <path id="claim-arc-lip" d="M 150 236 Q 600 136 1050 236"/>
+      </defs>
+      <text class="claim__banner-lip" text-anchor="middle"><textPath href="#claim-arc-lip" startOffset="50%">Your Goal</textPath></text>
+      <text class="claim__banner-text" text-anchor="middle"><textPath href="#claim-arc" startOffset="50%">Your Goal</textPath></text>
+    </svg>
+  </div>
+  </div>
+</dialog>

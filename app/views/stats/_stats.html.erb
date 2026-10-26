@@ -1,0 +1,287 @@
+<% totals, streaks = @stats[:totals], @stats[:streaks] %>
+<% day = @stats[:day].clamp(0, @stats[:days]) %>
+<% daily = @stats[:daily] %>
+<% axis_max = stat_axis_max(daily.map { |d| d[:hours] }.max) %>
+<% peak = daily.reject { |d| d[:future] || d[:hours].zero? }.max_by { |d| d[:hours] } %>
+
+<%# Save Point in numbers (PublicStats): exact totals, and no names. Save Point's look (D-009): panels with ribbons, stat
+    coins and the charts in the style sheet's colours (save_point/pages/stats.css). The public page (stats/show) and the
+    admin one (admin/stats/show) both render this, each with its own bar above it. The signups toggle links back to
+    whichever page it is on. %>
+  <main class="sp-container">
+    <div class="stats" data-controller="stats-tooltip"
+         data-action="pointerover->stats-tooltip#show focusin->stats-tooltip#show pointerout->stats-tooltip#hide focusout->stats-tooltip#hide">
+      <header class="stats__hero">
+        <span class="stats__eyebrow"><%= sp_icon "chart-bar-fill" %>Stats</span>
+        <h1 class="stats__title">Save Point in numbers</h1>
+        <p class="stats__note stats__lead">
+          <span class="sp-badge sp-badge--gold"><%= sp_icon "calendar-fill" %><% if day < 1 %>Starts <%= Program::DATES.begin.strftime("%b %-d") %>.<% elsif @stats[:day] > @stats[:days] %>That's a wrap.<% else %>Day <%= day %> of <%= @stats[:days] %>.<% end %></span>
+          Totals across everyone building.
+        </p>
+      </header>
+
+      <section class="stats__tiles stats__tiles--totals" aria-label="Totals">
+        <div class="stats__tile stats__tile--royal"><i class="stats__coin" aria-hidden="true"><%= sp_icon "user-3-fill" %></i><span>Builders</span><strong><%= stat(totals[:builders]) %></strong></div>
+        <div class="stats__tile stats__tile--gold"><i class="stats__coin stats__coin--hours" aria-hidden="true"><%= hours_coin %></i><span>Hours built</span><strong><%= stat(totals[:hours]) %></strong></div>
+        <div class="stats__tile stats__tile--mint"><i class="stats__coin" aria-hidden="true"><%= sp_icon "rocket-fill" %></i><span>Games shipped</span><strong><%= stat(totals[:shipped]) %></strong></div>
+        <div class="stats__tile stats__tile--bronze"><i class="stats__coin" aria-hidden="true"><%= sp_icon "time-fill" %></i><span>Hours shipped</span><strong><%= stat(totals[:shipped_hours]) %></strong></div>
+        <div class="stats__tile stats__tile--violet"><i class="stats__coin" aria-hidden="true"><%= sp_icon "gift-fill" %></i><span>Prizes earned</span><strong><%= stat(totals[:prizes]) %></strong></div>
+      </section>
+
+      <section class="stats__card sp-panel" aria-labelledby="stats-daily">
+        <h2 class="stats__heading sp-ribbon" id="stats-daily"><span><%= sp_icon "time-fill" %>Hours built each day</span></h2>
+        <div class="stats__chart">
+          <div class="stats__columns" style="--axis-max: <%= axis_max %>">
+            <div class="stats__grid" aria-hidden="true">
+              <% [ axis_max, axis_max / 2.0, 0 ].each do |tick| %>
+                <span><%= number_with_delimiter(tick % 1 == 0 ? tick.to_i : tick) %></span>
+              <% end %>
+            </div>
+            <% daily.each do |d| %>
+              <% date = d[:date].strftime("%b %-d") %>
+              <% tip = d[:future] ? "#{date}: still to come" : "#{date}: #{d[:hours]} hours by #{pluralize(d[:builders], "builder")}" %>
+              <div class="stats__column" <%= "data-future" if d[:future] %>
+                   tabindex="0" data-tooltip="<%= tip %>" aria-label="<%= tip %>">
+                <span class="stats__column-bar" style="--value: <%= d[:hours] %>">
+                  <% if d.equal?(peak) %><span class="stats__column-label"><%= d[:hours] %></span><% end %>
+                </span>
+                <span class="stats__column-date" aria-hidden="true"><%= d[:date].day %></span>
+              </div>
+            <% end %>
+          </div>
+          <p class="stats__axis-note">October · hours</p>
+        </div>
+        <details class="stats__table-view">
+          <summary><%= sp_icon "down-fill" %>Show as a table</summary>
+          <div class="stats__scroll">
+            <table class="leaderboard__table">
+              <thead><tr><th scope="col">Day</th><th class="leaderboard__number" scope="col">Hours</th><th class="leaderboard__number" scope="col">Builders</th></tr></thead>
+              <tbody>
+                <% daily.reject { |d| d[:future] }.each do |d| %>
+                  <tr><th scope="row"><%= d[:date].strftime("%b %-d") %></th><td class="leaderboard__number"><%= stat(d[:hours]) %></td><td class="leaderboard__number"><%= stat(d[:builders]) %></td></tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <%# Who's building each day (Growth): everyone in one of Duolingo's states by when they last built, day by day. %>
+      <% growth = @stats[:growth] %>
+      <% latest = growth[:latest] %>
+      <% columns = growth[:days].map { |row| row[:date] == growth.dig(:today, :date) ? growth[:today].merge(so_far: true) : row } %>
+      <% states = growth_series_present(StatsHelper::GROWTH_STATE_SERIES, columns) %>
+      <% growth_axis = stat_axis_max(columns.map { |row| row[:dau].to_i }.max) %>
+      <% busiest = columns.reject { |row| row[:future] || row[:so_far] || row[:dau].zero? }.max_by { |row| row[:dau] } %>
+      <section class="stats__card sp-panel" aria-labelledby="stats-growth-heading" id="stats-growth">
+        <h2 class="stats__heading sp-ribbon" id="stats-growth-heading"><span><%= sp_icon "user-3-fill" %>Who's building each day</span></h2>
+        <p class="stats__note">
+          Everyone who built <%= growth[:active_minutes] %> minutes or more that day, sorted by when they last built, after
+          <a href="https://blog.duolingo.com/growth-model-duolingo/" target="_blank" rel="noopener">Duolingo's growth model</a>.
+          A day counts once it's over; today's column is how far it's got.
+        </p>
+
+        <% if latest %>
+          <div class="stats__tiles stats__tiles--small stats__tiles--row">
+            <div class="stats__tile"><span>Built yesterday <abbr title="Daily active builders">DAU</abbr></span><strong><%= stat(latest[:dau]) %></strong></div>
+            <div class="stats__tile"><span>Built this week <abbr title="Weekly active builders">WAU</abbr></span><strong><%= stat(latest[:wau]) %></strong></div>
+            <div class="stats__tile"><span>Built this month <abbr title="Monthly active builders">MAU</abbr></span><strong><%= stat(latest[:mau]) %></strong></div>
+            <div class="stats__tile"><span>DAU ÷ MAU</span><strong><%= stat_percent(latest[:mau].positive? ? latest[:dau].fdiv(latest[:mau]) : nil) %></strong></div>
+            <div class="stats__tile"><span>Came back the next day <abbr title="Current user retention rate">CURR</abbr>, last <%= Growth::RATE_WINDOW %> days</span><strong><%= stat_percent(latest[:curr]) %></strong></div>
+          </div>
+        <% end %>
+
+        <div class="stats__panel">
+          <h3 class="stats__subheading">Building each day, by when they last built</h3>
+          <div class="stats__columns" style="--axis-max: <%= growth_axis %>">
+            <div class="stats__grid" aria-hidden="true">
+              <% [ growth_axis, growth_axis / 2.0, 0 ].each do |tick| %>
+                <span><%= number_with_delimiter(tick % 1 == 0 ? tick.to_i : tick) %></span>
+              <% end %>
+            </div>
+            <% columns.each do |row| %>
+              <% date = row[:date].strftime("%b %-d") %>
+              <% parts = states.filter_map { |one| "#{row[one[:key]]} #{one[:label].downcase}" if row[one[:key]].to_i.positive? } %>
+              <% tip = if row[:future] && !row[:so_far] then "#{date}: still to come"
+                       else "#{date}#{' so far' if row[:so_far]}: #{pluralize(row[:dau], 'builder')}#{" · #{parts.join(', ')}" if parts.any?}" end %>
+              <div class="stats__column" <%= "data-future" if row[:future] && !row[:so_far] %> <%= "data-so-far" if row[:so_far] %>
+                   tabindex="0" data-tooltip="<%= tip %>" aria-label="<%= tip %>">
+                <span class="stats__stack">
+                  <% if row.equal?(busiest) %><span class="stats__column-label"><%= row[:dau] %></span><% end %>
+                  <% states.reverse.each do |one| %>
+                    <% next if row[one[:key]].to_i.zero? %>
+                    <span class="stats__segment" style="--value: <%= row[one[:key]] %>; --series: var(--<%= one[:color] %>)"></span>
+                  <% end %>
+                </span>
+                <span class="stats__column-date" aria-hidden="true"><%= row[:date].day %></span>
+              </div>
+            <% end %>
+          </div>
+          <ul class="stats__legend">
+            <% states.each do |one| %>
+              <li><span class="stats__legend-key stats__legend-key--fill" style="--series: var(--<%= one[:color] %>)"></span> <%= one[:label] %></li>
+            <% end %>
+          </ul>
+          <details class="stats__table-view">
+            <summary><%= sp_icon "down-fill" %>Show as a table</summary>
+            <div class="stats__scroll">
+              <table class="leaderboard__table">
+                <thead><tr><th scope="col">Day</th><th class="leaderboard__number" scope="col">DAU</th><% states.each do |one| %><th class="leaderboard__number" scope="col"><%= one[:label] %></th><% end %><th class="leaderboard__number" scope="col">WAU</th><th class="leaderboard__number" scope="col">MAU</th></tr></thead>
+                <tbody>
+                  <% columns.reject { |row| row[:future] && !row[:so_far] }.each do |row| %>
+                    <tr><th scope="row"><%= row[:date].strftime("%b %-d") %><%= " so far" if row[:so_far] %></th><td class="leaderboard__number"><%= stat(row[:dau]) %></td><% states.each do |one| %><td class="leaderboard__number"><%= stat(row[one[:key]]) %></td><% end %><td class="leaderboard__number"><%= stat(row[:wau]) %></td><td class="leaderboard__number"><%= stat(row[:mau]) %></td></tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+
+        <% if latest %>
+          <div class="stats__pair stats__panels">
+            <div class="stats__panel">
+              <h3 class="stats__subheading">Daily, weekly and monthly</h3>
+              <p class="stats__note">WAU built in the last 7 days, MAU in the last 30: so far, that's nearly everyone who's built at all.</p>
+              <%= render "stats/lines", rows: growth[:days], series: StatsHelper::GROWTH_AUDIENCE_SERIES %>
+            </div>
+            <div class="stats__panel">
+              <h3 class="stats__subheading">Who comes back</h3>
+              <p class="stats__note">Of the builders in each state one day, the share building the next. Pooled over <%= Growth::RATE_WINDOW %> days.</p>
+              <%= render "stats/lines", rows: growth[:rates], series: growth_series_present(StatsHelper::GROWTH_RATE_SERIES, growth[:rates]), percent: true %>
+            </div>
+          </div>
+
+          <% projection = growth[:projections][@signups] %>
+          <% if projection %>
+            <% levers = projection[:levers] %>
+            <% shown = levers.first(Growth::Simulator::PROJECTED_LEVERS) %>
+            <div class="stats__panel">
+              <div class="stats__panel-header">
+                <h3 class="stats__subheading">The rest of Save Point</h3>
+                <nav class="stats__toggle" aria-label="Where new builders come from" data-seg-nav>
+                  <% StatsHelper::GROWTH_SIGNUP_LABELS.each_with_index do |(signups, label), index| %>
+                    <% active = signups == @signups %>
+                    <%= link_to url_for(signups: (signups unless signups == "word_of_mouth"), anchor: "stats-growth", only_path: true),
+                                class: class_names("stats__toggle-option", "stats__toggle-option--active" => active),
+                                "aria-current": (active ? "true" : nil) do %>
+                      <%= tag.span(class: "stats__pill", style: "view-transition-name: stats-pill", aria: { hidden: true }) if active %>
+                      <%= tag.span(label, class: "stats__label", style: "view-transition-name: stats-option-#{index}") %>
+                    <% end %>
+                  <% end %>
+                </nav>
+              </div>
+              <p class="stats__note">
+                <% if @signups == "word_of_mouth" %>
+                  New builders scale with the day before's DAU, as in Duolingo's compounding example: lately
+                  <strong><%= number_with_precision(projection[:signups_per_dau] * 100, precision: 1) %></strong> new a day per 100 building.
+                  Every builder a better rate keeps brings more the next day, so the gains compound.
+                <% else %>
+                  New builders held at their recent average of <strong><%= number_with_precision(projection[:new_per_day], precision: 1) %></strong> a day,
+                  however DAU moves. Gains add up but don't compound.
+                <% end %>
+                Rates are the last <%= Growth::Simulator::WINDOW %> days'. By <%= Program::DATES.end.strftime("%b %-d") %>, with nothing changed:
+                <strong><%= stat(projection[:baseline_dau].round) %></strong> DAU.
+              </p>
+              <%= render "stats/lines", rows: projection[:rows], series: growth_projection_series(shown) %>
+            </div>
+
+            <div class="stats__panel">
+              <h3 class="stats__subheading">Which rate to improve</h3>
+              <p class="stats__note">
+                Each row raises one rate by a tenth (60% becomes 66%) from today, the test Duolingo used to pick CURR, and shows the DAU
+                it adds by <%= Program::DATES.end.strftime("%b %-d") %>. The last column is the builder-days lost over the rest of Save Point
+                by starting <%= Growth::Simulator::DELAY_DAYS %> days later.
+              </p>
+              <div class="stats__scroll">
+                <table class="leaderboard__table stats__levers">
+                  <thead>
+                    <tr><th scope="col">Rate</th><th class="leaderboard__number" scope="col">Now</th><th class="leaderboard__number" scope="col">DAU on the last day</th><th class="leaderboard__number" scope="col">Added</th><th class="leaderboard__number" scope="col">Builder-days lost by waiting <%= Growth::Simulator::DELAY_DAYS %> days</th></tr>
+                  </thead>
+                  <tbody>
+                    <% levers.each do |lever| %>
+                      <tr>
+                        <th scope="row"><%= StatsHelper::GROWTH_RATE_LABELS.fetch(lever[:rate]) %></th>
+                        <td class="leaderboard__number"><%= stat_percent(lever[:current_rate]) %></td>
+                        <td class="leaderboard__number"><%= stat(lever[:dau].round) %></td>
+                        <td class="leaderboard__number stats__up">+<%= number_with_precision(lever[:lift], precision: 1) %></td>
+                        <td class="leaderboard__number stats__down">−<%= number_with_precision(lever[:cost_of_waiting], precision: 1) %></td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+
+        <details class="stats__table-view">
+          <summary><%= sp_icon "down-fill" %>States and rates</summary>
+          <dl class="stats__definitions">
+            <dt>New</dt><dd>First day building is today.</dd>
+            <dt>Current</dt><dd>Building today, and on at least one of the previous 6 days.</dd>
+            <dt>Reactivated</dt><dd>Building today, last built 7 to 29 days ago.</dd>
+            <dt>Resurrected</dt><dd>Building today, last built 30 or more days ago.</dd>
+            <dt>At-risk WAU</dt><dd>Not building today, but on one of the previous 6 days.</dd>
+            <dt>At-risk MAU</dt><dd>Last built 7 to 29 days ago.</dd>
+            <dt>Dormant</dt><dd>Last built 30 or more days ago.</dd>
+            <dt>NURR</dt><dd>New user retention rate: the share of yesterday's new builders building again today.</dd>
+            <dt>CURR</dt><dd>Current user retention rate: the share of yesterday's current builders building again today.</dd>
+            <dt>RURR</dt><dd>Reactivated user retention rate: the share of yesterday's reactivated builders building again today.</dd>
+            <dt>SURR</dt><dd>Resurrected user retention rate: the share of yesterday's resurrected builders building again today.</dd>
+            <dt>iWAURR</dt><dd>At-risk WAU retention rate: the share of yesterday's at-risk WAU builders back today.</dd>
+            <dt>Reactivation</dt><dd>The share of yesterday's at-risk MAU builders back today.</dd>
+            <dt>Resurrection</dt><dd>The share of yesterday's dormant builders back today.</dd>
+          </dl>
+        </details>
+      </section>
+
+      <section class="stats__card sp-panel" aria-labelledby="stats-funnel">
+        <h2 class="stats__heading sp-ribbon sp-ribbon--gold" id="stats-funnel"><span><%= sp_icon "flag-1-fill" %>From signing in to shipping</span></h2>
+        <% first = @stats[:funnel].first[:count] %>
+        <table class="stats__bars">
+          <thead class="visually-hidden"><tr><th scope="col">Step</th><th scope="col">People</th><th scope="col">Of everyone who signed in</th></tr></thead>
+          <tbody>
+            <% @stats[:funnel].each do |step| %>
+              <tr>
+                <th scope="row"><%= step[:label] %></th>
+                <td class="stats__bar-cell">
+                  <span class="stats__bar" style="--share: <%= first.positive? ? step[:count].fdiv(first) : 0 %>"></span>
+                  <span class="stats__bar-value"><%= stat(step[:count]) %></span>
+                </td>
+                <td class="stats__bar-share"><%= stat_share(step[:share]) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </section>
+
+      <div class="stats__pair">
+        <section class="stats__card sp-panel" aria-labelledby="stats-streaks">
+          <h2 class="stats__heading sp-ribbon" id="stats-streaks"><span><%= sp_icon "fire-fill" %>Streaks and buddies</span></h2>
+          <div class="stats__tiles stats__tiles--small">
+            <div class="stats__tile"><span>On a streak</span><strong><%= stat(streaks[:on_streak]) %></strong></div>
+            <div class="stats__tile"><span>Longest streak</span><strong><%= streaks[:longest] ? pluralize(streaks[:longest], "day") : "—" %></strong></div>
+            <div class="stats__tile"><span>Buddy pairs</span><strong><%= stat(streaks[:pairs]) %></strong></div>
+          </div>
+          <% most = streaks[:groups].map { |g| g[:people] }.max %>
+          <table class="stats__bars stats__bars--streaks">
+            <thead><tr><th scope="col">Streak</th><th scope="col">People</th></tr></thead>
+            <tbody>
+              <% streaks[:groups].each do |group| %>
+                <tr>
+                  <th scope="row"><%= group[:label] %></th>
+                  <td class="stats__bar-cell">
+                    <span class="stats__bar" style="--share: <%= most.positive? ? group[:people].fdiv(most) : 0 %>"></span>
+                    <span class="stats__bar-value"><%= stat(group[:people]) %></span>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <p class="stats__note stats__updated"><%= sp_icon "refresh-2-fill" %><span>Updated <%= time_ago_in_words(@stats[:generated_at]) %> ago. Hours come from Hackatime and catch up through the day.</span></p>
+      <div class="stats__tooltip" data-stats-tooltip-target="tip" role="tooltip" hidden></div>
+    </div>
+  </main>

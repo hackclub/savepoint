@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "Save Point" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Save Point">
+    <meta name="application-name" content="Save Point">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
+    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
+
+    <link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
+    <link rel="icon" href="/icon.svg?v=2" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+
+    <%# Every stylesheet in app/assets but Save Point's (save_point/), which only its own layout loads. %>
+    <%= stylesheet_link_tag(*app_stylesheets_paths.grep_v(%r{\Asave_point/}), "data-turbo-track": "reload") %>
+    <%= javascript_importmap_tags %>
+
+    <%# Privacy-friendly analytics by Plausible %>
+    <script async src="https://plausible.io/js/pa-Dp9oCKesz-3dzHt8a_4bp.js"></script>
+    <script>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
+  </head>
+
+  <body>
+    <%= yield %>
+    <%= render "layouts/impersonation" if impersonating? %>
+  </body>
+</html>

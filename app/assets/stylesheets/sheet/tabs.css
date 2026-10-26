@@ -1,0 +1,125 @@
+@layer sheet {
+  .sheet-tabs {
+    block-size: 40px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 12px 0 60px;
+    border-block-start: 1px solid var(--border-header);
+    background: var(--surface-chrome);
+    font-family: var(--font-chrome);
+    overflow-x: auto;
+  }
+
+  .sheet-tabs__round-button {
+    --icon-size: 22px;
+
+    flex: none;
+    display: grid;
+    place-items: center;
+    inline-size: 32px;
+    block-size: 32px;
+    border-radius: 50%;
+    color: var(--icon-color);
+
+    &:hover {
+      background: var(--hover-chrome);
+    }
+  }
+
+  .sheet-tabs__round-button--menu {
+    margin-inline-end: 12px;
+  }
+
+  .sheet-tab {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    block-size: 100%;
+    padding: 0 8px 0 16px;
+    font: 500 14px var(--font-chrome);
+    text-decoration: none;
+
+    &,
+    &:hover {
+      color: var(--text-secondary);
+    }
+
+    &:hover {
+      background: var(--hover-chrome);
+    }
+
+    &[aria-current="page"] {
+      background: var(--blue-50);
+      color: var(--blue-700);
+    }
+  }
+
+  /* The sum at the right, like a sheet's "Sum: 12" over a selection. */
+  .sheet-tabs__sum {
+    flex: none;
+    block-size: 28px;
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
+    padding: 0 4px 0 12px;
+    border: 1px solid var(--border-header);
+    border-inline-end: 0;
+    border-radius: 4px 0 0 4px;
+    background: var(--white);
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .sheet-tabs__sum-icon {
+    --icon-size: 18px;
+
+    block-size: 28px;
+    box-sizing: content-box;
+    margin-inline-end: 0;
+    border: 1px solid var(--border-header);
+    border-inline-start: 0;
+    border-radius: 0 4px 4px 0;
+    background: var(--white);
+    color: var(--icon-color);
+  }
+}
+
+/* Phones: a taller, edge-to-edge tab strip that scrolls sideways without a scrollbar. */
+@layer sheet {
+  @media (width <= 600px) {
+    .sheet-tabs {
+      block-size: 48px;
+      gap: 0;
+      padding: 0;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    .sheet-tabs__round-button:not(.sheet-tabs__round-button--menu),
+    .sheet-tab .icon {
+      display: none;
+    }
+
+    .sheet-tabs__round-button--menu {
+      inline-size: 44px;
+      block-size: 100%;
+      margin: 0;
+      border-radius: 0;
+    }
+
+    .sheet-tab {
+      padding-inline: 16px;
+    }
+
+    .sheet-tabs__sum,
+    .sheet-tabs__sum-icon {
+      display: none;
+    }
+  }
+}

@@ -1,0 +1,156 @@
+<% content_for :stylesheets, "save_point/landing save_point/prize_tag" %>
+<%# This page places the footer itself, inside .sp-page and under the FAQ's slanted foot. %>
+<% content_for :own_footer, true %>
+<% goal = Prize::DEFAULT_GOAL %>
+
+<%= tag.div class: "sp-page", id: "top",
+      data: { controller: "goal dock",
+              goal_starts_at_value: Program::STARTS_AT.iso8601, goal_ends_at_value: Program::ENDS_AT.iso8601,
+              goal_sound_value: audio_path("save_point/claim.mp3"), goal_confirm_sound_value: audio_path("save_point/confirm.mp3") } do %>
+  <%# Each zone is a full-bleed band with its own background (landing.css, "Zones"). The strips are decoration. %>
+  <main>
+    <div class="fold">
+    <div class="zone zone--hero">
+    <span class="zone__fx" aria-hidden="true"></span>
+    <div class="wrap">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero__copy">
+          <div class="hero__group">
+            <%= image_tag "save_point/logo.png", class: "hero__logo", alt: "Save Point", width: 1000, height: 410 %>
+            <%# The word that rolls: Armand's list, in order. "Get" stays still, and the article rolls with the noun ("games" has none). Colours are the
+                hero__cycle-word--N rules in landing.css. %>
+            <% cycle_words = [ "a keyboard", "a mouse", "a controller", "games" ] %>
+            <h1 id="hero-title">
+              <span class="hero__line">Finish that game you started</span>
+              <span class="visually-hidden">Get a keyboard, mouse, controller or games</span>
+              <span class="hero__line hero__line--roll" aria-hidden="true">
+                <span class="hero__still">Get</span>
+                <span class="hero__cycle" data-controller="hero-cycle">
+                  <span class="hero__track" data-hero-cycle-target="track">
+                    <% (cycle_words + [ cycle_words.first ]).each_with_index do |word, i| %>
+                      <%= tag.span word, class: "hero__cycle-word hero__cycle-word--#{i % cycle_words.size}", data: { hero_cycle_target: "word" } %>
+                    <% end %>
+                  </span>
+                </span>
+              </span>
+            </h1>
+          </div>
+          <div class="hero__group">
+          <div class="hero__cta cta-watch" data-dock-target="watch">
+            <%= landing_join_cta User.participant_count %>
+          </div>
+          <%# The sticker promise (D-051), above the fold: the sticker art in a round tile, and the offer. %>
+          <p class="promise" id="sticker-promise">
+            <span class="promise__art" aria-hidden="true"><%= image_tag "sticker-promise.svg", alt: "", width: 335, height: 432 %></span>
+            <span class="promise__text">Work on your game for <b>5 minutes</b> in your first hour. <b>Free stickers.</b></span>
+          </p>
+          <div class="when">
+            <div class="when__dates"><%= sp_icon "calendar-fill" %><span>Ends <%= tag.b utc_end_text, data: { controller: "local-time", local_time_at_value: Program::ENDS_AT.iso8601 } %></span></div>
+            <%= render "pages/landing/countdown" %>
+          </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    </div>
+
+    <%# Four copies of the prizes, so the reel can loop either way; only the first is read out. %>
+    <div class="zone zone--reel">
+    <section class="reel" aria-label="Some of the prizes" data-controller="prize-reel">
+      <div class="reel__track">
+        <% 4.times do |copy| %>
+          <%= render partial: "pages/landing/reel_item", collection: Prize::ALL, as: :prize, locals: { hidden: copy.positive? } %>
+        <% end %>
+      </div>
+    </section>
+    </div>
+    </div>
+
+    <div class="zone zone--how zone--dark">
+    <div class="wrap">
+      <section class="band band--tight" id="how" aria-labelledby="how-title">
+        <div class="section-head">
+          <h2 id="how-title">How this works</h2>
+        </div>
+        <ol class="steps">
+          <li class="step"><span class="step__icon"><%= sp_color_icon "game-2-fill" %></span>
+            <h3>Pick a game</h3><p>Any game you started and haven't finished.</p></li>
+          <li class="step"><span class="step__icon"><%= sp_color_icon "time-fill" %></span>
+            <h3>Work on it</h3><p>Track your time with Hackatime. Hours from <%= short_date(Program::STARTS_AT) %> to <%= short_date(Program::ENDS_AT) %> count.</p></li>
+          <li class="step"><span class="step__icon"><%= sp_color_icon "rocket-fill" %></span>
+            <h3>Ship it</h3><p>Send a playable build and tell us what you changed. The ship checker shows what's missing.</p></li>
+          <li class="step step--last"><span class="step__icon"><%= sp_color_icon "gift-fill" %></span>
+            <h3>Get your prize</h3><p>Approved hours go toward the prize you picked, and we mail it to you.</p></li>
+        </ol>
+      </section>
+    </div>
+    </div>
+
+    <div class="zone zone--prizes zone--dark">
+    <span class="zone__fx" aria-hidden="true"></span>
+    <%= landing_decor(:prizes) %>
+    <%= render "pages/landing/strip", items: [ "Prizes", "[02]", "(*)", "0301 ∞ 1023", "", "Prize shop", "⟳", "hrs" ] %>
+    <div class="wrap">
+      <section class="band" id="prizes" aria-labelledby="prizes-title">
+        <div class="section-head">
+          <h2 id="prizes-title">Pick your prize</h2>
+        </div>
+        <%= render "pages/landing/shop_shapes" %>
+        <div class="prizes">
+          <%= render partial: "pages/landing/prize_card", collection: Prize::ALL, as: :prize, locals: { goal: } %>
+        </div>
+      </section>
+    </div>
+    <%= render "pages/landing/strip", items: [ "Save Point", "[03]", "(*)", "Hack Club", "", "1023 ∞ 0301", "⟲", "min a day" ], position: "bottom" %>
+    </div>
+
+    <div class="zone zone--hc zone--dark">
+    <div class="wrap">
+      <section class="band" id="hack-club" aria-labelledby="hc-title">
+        <div class="hc">
+          <div class="hc__panel hc__panel--inset">
+            <h2 id="hc-title" class="sp-callout-text">What's Hack Club?</h2>
+            <p><a href="https://hackclub.com/">Hack Club</a> is a <b>501(c)(3) nonprofit</b> that runs programs and events to get more teenagers building and shipping real projects.</p>
+            <p>It's a community of <b>100,000+ high schoolers in 119 countries</b> who learn by making things: games, apps, hardware, art. Nobody needs experience to start.</p>
+            <p>Save Point is one of its <b>You Ship, We Ship</b> programs. You build something, and Hack Club ships you a prize.</p>
+            <div class="hc__stats">
+              <span class="sp-stat"><span class="sp-stat__key"><%= sp_icon "user-3-fill" %></span>100k+ <span class="sp-stat__unit">members</span></span>
+              <span class="sp-stat"><span class="sp-stat__key sp-stat__key--mint"><%= sp_icon "home-4-fill" %></span>119 <span class="sp-stat__unit">countries</span></span>
+            </div>
+          </div>
+          <%# Left column first, then right: the grid places them by nth-of-type (landing.css). %>
+          <% landing_photos.each_with_index.sort_by { |_, index| [ index % 2, index ] }.each do |(file, alt), index| %>
+            <figure class="snap <%= index.even? ? "snap--l" : "snap--r" %>"><%= image_tag "save_point/photos/#{file}", alt:, loading: "lazy" %></figure>
+          <% end %>
+        </div>
+      </section>
+    </div>
+    </div>
+
+    <div class="zone zone--faq zone--dark">
+    <%= render "pages/landing/strip", items: [ "Questions", "[04]", "(*)", "FAQ", "", "0301 ∞ 1023", "⟳", "Hours" ] %>
+    <div class="wrap">
+      <section class="band" id="faq" aria-labelledby="faq-title">
+        <div class="section-head">
+          <h2 id="faq-title">Everything you might ask</h2>
+        </div>
+        <%= render "pages/landing/faq" %>
+      </section>
+    </div>
+    </div>
+
+    <%# The dock sticks to the bottom of the viewport while the page scrolls, and parks on the seam between the FAQ and the
+        footer (landing.css, ".dock"), so it scrolls away with the page and leaves the footer clear. %>
+    <div class="dock is-away" data-dock-target="dock">
+      <div class="dock__bar" data-controller="countdown" data-countdown-ends-at-value="<%= Program::ENDS_AT.iso8601 %>">
+        <span class="dock__time"><small data-countdown-target="label">Ends in</small><b data-countdown-target="short">–</b></span>
+        <%= landing_cta size: nil %>
+      </div>
+    </div>
+  </main>
+
+  <%= render "shared/footer" %>
+
+  <%= render "pages/landing/claim" %>
+
+<% end %>

@@ -1,0 +1,45 @@
+<%# The free stickers' strip (D-051) in the pomodoro, between the prize and the clock: the overlay covers the project page's
+    card, and a participant is earning them exactly while they work. Both looks are rendered and focus_controller.js toggles
+    `hidden` as each poll of the hours answers (counting turns earned; a deadline that passes hides it). Counting and earned
+    only: claimed and old accounts get nothing. %>
+<% state = sticker_promise_state(current_user) %>
+<% if state && state[:kind].in?(%i[counting earned]) %>
+  <% minutes = Reward::STICKERS_SECONDS / 60 %>
+  <% counting = state[:kind] == :counting %>
+  <section class="focus-stickers" data-focus-target="stickers" data-kind="<%= state[:kind] %>"
+           <% if counting %>data-deadline="<%= state[:deadline].iso8601 %>"<% end %> aria-label="Free stickers">
+    <span class="focus-stickers__art" aria-hidden="true"><%= image_tag "sticker-promise.svg", alt: "", width: 335, height: 432 %></span>
+
+    <% if counting %>
+    <div class="focus-stickers__view" data-focus-target="stickersCounting">
+      <div class="focus-stickers__body">
+        <p class="focus-stickers__title">
+          Free stickers: <%= minutes %> minutes before
+          <b data-controller="local-time" data-local-time-at-value="<%= state[:deadline].iso8601 %>" data-local-time-time-only-value="true"><%= state[:deadline].utc.strftime("%-l:%M %P") %> UTC</b>
+        </p>
+        <% if state[:tracking] == false %>
+          <p class="focus-stickers__count">Only minutes on your linked game count.</p>
+        <% else %>
+          <div class="focus-stickers__progress" role="progressbar" data-focus-target="stickerBar" aria-valuemin="0" aria-valuemax="<%= minutes %>"
+               aria-valuenow="<%= state[:minutes].to_i %>" aria-label="Minutes on your game" <%= "hidden" unless state[:seconds] %>>
+            <span class="focus-stickers__fill" data-focus-target="stickerFill" style="width: <%= state[:percent].to_i %>%"></span>
+          </div>
+          <p class="focus-stickers__count" data-focus-target="stickerCount" <%= "hidden" unless state[:seconds] %>><%= sticker_progress_text(state) if state[:seconds] %></p>
+        <% end %>
+      </div>
+        <p class="focus-stickers__clock" role="timer" aria-label="Time left" data-controller="countdown" data-countdown-ends-at-value="<%= state[:deadline].iso8601 %>">
+          <b data-countdown-target="part" data-part="m">00</b><span aria-hidden="true">:</span><b data-countdown-target="part" data-part="s">00</b>
+          <small>left</small>
+        </p>
+    </div>
+    <% end %>
+
+    <div class="focus-stickers__view" data-focus-target="stickersEarned" <%= "hidden" if counting %>>
+      <div class="focus-stickers__body">
+        <p class="focus-stickers__title">Stickers are yours!</p>
+        <p class="focus-stickers__count">Claim them after your pomodoro.</p>
+      </div>
+      <%= link_to shop_path(claim: "stickers"), class: "focus-stickers__claim", target: "_blank", rel: "noopener" do %><%= sp_icon "gift-fill" %>Open the shop<% end %>
+    </div>
+  </section>
+<% end %>

@@ -1,0 +1,29 @@
+<%# locals: (project:, step:, refresh_hackatime: false) %>
+<%# The setup steps: a numbered circle that ticks green when done. The step you're on opens, outlined in red, to
+    show how to do it; any other step you can still do opens it instead. Your Hackatime project, while it's waiting
+    for your first time to show up, stays open too (it says how). %>
+<ol class="project__steps" data-controller="project-steps" data-action="click->project-steps#open submit->project-steps#save">
+  <% project_steps(project, step:).each do |item| %>
+    <li class="project__step" data-state="<%= item[:current] ? "current" : item[:done] ? "done" : item[:later] ? "later" : item[:locked] ? "locked" : "pending" %>">
+      <% header = capture do %>
+        <span class="project__step-number">
+          <% if item[:done] %><%= sp_icon "check-fill" %><% else %><%= item[:number] %><% end %>
+        </span>
+        <span class="project__step-title">
+          <%= item[:title] %><% if item[:note] && !item[:current] %><span class="project__step-note"> · <%= item[:note] %></span><% end %>
+          <span class="visually-hidden"><%= item[:done] ? "(done)" : item[:later] ? "(put off)" : "(to do)" %></span>
+        </span>
+      <% end %>
+      <% if item[:openable] %>
+        <%= link_to header, project_path(step: item[:key]), class: "project__step-header" %>
+      <% elsif item[:current] %>
+        <h2 class="project__step-header"><%= header %></h2>
+      <% else %>
+        <div class="project__step-header"><%= header %></div>
+      <% end %>
+      <% if item[:current] || item[:waiting] %>
+        <div class="project__step-body"><%= render "projects/steps/#{item[:key]}", project:, **(item[:key] == "hackatime_project" ? { refresh: refresh_hackatime } : {}) %></div>
+      <% end %>
+    </li>
+  <% end %>
+</ol>

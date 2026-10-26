@@ -1,0 +1,15 @@
+<%# locals: (project:, mark_invited: false, compact: false) %>
+<%# Your invite link, and a button that copies it (and, during setup, counts as sending it). %>
+<%= form_with url: project_path, method: :patch, class: ["buddy-link", ("buddy-link--compact" if compact)],
+      data: { controller: "copy", copy_text_value: buddy_invite_url(project.buddy_code!), action: "submit->copy#copy" } do %>
+  <% unless compact %>
+    <label class="visually-hidden" for="buddy-link-<%= project.id %>">Your buddy invite link</label>
+    <input id="buddy-link-<%= project.id %>" class="buddy-link__input" value="<%= buddy_invite_link(project) %>" readonly>
+  <% end %>
+  <%= hidden_field_tag "project[buddy_invited]", true, id: nil %>
+  <button type="<%= mark_invited ? "submit" : "button" %>" class="<%= compact ? "buddy-link__compact" : "onboarding-button onboarding-button--primary project__step-button" %>"
+          data-copy-target="button" <%= "data-action=copy#copy" unless mark_invited %>>
+    <svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M440-280H280q-83 0-141.5-58.5T80-480q0-83 58.5-141.5T280-680h160v80H280q-50 0-85 35t-35 85q0 50 35 85t85 35h160v80ZM320-440v-80h320v80H320Zm200 160v-80h160q50 0 85-35t35-85q0-50-35-85t-85-35H520v-80h160q83 0 141.5 58.5T880-480q0 83-58.5 141.5T680-280H520Z"/></svg>
+    <span data-copy-target="label"><%= compact ? "Copy invite link" : "Copy link" %></span>
+  </button>
+<% end %>

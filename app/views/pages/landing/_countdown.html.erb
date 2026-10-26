@@ -1,0 +1,8 @@
+<div class="cd" role="timer" aria-label="Time left" data-controller="countdown" data-countdown-ends-at-value="<%= Program::ENDS_AT.iso8601 %>">
+  <span class="cd__label" data-countdown-target="label">Ends in</span>
+  <span class="cd__cells">
+    <% { d: "days", h: "hrs", m: "min", s: "sec" }.each do |part, label| %>
+      <span class="cd__cell"><b data-countdown-target="part" data-part="<%= part %>">00</b><small><%= label %></small></span>
+    <% end %>
+  </span>
+</div>

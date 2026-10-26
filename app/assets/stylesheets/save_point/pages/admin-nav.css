@@ -1,0 +1,65 @@
+/* The admin nav (admin/_nav), on every admin page: a compact bar of pills on the frame colour, the current page in
+   gold. Scoped to .admin-bar so it never reaches the page around it. The layout renders it above the page, in the
+   same box as the participant top bar (top-bar.css), so it is in the same place on every page. */
+.admin-bar-box {
+  width: 100%; max-width: calc(1200px + 2 * var(--space-8)); margin-inline: auto; box-sizing: border-box;
+  padding: var(--space-4) max(var(--space-4), env(safe-area-inset-right, 0px)) var(--space-4) max(var(--space-4), env(safe-area-inset-left, 0px));
+}
+/* A scrollbar takes width where it isn't an overlay (Windows, Linux), so a long page would centre the bar a few pixels
+   left of a short one. Every admin page keeps the scrollbar's room. */
+:root:has(.admin-bar) { scrollbar-gutter: stable; }
+/* The shell's page column stretches its children (footer.css): the bar keeps its own height. */
+body .sp-shell__page > .admin-bar-box { flex: none; }
+/* The shell's checker (footer.css) runs under the bar and the page as one ground, so each page drops its own, which
+   would start below the bar out of step. The admin home keeps its plain sky, bar and all. */
+.sp-shell__page > .admin-bar-box ~ .sp-page { background: none; }
+.sp-shell:has(> .sp-shell__page > .pg-admin-home) { background: var(--sky); }
+/* Its own name, so it stays put while the page slides or fades (transitions.css). */
+.admin-bar {
+  view-transition-name: admin-bar;
+  display: flex; align-items: center; gap: var(--space-2); width: 100%; min-width: 0; box-sizing: border-box;
+  margin: 0; padding: 6px 6px 9px var(--space-2);
+  background: var(--frame); color: var(--frame-muted);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--frame-lip), var(--shadow-soft);
+}
+.admin-bar__brand { flex: none; display: inline-flex; align-items: center; padding: 2px 4px; border-radius: var(--radius-sm); }
+.admin-bar__brand img { display: block; width: auto; height: 30px; }
+.admin-bar__brand:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.admin-bar .admin__nav { display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; margin: 0; padding: 0; }
+.admin-bar .admin__nav a {
+  display: inline-flex; align-items: center; gap: 5px; min-height: var(--control-sm); padding: 0 10px 0 8px;
+  border-radius: var(--radius-full); color: var(--frame-muted);
+  font: 800 14px/1 var(--font-body); text-decoration: none; white-space: nowrap;
+  transition: color 120ms, background-color 120ms;
+  position: relative; isolation: isolate;
+}
+.admin-bar .admin__nav .admin__label { display: inline-flex; align-items: center; gap: 5px; view-transition-class: seg-label; }
+.admin-bar .admin__nav a .sp-icon { font-size: var(--icon-sm); }
+.admin-bar .admin__nav a:hover { color: var(--on-frame); background: var(--frame-track); }
+.admin-bar .admin__nav a:focus-visible { outline: none; color: var(--on-frame); box-shadow: var(--focus-ring); }
+.admin-bar .admin__nav a[aria-current="page"] { color: var(--on-gold); background: none; }
+/* The gold highlight is a span inside the current page's link, so it can glide to the next one (transitions.css). */
+.admin-bar .admin__nav .admin__pill {
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip);
+  view-transition-class: seg-pill;
+}
+.admin-bar .admin__nav a[aria-current="page"]:focus-visible { box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip), var(--focus-ring); }
+
+/* Narrow: the logo sits above, and the pills wrap under it, a little tighter. */
+@media (max-width: 720px) {
+  .admin-bar { flex-direction: column; align-items: stretch; gap: var(--space-2); padding: var(--space-2) var(--space-2) 11px; }
+  .admin-bar__brand { align-self: flex-start; }
+  .admin-bar__brand img { height: 26px; }
+  .admin-bar .admin__nav a { min-height: 32px; padding: 0 10px 0 8px; font-size: 13px; }
+}
+
+/* A participant's name and picture on any admin page, linking to their page (Admin::UsersController#show). The name
+   keeps the text colour and underlines on hover, so a list does not turn into a column of blue. The picture's link takes no
+   space of its own. */
+body a.admin-person { color: inherit; font: inherit; text-decoration: none; }
+body a.admin-person:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+body a.admin-person:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.admin-person-avatar { display: contents; }

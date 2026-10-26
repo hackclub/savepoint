@@ -1,0 +1,623 @@
+/* Your project (projects/show), as a game dashboard: a HUD along the top, your project and its schedule in panels,
+   your streak and cards down the side, and a nav at the bottom. The pomodoro covers the page when you start one.
+   Every rule sits under .pg-project. Loads after save_point/tokens and save_point/components. */
+
+.pg-project { min-height: 100vh; padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); color: var(--ink); }
+.pg-project [hidden] { display: none !important; }
+.pg-project p, .pg-project h1, .pg-project h2, .pg-project h3 { margin: 0; }
+.pg-project ol, .pg-project ul { margin: 0; padding: 0; list-style: none; }
+.pg-project a:not(.sp-btn) { color: var(--royal-ink); }
+.pg-project a:focus-visible, .pg-project button:focus-visible, .pg-project summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-project form { margin: 0; }
+.pg-project .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pg-project .sp-btn { text-decoration: none; }
+
+/* Someone's animal, on their colour. */
+.pg-project .avatar { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--avatar-color, var(--royal)); color: var(--on-royal); }
+.pg-project .avatar svg { width: 64%; height: 64%; fill: currentColor; }
+
+
+/* ---------- HUD ---------- */
+
+/* ---------- Layout ---------- */
+.pg-project .project__sheet { width: 100%; max-width: 1240px; margin-inline: auto; padding: var(--space-4) max(var(--space-4), env(safe-area-inset-left, 0px)) 0; }
+.pg-project .project__layout { display: grid; gap: var(--space-8); grid-template-columns: minmax(0, 1fr); align-items: start; }
+.pg-project .project__main { display: grid; gap: var(--space-10); min-width: 0; }
+@media (min-width: 1024px) {
+  .pg-project .project__layout { grid-template-columns: minmax(0, 1fr) 360px; }
+  .pg-project .project__side { position: sticky; top: var(--space-4); }
+}
+
+/* Panels: white, a soft edge and a lip in the edge's shade. */
+.pg-project :is(.project__header, .project__schedule, .project__today, .project__setup) {
+  position: relative; display: grid; gap: var(--space-4); min-width: 0; padding: var(--space-6);
+  background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-xl); box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-project :is(.project__schedule, .project__setup) { padding-top: var(--space-10); }
+.pg-project .project__schedule-title.sp-ribbon, .pg-project .project__setup > .sp-ribbon { font: 800 italic 19px/1 var(--font-display); }
+.pg-project .sp-ribbon .sp-icon { font-size: 20px; }
+.pg-project .project__section-title { font: 800 italic 22px/28px var(--font-display); }
+@media (max-width: 599px) {
+  .pg-project :is(.project__header, .project__schedule, .project__today, .project__setup) { padding: var(--space-5) var(--space-4); border-radius: var(--radius-lg); }
+  .pg-project :is(.project__schedule, .project__setup) { padding-top: var(--space-10); }
+  .pg-project .project__setup .project__step { border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); }
+}
+
+/* ---------- Header: the day, your project's name, and its screenshot ---------- */
+.pg-project .project__header { grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 760px) { .pg-project .project__header:has(.project__shot) { grid-template-columns: minmax(0, 1fr) 260px; } }
+/* With a screenshot beside it, the text column's children sit straight on the header's grid, so the open prize picker can
+   take a row of its own across both columns (edge to edge inside the header's padding). */
+@media (min-width: 760px) {
+  .pg-project .project__header:has(.project__shot) { row-gap: var(--space-3); }
+  .pg-project .project__header:has(.project__shot) .project__header-text { display: contents; }
+  .pg-project .project__header:has(.project__shot) .project__header-text > :not(.project__prize-zone) { grid-column: 1; }
+  .pg-project .project__header:has(.project__shot) .project__shot { grid-column: 2; grid-row: 1 / span 3; }
+  .pg-project .project__header:has(.project__shot) .project__prize-picker { grid-column: 1 / -1; }
+}
+.pg-project .project__header-text { display: grid; gap: var(--space-3); min-width: 0; }
+.pg-project .project__day-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.pg-project .project__day { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px 0 10px; border-radius: var(--radius-full); background: var(--violet-soft); color: var(--violet-ink); font: 800 italic 15px/1 var(--font-display); box-shadow: inset 0 -2px 0 var(--shade); }
+.pg-project .project__day .sp-icon { font-size: 16px; }
+.pg-project .project__ship { margin-bottom: 0; }
+
+.pg-project .project__title-wrap { min-width: 0; }
+.pg-project .project__title-heading { font: 900 italic clamp(28px, 4vw, 44px)/1.08 var(--font-display); letter-spacing: -0.01em; }
+.pg-project .project__title-button { display: inline; padding: 0 4px; margin: 0 -4px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--ink); text-align: left; cursor: text; }
+.pg-project .project__title-button:hover { background: var(--royal-soft); }
+.pg-project .project__title { overflow-wrap: anywhere; }
+.pg-project .project__title-edit { margin-left: 6px; font-size: 0.6em; color: var(--royal-ink); vertical-align: 0.1em; }
+.pg-project .project__title-edit .sp-icon { vertical-align: 0; }
+.pg-project .project__title-input { width: 100%; min-height: var(--control-lg); padding: 4px 14px; font: 900 italic clamp(24px, 3.4vw, 38px)/1.2 var(--font-display); color: var(--ink); background: var(--surface); border: 2px solid var(--royal); border-radius: var(--radius-md); box-shadow: 0 0 0 4px var(--royal-glow); }
+.pg-project .project__title-input:focus { outline: none; }
+.pg-project :is(.project__title-error, .project__step-error, .project__shot-error) { display: flex; gap: 6px; font: 700 14px/20px var(--font-body); color: var(--coral-ink); }
+.pg-project .project__header-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.pg-project .project__header-links .sp-btn { margin-bottom: var(--lip-depth); }
+.pg-project .project__header-links .sp-btn[aria-expanded="true"] { --b-hi: var(--royal-soft); --b-lo: var(--royal-soft); --b-line: var(--royal-line); --b-lip: var(--royal-lip); }
+.pg-project .project__meta { font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
+
+/* Changing your pace or prize: a chip each, yours gold. */
+.pg-project .project__pace[aria-pressed="true"],
+.pg-project .project__build-time[aria-pressed="true"] { --b-hi: var(--gold-hi); --b-lo: var(--gold); --b-line: var(--gold-line); --b-lip: var(--gold-lip); --b-ink: var(--on-gold); }
+
+/* The screenshot: a dashed slot to drop one in, then the picture, with Replace over it on hover. */
+.pg-project .project__shot { display: grid; gap: var(--space-2); }
+.pg-project .project__shot-slot { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 10; overflow: hidden; border-radius: var(--radius-lg); border: 2px dashed var(--line-strong); background: var(--surface-sunken); color: var(--royal-ink); cursor: pointer; transition: border-color 120ms, background 120ms; }
+.pg-project .project__shot-slot:hover { background: var(--royal-soft); }
+.pg-project .project__shot-slot:focus-within { box-shadow: var(--focus-ring); }
+.pg-project .project__shot-slot[data-filled] { border: 2px solid var(--line-strong); box-shadow: 0 var(--lip-depth) 0 var(--line-lip); }
+.pg-project .project__shot-placeholder { display: grid; justify-items: center; gap: 6px; font: 800 14px/18px var(--font-body); }
+.pg-project .project__shot-placeholder .sp-icon { font-size: var(--icon-lg); }
+.pg-project .project__shot-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pg-project .project__shot-replace { position: absolute; inset: auto 8px 8px; display: inline-flex; justify-content: center; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--radius-full); background: var(--frame); color: var(--on-frame); font: 800 13px/16px var(--font-body); opacity: 0; transition: opacity 120ms; }
+.pg-project .project__shot-slot:is(:hover, :focus-within) .project__shot-replace { opacity: 1; }
+@media (max-width: 759px) { .pg-project .project__shot-slot:not([data-filled]) { aspect-ratio: 3 / 1; } }
+.pg-project .project__shot-note { font: 600 13px/18px var(--font-body); color: var(--ink-muted); text-align: center; }
+
+/* ---------- Your Hackatime project linked itself ---------- */
+.pg-project .project__auto-linked { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-4); align-items: center; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--mint-soft); border: 2px solid var(--mint-line); box-shadow: 0 var(--lip-depth) 0 var(--mint-lip); }
+.pg-project .project__auto-linked-icon { font-size: 36px; color: var(--mint-ink); }
+.pg-project .project__auto-linked-title { font: 800 italic 19px/24px var(--font-display); }
+.pg-project .project__auto-linked-name { color: var(--mint-ink); }
+.pg-project .project__auto-linked-note { color: var(--ink-muted); font-size: 15px; }
+.pg-project .project__auto-linked-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+@media (min-width: 760px) { .pg-project .project__auto-linked { grid-template-columns: auto minmax(0, 1fr) auto; } .pg-project .project__auto-linked-actions { grid-column: auto; } }
+
+/* ---------- Setup steps ---------- */
+.pg-project .project__setup-head { display: flex; justify-content: flex-end; margin-top: calc(var(--space-4) * -1); }
+.pg-project .project__setup-count { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: var(--radius-full); background: var(--gold-soft); color: var(--gold-ink); font: 800 13px/1 var(--font-body); }
+.pg-project .project__steps { display: grid; gap: var(--space-3); }
+.pg-project .project__step { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3); border-radius: var(--radius-lg); background: var(--surface); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.pg-project .project__step[data-state="current"] { padding: var(--space-4); background: linear-gradient(180deg, var(--cream), var(--surface) 70%); border-color: var(--gold-line); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 5px var(--gold-soft); }
+.pg-project .project__step[data-state="locked"] { background: var(--surface-sunken); border-style: dashed; box-shadow: none; }
+.pg-project .project__step-header { display: flex; align-items: center; gap: var(--space-3); margin: 0; font: inherit; color: var(--ink); text-decoration: none; border-radius: var(--radius-md); }
+.pg-project a.project__step-header:hover .project__step-title { color: var(--royal-ink); }
+.pg-project .project__step-number { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font: 900 italic 18px/1 var(--font-display); color: var(--ink-faint); background: var(--surface-sunken); border: 2px solid var(--line-strong); }
+.pg-project .project__step-number .sp-icon { font-size: 22px; }
+.pg-project :is([data-state="current"], [data-state="done"]) .project__step-number { margin-bottom: 3px; } /* the lip counts: centred with it */
+.pg-project [data-state="current"] .project__step-number { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip); }
+.pg-project [data-state="done"] .project__step-number { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); border-color: var(--mint-line); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--mint-lip); }
+.pg-project [data-state="later"] .project__step-number { color: var(--ink-muted); background: var(--surface-sunken); border-color: var(--line-strong); border-style: dashed; }
+.pg-project [data-state="later"] .project__step-title { color: var(--ink-muted); }
+.pg-project .project__step-title { min-width: 0; font: 800 17px/22px var(--font-body); }
+.pg-project [data-state="current"] .project__step-title { font: 800 italic 21px/26px var(--font-display); }
+.pg-project [data-state="done"] .project__step-title { color: var(--ink-muted); }
+.pg-project [data-state="locked"] .project__step-title { color: var(--ink-faint); }
+.pg-project .project__step-note { font: 700 14px/20px var(--font-body); color: var(--ink-faint); }
+.pg-project .project__step-body { display: grid; gap: var(--space-3); padding-left: 52px; min-width: 0; }
+.pg-project .project__step-warning { display: inline-flex; justify-self: start; padding: 6px 12px; border-radius: var(--radius-md); background: var(--gold-soft); color: var(--gold-ink); font: 800 14px/20px var(--font-body); }
+.pg-project .project__step-text { color: var(--ink); }
+.pg-project .project__step-hint { font: 600 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__step-actions, .pg-project .project__step-form { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2) var(--space-3); min-width: 0; }
+.pg-project .project__step-actions:empty { display: none; }
+.pg-project .project__step-form { flex: 1 1 320px; }
+.pg-project .project__step-input { flex: 1 1 220px; width: auto; }
+.pg-project .project__step-input[aria-invalid="true"] { background: var(--coral-soft); border-color: var(--coral); }
+@media (max-width: 599px) { .pg-project .project__step-body { padding-left: 0; } }
+
+/* Picking Hackatime projects: a field that opens into a list of checkboxes. */
+.pg-project .project__picker-form { display: grid; gap: var(--space-3); min-width: 0; }
+.pg-project .project__picker { min-width: 0; }
+.pg-project .project__picker-trigger { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-md); padding: 8px 14px; list-style: none; cursor: pointer; background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-md); box-shadow: inset 0 2px 0 var(--shade); font-weight: 700; }
+.pg-project .project__picker-trigger::-webkit-details-marker { display: none; }
+.pg-project .project__picker[open] > .project__picker-trigger { background: var(--surface); border-color: var(--royal); box-shadow: 0 0 0 4px var(--royal-glow); }
+.pg-project .project__picker-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-project .project__picker-arrow { flex: none; font-size: 22px; color: var(--royal-ink); transition: transform 200ms cubic-bezier(.3, 1.6, .5, 1); }
+.pg-project .project__picker[open] .project__picker-arrow { transform: rotate(180deg); }
+.pg-project .project__picker-list { display: grid; gap: 4px; margin-top: var(--space-2); padding: 6px; max-height: 320px; overflow: auto; background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-md); box-shadow: 0 3px 0 var(--line); }
+.pg-project .project__picker-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: 8px; border-radius: calc(var(--radius-md) - 2px - 6px); cursor: pointer; } /* 8 = the list's 16 - its 2px border - its 6px padding */
+.pg-project .project__picker-option:hover { background: var(--surface-sunken); }
+.pg-project .project__picker-option:has(:checked) { background: var(--royal-soft); }
+.pg-project .project__picker-name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-project .project__picker-note { font: 800 italic 14px/1 var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+
+/* Setup done: one row that opens the steps again. */
+.pg-project .project__setup-done { border-radius: var(--radius-lg); background: var(--surface); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.pg-project .project__setup-done[open] { padding-bottom: calc(var(--space-4) + 3px); } /* +3px: the last step's lip counts */
+.pg-project .project__setup-done .project__step { border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); }
+.pg-project .project__setup-done > .project__steps { padding-inline: var(--space-4); }
+.pg-project .project__setup-summary { display: flex; align-items: center; gap: var(--space-2); padding: 12px 16px; list-style: none; cursor: pointer; border-radius: var(--radius-lg); font: 800 16px/22px var(--font-body); }
+.pg-project .project__setup-summary::-webkit-details-marker { display: none; }
+.pg-project .project__setup-check { font-size: 24px; color: var(--mint); }
+.pg-project .project__setup-check--later { color: var(--ink-muted); }
+.pg-project .project__setup-chevron { margin-left: auto; font-size: 22px; color: var(--royal-ink); transition: transform 200ms cubic-bezier(.3, 1.6, .5, 1); }
+.pg-project .project__setup-done[open] .project__setup-chevron { transform: rotate(180deg); }
+
+/* Which Hackatime projects your hours come from. */
+.pg-project .project__linked { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: calc(var(--space-6) * -1); padding: 0 var(--space-2); }
+.pg-project .project__linked-label { display: inline-flex; align-items: center; gap: 6px; font: 800 13px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-project .project__linked-label .sp-icon { font-size: 16px; color: var(--royal-ink); }
+.pg-project .project__linked-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pg-project .project__linked-project { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: var(--radius-full); background: var(--mint-soft); color: var(--mint-ink); font: 800 14px/1 var(--font-body); box-shadow: inset 0 -2px 0 var(--shade); }
+.pg-project .project__linked-none { font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__linked-change { margin-bottom: 0; }
+
+/* ---------- Schedule: the goal's coins, a tile per day, the hours bar ---------- */
+.pg-project .project__schedule-note { color: var(--ink-muted); }
+.pg-project .project__next { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.pg-project .project__next .project__schedule-note { margin: 0; flex: 1 1 260px; min-width: 0; }
+.pg-project .project__next-action { flex: none; margin-bottom: var(--lip-depth); }
+.pg-project .project__plan { display: grid; gap: var(--space-5); min-width: 0; }
+.pg-project .project__goal-cells { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.pg-project .project__goal-cell { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3); border-radius: var(--radius-lg); background: var(--surface-sunken); border: 2px solid var(--line); color: var(--ink); text-decoration: none; }
+.pg-project a.project__goal-cell { background: linear-gradient(180deg, var(--surface), var(--surface-sunken)); border-color: var(--line-strong); box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--line-lip); transition: transform 120ms cubic-bezier(.3, 1.6, .5, 1); }
+.pg-project a.project__goal-cell:hover { transform: translateY(-2px); }
+.pg-project a.project__goal-cell:active { transform: translateY(var(--press-depth)); box-shadow: inset 0 2px 0 var(--gloss), 0 1px 0 var(--line-lip); }
+.pg-project a.project__goal-cell[aria-expanded="true"] { border-color: var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 4px var(--gold-soft); }
+.pg-project .project__goal-coin { flex: none; display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 3px; border-radius: 50%; font-size: 24px; color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip); }
+.pg-project .project__goal-coin[data-coin="1"] { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--mint-lip); }
+.pg-project .project__goal-coin[data-coin="2"] { color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--royal-lip); }
+.pg-project .project__goal-text { display: grid; min-width: 0; }
+.pg-project .project__goal-label { display: inline-flex; align-items: center; gap: 4px; font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-project .project__goal-edit { font-size: 14px; color: var(--royal-ink); }
+.pg-project .project__goal-value { font: 900 italic 22px/28px var(--font-display); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pg-project .project__goal-note { font: 600 13px/18px var(--font-body); color: var(--ink-muted); }
+
+.pg-project .project__paces { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--gold-soft); }
+/* Change your prize: the shop's tags (prize_tag.css) in one row that scrolls sideways and snaps. A touch can swipe it and
+   still scroll the page up and down. */
+.pg-project .project__prize-zone { display: contents; }
+.pg-project .project__prize-picker { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; padding: var(--space-3) 0 0; border-radius: calc(var(--radius-xl) - 2px - var(--space-6)); background: var(--gold-soft); } /* concentric: the header's radius, less its 2px border and its padding */
+@media (max-width: 599px) { .pg-project .project__prize-picker { border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); } }
+.pg-project .project__prize-track { position: relative; display: flex; gap: var(--space-4); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; touch-action: pan-x pan-y;
+  scroll-snap-type: x mandatory; scroll-padding-inline: var(--space-4); scrollbar-width: none; padding: 14px var(--space-4) var(--space-4); }
+.pg-project .project__prize-track::-webkit-scrollbar { display: none; }
+.pg-project .project__prize-option { flex: none; width: 168px; margin: 0; scroll-snap-align: center; }
+@media (max-width: 599px) { .pg-project .project__prize-option { width: 146px; } }
+.pg-project .project__paces form { display: contents; }
+.pg-project .project__paces-label { margin-right: var(--space-2); font: 800 13px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-ink); }
+
+.pg-project .project__plan-body { display: grid; gap: var(--space-5); min-width: 0; }
+.pg-project .project__days { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--space-2); }
+.pg-project .project__day-cell { display: grid; align-content: center; justify-items: center; gap: 2px; width: 56px; height: 62px; padding: 4px; border-radius: var(--radius-sm); background: var(--surface-sunken); border: 2px solid var(--line); color: var(--ink-faint); }
+.pg-project .project__day-date { font: 800 11px/12px var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.pg-project .project__day-value { font: 800 italic 15px/18px var(--font-display); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pg-project .project__day-cell[data-state="today"] { background: var(--surface); border-color: var(--royal); color: var(--royal-ink); box-shadow: 0 0 0 4px var(--royal-glow); }
+.pg-project .project__day-cell[data-state="today"][data-built="some"] { background: var(--mint-soft); color: var(--mint-ink); }
+.pg-project .project__day-cell[data-state="today"][data-built="hit"],
+.pg-project .project__day-cell[data-state="hit"] { background: linear-gradient(180deg, var(--mint-hi), var(--mint)); border-color: var(--mint-line); color: var(--on-mint); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--mint-lip); }
+.pg-project .project__day-cell[data-state="today"][data-built="hit"] { box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--mint-lip), 0 0 0 4px var(--royal-glow); }
+.pg-project .project__day-cell[data-state="some"] { background: var(--mint-soft); border-color: var(--mint-line); color: var(--mint-ink); }
+.pg-project .project__day-cell[data-state="missed"] { background: var(--coral-soft); border-color: var(--coral-soft); color: var(--coral-ink); }
+.pg-project .project__day-cell[data-state="party"] { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-ink); }
+.pg-project .project__day-cell[data-state="goal"] { background: linear-gradient(180deg, var(--cream), var(--gold-soft)); border-color: var(--gold-line); color: var(--copper-ink); }
+.pg-project .project__day-cell[data-state="due"] { background: var(--violet-soft); border: 2px dashed var(--violet); color: var(--violet-ink); }
+.pg-project .project__day-note { font: 800 10px/12px var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.pg-project .project__build-time-hint { font-weight: 600; opacity: 0.75; }
+.pg-project .project__paces-note { flex: 1 0 100%; margin: 0; font: 700 14px/20px var(--font-body); color: var(--gold-ink); }
+.pg-project .project__pace:disabled { opacity: 0.5; cursor: not-allowed; }
+.pg-project .project__day-gap { align-self: center; width: 24px; font: 900 16px/1 var(--font-body); text-align: center; color: var(--ink-faint); }
+.pg-project .project__days-extension { align-self: center; margin-left: var(--space-2); }
+.pg-project .project__days-extension[data-asking] { flex-basis: 100%; margin: var(--space-2) 0 0; }
+.pg-project .project__days-extension .sp-btn { margin-bottom: var(--lip-depth); }
+.pg-project .project__extension { font: 700 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__extension[data-state="pending"] { color: var(--gold-ink); }
+.pg-project .project__extension[data-state="approved"] { color: var(--mint-ink); }
+.pg-project .project__extension-form { display: grid; gap: var(--space-2); max-width: 560px; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-sunken); }
+.pg-project .project__extension-form label { font: 800 15px/20px var(--font-body); }
+.pg-project .project__extension-reason { min-height: 96px; resize: vertical; }
+.pg-project .project__extension-reason[aria-invalid="true"] { background: var(--coral-soft); border-color: var(--coral); }
+.pg-project .project__extension-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+/* The hours bar: a chunky navy frame (radius 18) round a light track (radius 14 = 18 - the 4px frame), filled mint to lime.
+   Round markers sit on it, one per milestone, each with its own navy ring, so they read on the fill and on the empty track.
+   The last is your prize's picture. Labels sit under them in ink on the page, never on the fill. */
+.pg-project .project__track { --badge: 120px; --disc: 40px; display: grid; gap: var(--space-2); padding-inline: 4px; }
+.pg-project .project__track-now { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2); margin: 0; font: 700 16px/24px var(--font-body); color: var(--ink); }
+.pg-project .project__track-count { font: 800 32px/36px var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.pg-project .project__track-rail { position: relative; display: flex; align-items: center; height: 92px; }
+.pg-project .project__track-bar { flex: 1; margin-inline-end: calc(var(--badge) / 2); padding: 4px; background: var(--frame); border-radius: 18px; box-shadow: 0 3px 0 var(--frame-lip); }
+.pg-project .project__track-inner { position: relative; height: 28px; border-radius: 14px; background: var(--surface-sunken); overflow: hidden; }
+.pg-project .project__track-fill { position: absolute; inset: 0 auto 0 0; inline-size: var(--fill); max-inline-size: 100%; border-radius: 14px; background: linear-gradient(90deg, var(--mint), var(--lime)); box-shadow: inset 0 4px 0 var(--gloss); animation: project-track-grow 700ms cubic-bezier(.3, 1, .5, 1) both; }
+.pg-project .project__track-stops, .pg-project .project__track-labels { list-style: none; margin: 0; padding: 0; }
+.pg-project .project__track-spent { font: 700 14px/24px var(--font-body); color: var(--ink-muted); }
+/* Logged enough but not approved yet: a small note, gold like the other nudges to act. */
+.pg-project .project__track-note { display: flex; align-items: center; gap: var(--space-2); justify-self: start; margin: 0; padding: 6px 14px 6px 10px; border-radius: var(--radius-full); background: var(--gold-soft); color: var(--gold-ink); font: 800 15px/20px var(--font-body); }
+.pg-project .project__track-note .sp-icon { flex: none; inline-size: 20px; block-size: 20px; }
+.pg-project .project__track-stops { position: absolute; inset: 0 calc(var(--badge) / 2) 0 0; }
+.pg-project .project__track-stop { position: absolute; inset-block-start: 50%; inset-inline-start: var(--at); translate: -50% -50%; display: grid; place-items: center; }
+.pg-project .project__track-disc { display: grid; place-items: center; box-sizing: border-box; inline-size: var(--disc); block-size: var(--disc); border: 4px solid var(--frame); border-radius: 50%; background: var(--surface); color: var(--ink); font: 800 15px/1 var(--font-body); box-shadow: 0 3px 0 var(--frame-lip); }
+.pg-project .project__track-stop[data-reached] .project__track-disc { background: var(--mint-ink); color: var(--on-frame); }
+.pg-project .project__track-disc .sp-icon { inline-size: 20px; block-size: 20px; }
+.pg-project .project__track-badge { display: grid; place-items: center; inline-size: var(--badge); block-size: var(--badge); color: var(--ink); filter: drop-shadow(0 4px 3px #0e145066) drop-shadow(0 0 1px #0e1450); }
+.pg-project .project__track-badge img, .pg-project .project__track-badge .sp-icon { inline-size: 100%; block-size: 100%; object-fit: contain; }
+.pg-project .project__track-stop--prize[data-reached] .project__track-badge { filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 4px 3px #0e145066); }
+.pg-project .project__track-labels { position: relative; min-block-size: 44px; margin-inline-end: calc(var(--badge) / 2); }
+.pg-project .project__track-label { position: absolute; inset-inline-start: var(--at); translate: -50% 0; display: grid; justify-items: center; text-align: center; white-space: nowrap; color: var(--ink); font: 700 14px/20px var(--font-body); }
+.pg-project .project__track-label strong { font-weight: 800; font-size: 15px; }
+.pg-project .project__track-label--prize { translate: calc(-100% + 28px) 0; justify-items: end; text-align: end; }
+.pg-project .project__track-label[data-reached] strong { color: var(--mint-ink); }
+@media (max-width: 599px) {
+  .pg-project .project__track { --badge: 96px; --disc: 36px; }
+  .pg-project .project__track-labels { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--space-4); margin-inline-end: 0; }
+  .pg-project .project__track-label, .pg-project .project__track-label--prize { position: static; translate: none; justify-items: start; text-align: start; white-space: normal; }
+  .pg-project .project__track-label--prize { justify-items: end; text-align: end; }
+}
+@keyframes project-track-grow { from { inline-size: 0; } }
+@media (prefers-reduced-motion: reduce) { .pg-project .project__track-fill { animation: none; } }
+
+/* ---------- Today's pomodoro ---------- */
+.pg-project .focus-session { display: grid; gap: var(--space-4); min-width: 0; }
+.pg-project .project__today { padding-top: var(--space-10); border-color: var(--gold-line); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), var(--shadow-soft); background: linear-gradient(180deg, var(--cream), var(--surface) 60%); }
+.pg-project .project__pomodoro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.pg-project .project__lengths { position: relative; display: inline-flex; flex-wrap: wrap; align-items: flex-start; gap: 4px; padding: 4px 14px 7px 4px; max-width: 100%; background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-full); box-shadow: inset 0 2px 0 var(--shade); }
+.pg-project .project__length { position: relative; display: grid; place-items: center; min-width: 48px; height: 40px; padding: 0 12px; border-radius: var(--radius-full); font: 900 italic 18px/1 var(--font-display); color: var(--ink-muted); cursor: pointer; font-variant-numeric: tabular-nums; transition: color 120ms; z-index: 1; }
+.pg-project .project__length input { top: 0; left: 0; }
+.pg-project .project__length:hover { color: var(--ink); }
+.pg-project .project__length:has(:checked) { color: var(--on-gold); }
+/* The gold highlight is its own element under the options (seg_pill_controller.js), so it can slide to the picked one. It
+   is placed with a transform and sized to the option, and eases like the top bar's: 320ms, no overshoot. */
+.pg-project .project__length-pill {
+  position: absolute; top: 0; left: 0; z-index: 0; border-radius: var(--radius-full); pointer-events: none;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip);
+}
+.pg-project .project__lengths[data-ready] .project__length-pill {
+  transition: transform 320ms cubic-bezier(.22, 1, .36, 1), inline-size 320ms cubic-bezier(.22, 1, .36, 1), block-size 320ms cubic-bezier(.22, 1, .36, 1);
+}
+@media (prefers-reduced-motion: reduce) { .pg-project .project__lengths .project__length-pill { transition: none; } }
+.pg-project .project__length:has(:focus-visible) { box-shadow: var(--focus-ring); }
+.pg-project .project__lengths-unit { margin-left: 4px; display: inline-flex; align-items: center; height: 40px; font: 800 13px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+@media (max-width: 599px) {
+  .pg-project .project__start-buttons, .pg-project .project__start-buttons .sp-btn { width: 100%; }
+  .pg-project .project__length { min-width: 40px; padding: 0 8px; }
+}
+
+/* Your buddy started one: join in. */
+.pg-project .project__buddy-live { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--violet-soft); border: 2px solid var(--violet); box-shadow: 0 var(--lip-depth) 0 var(--violet-ink); }
+.pg-project .project__buddy-live-text { flex: 1 1 200px; font-weight: 800; color: var(--violet-ink); }
+.pg-project .project__buddy-join { margin-bottom: 0; }
+
+/* ---------- Side cards ---------- */
+.pg-project .project__side { display: grid; gap: var(--space-4); min-width: 0; justify-items: stretch; }
+.pg-project .project__note { padding: 12px 16px; border-radius: var(--radius-lg); background: var(--surface); border: 2px solid var(--line-strong); box-shadow: 0 3px 0 var(--line-lip); font: 800 15px/21px var(--font-body); text-wrap: pretty; }
+.pg-project .project__locked { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--surface-sunken); border: 2px dashed var(--line-strong); font: 700 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__locked .sp-icon { margin-top: 2px; color: var(--royal-ink); }
+
+
+/* The cards fold into rows: a coin, what it is, a value at a glance. */
+.pg-project .project__sections { display: grid; gap: var(--space-3); }
+.pg-project .side-section { border-radius: var(--radius-lg); background: var(--surface); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.pg-project .side-section[open]:not([data-closing]) { border-color: var(--line-strong); box-shadow: 0 var(--lip-depth) 0 var(--line-lip), var(--shadow-soft); }
+.pg-project .side-section__row { display: flex; align-items: center; gap: var(--space-3); padding: 8px 12px 8px 8px; list-style: none; cursor: pointer; border-radius: calc(var(--radius-lg) - 2px); }
+.pg-project .side-section__row::-webkit-details-marker { display: none; }
+.pg-project .side-section__row:hover { background: var(--surface-sunken); }
+.pg-project .side-section__coin { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 2px; border-radius: 50%; font-size: 20px; color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--royal-lip); }
+.pg-project [data-section="streak"] .side-section__coin { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip); }
+.pg-project [data-section="buddy"] .side-section__coin { color: var(--on-violet); background: linear-gradient(180deg, color-mix(in srgb, var(--violet) 70%, #ffffff), var(--violet)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--violet-ink); }
+.pg-project [data-section="events"] .side-section__coin { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--mint-lip); }
+.pg-project .side-section__label { flex: 1; min-width: 0; font: 800 15px/20px var(--font-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-project .side-section__dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 0 3px var(--coral-soft); }
+.pg-project .side-section__value { flex: none; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: var(--radius-full); background: var(--royal-soft); color: var(--royal-ink); font: 800 italic 14px/1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-project .side-section__value[data-tone="good"] { background: var(--mint-soft); color: var(--mint-ink); }
+.pg-project .side-section__value[data-tone="quiet"] { background: var(--surface-sunken); color: var(--ink-faint); }
+.pg-project .side-section__value[data-tone="pending"] { background: var(--gold-soft); color: var(--gold-ink); }
+.pg-project .side-section__value[data-tone="link"] { background: var(--violet-soft); color: var(--violet-ink); }
+.pg-project .side-section__value[data-tone="party"] { background: var(--coral-soft); color: var(--coral-ink); }
+.pg-project .side-section__chevron { flex: none; font-size: 20px; color: var(--ink-faint); transition: transform 200ms cubic-bezier(.3, 1.6, .5, 1); }
+.pg-project .side-section[open]:not([data-closing]) .side-section__chevron { transform: rotate(180deg); color: var(--royal-ink); }
+.pg-project .side-section > :not(summary) { display: grid; gap: var(--space-3); padding: var(--space-2) var(--space-4) var(--space-4); }
+.pg-project .project__card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.pg-project .project__card-title { font: 800 italic 18px/24px var(--font-display); }
+.pg-project .project__card-link { margin-bottom: 0; }
+
+/* Streak: the count, this week, and the rewards it earns. */
+.pg-project .project__streak-count { display: flex; align-items: baseline; gap: var(--space-2); }
+.pg-project .project__streak-number { font: 900 italic 48px/1 var(--font-display); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.pg-project .project__streak-number[data-going] { color: var(--gold); text-shadow: 0 3px 0 var(--gold-lip); }
+.pg-project .project__streak-label { font: 800 15px/1 var(--font-body); color: var(--ink-muted); }
+.pg-project .project__week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.pg-project .project__week-day { display: grid; justify-items: center; gap: 4px; }
+.pg-project .project__week-letter { font: 800 11px/12px var(--font-body); text-transform: uppercase; color: var(--ink-faint); }
+.pg-project .project__week-cell { width: 100%; max-width: 34px; aspect-ratio: 1; border-radius: 50%; background: var(--surface-sunken); border: 2px solid var(--line); }
+.pg-project [data-done] > .project__week-cell { background: linear-gradient(180deg, var(--mint-hi), var(--mint)); border-color: var(--mint-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--mint-lip); }
+.pg-project [data-today] > .project__week-letter { color: var(--royal-ink); }
+.pg-project [data-today] > .project__week-cell { border-color: var(--royal); box-shadow: 0 0 0 3px var(--royal-glow); }
+.pg-project .project__streak-note { font: 700 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__streak-sync { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.pg-project .project__streak-checked { font: 600 13px/18px var(--font-body); color: var(--ink-faint); }
+.pg-project .project__streak-refresh .sp-btn { margin-bottom: 0; }
+.pg-project .project__streak-refresh[data-spinning] .sp-icon { animation: pg-project-spin 800ms linear infinite; }
+@keyframes pg-project-spin { to { rotate: 360deg; } }
+
+.pg-project .project__rewards { display: grid; gap: 6px; }
+.pg-project .project__reward { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); padding: 6px 10px 6px 6px; border-radius: var(--radius-full); background: var(--surface-sunken); font: 700 14px/18px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__reward-day { display: grid; place-items: center; min-width: 52px; height: 26px; padding: 0 8px; border-radius: var(--radius-full); background: var(--surface); color: var(--ink-muted); font: 800 italic 13px/1 var(--font-display); white-space: nowrap; }
+.pg-project .project__reward-label { min-width: 0; color: var(--ink); }
+.pg-project .project__reward-status { font: 800 12px/1 var(--font-body); white-space: nowrap; }
+.pg-project .project__reward[data-state="next"] { background: var(--gold-soft); box-shadow: inset 0 0 0 2px var(--gold-line); }
+.pg-project [data-state="next"] > .project__reward-day { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); }
+.pg-project [data-state="next"] > .project__reward-status { color: var(--gold-ink); }
+.pg-project .project__reward[data-state="earned"] { background: var(--mint-soft); }
+.pg-project [data-state="earned"] > .project__reward-day { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); }
+.pg-project [data-state="earned"] > .project__reward-status { color: var(--mint-ink); }
+
+/* Events: a calendar page per date. */
+.pg-project .project__event { display: flex; gap: var(--space-3); align-items: flex-start; }
+.pg-project .project__event + .project__event { padding-top: var(--space-3); border-top: 2px dashed var(--line); }
+.pg-project .project__event-date { flex: none; display: grid; width: 52px; overflow: hidden; text-align: center; border-radius: var(--radius-sm); background: var(--surface); border: 2px solid var(--coral); box-shadow: 0 3px 0 var(--coral-ink); }
+.pg-project [data-kind="ship"] > .project__event-date { border-color: var(--violet); box-shadow: 0 3px 0 var(--violet-ink); }
+.pg-project .project__event-month { padding: 2px 0; background: var(--coral-soft); color: var(--coral-ink); font: 800 11px/14px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; }
+.pg-project [data-kind="ship"] .project__event-month { background: var(--violet-soft); color: var(--violet-ink); }
+.pg-project .project__event-day { padding: 2px 0 4px; font: 900 italic 22px/26px var(--font-display); color: var(--ink); }
+.pg-project .project__event-text { display: grid; gap: 4px; min-width: 0; }
+.pg-project .project__event-title { font: 800 16px/22px var(--font-body); }
+.pg-project .project__event-note { font: 600 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-project .project__event-text form { margin-top: 4px; }
+.pg-project .project__party-queued { display: inline-flex; align-items: center; gap: 6px; justify-self: start; height: 30px; margin-top: 4px; padding: 0 12px 0 8px; border-radius: var(--radius-full); background: var(--mint-soft); color: var(--mint-ink); font: 800 13px/1 var(--font-body); }
+
+/* The leaderboard as a podium: first in the middle on the tallest step. */
+.pg-project .project__stairs-places { display: flex; align-items: flex-end; justify-content: center; gap: var(--space-2); }
+.pg-project .project__stair { flex: 1 1 0; min-width: 0; max-width: 96px; display: grid; justify-items: center; gap: 2px; }
+.pg-project .project__stair .avatar { width: 40px; height: 40px; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--line-strong); }
+.pg-project .project__stair-name { max-width: 100%; margin-top: 4px; font: 800 13px/16px var(--font-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-project [data-you] > .project__stair-name { color: var(--royal-ink); }
+.pg-project .project__stair-hours { font: 800 italic 14px/18px var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.pg-project .project__stair-step { display: grid; place-items: start center; width: 100%; height: 44px; margin-top: 4px; padding-top: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; font: 900 italic 22px/1 var(--font-display); color: var(--ink-muted); background: var(--surface-sunken); box-shadow: inset 0 2px 0 var(--gloss); }
+.pg-project .project__stair-step .sp-icon { font-size: 26px; filter: drop-shadow(0 2px 0 var(--gloss)); }
+.pg-project [data-place="1"] > .project__stair-step { height: 88px; color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); }
+.pg-project [data-place="2"] > .project__stair-step { height: 68px; color: var(--on-silver); background: linear-gradient(180deg, var(--silver-hi), var(--silver)); }
+.pg-project [data-place="3"] > .project__stair-step { height: 54px; color: var(--on-bronze); background: linear-gradient(180deg, var(--bronze-hi), var(--bronze)); }
+.pg-project [data-place="you"] > .project__stair-step { height: 40px; font-size: 16px; color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); }
+.pg-project [data-you] .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--gold); }
+.pg-project .project__stairs-places + .project__stairs-note { margin-top: calc(var(--space-3) * -1); padding-top: var(--space-2); border-top: 4px solid var(--line); }
+.pg-project .project__stairs-note { font: 700 14px/20px var(--font-body); color: var(--ink-muted); text-align: center; }
+
+/* Your buddy (buddies/_card, shared: styled here only). */
+.pg-project .buddy-card { display: grid; gap: var(--space-3); }
+.pg-project .buddy-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.pg-project .buddy-card__head--spread { justify-content: space-between; }
+.pg-project .buddy-card__faces { display: inline-flex; align-items: center; }
+.pg-project .buddy-face { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; box-shadow: 0 0 0 3px var(--surface); font: 900 16px/1 var(--font-body); }
+.pg-project .buddy-face + .buddy-face { margin-left: -8px; }
+.pg-project .buddy-face:is([data-empty], [data-pending]) { background: var(--surface-sunken); border: 2px dashed var(--line-strong); box-shadow: none; color: var(--royal-ink); }
+.pg-project .buddy-face[data-pending] { border-color: var(--gold-line); color: var(--gold-ink); }
+.pg-project .buddy-card__who { display: grid; gap: 2px; min-width: 0; flex: 1 1 150px; } /* the pill drops below when the text would get narrower than 150px */
+.pg-project .buddy-card__title { font: 800 italic 18px/24px var(--font-display); color: var(--ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-project a.buddy-card__title:hover { color: var(--royal-ink); }
+.pg-project .buddy-card__note { font: 600 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-project .buddy-card__streak { display: grid; justify-items: center; flex: none; margin-left: auto; padding: 4px 10px; border-radius: var(--radius-md); background: var(--violet-soft); color: var(--violet-ink); }
+.pg-project .buddy-card__streak b { font: 900 italic 18px/22px var(--font-display); }
+.pg-project .buddy-card__streak span { font: 800 11px/14px var(--font-body); text-transform: uppercase; letter-spacing: 0.04em; }
+.pg-project .buddy-card__section { display: grid; gap: var(--space-2); }
+.pg-project .buddy-card__caption { font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-project .buddy-card__badge { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: var(--radius-full); background: var(--gold-soft); color: var(--gold-ink); font: 800 13px/1 var(--font-body); }
+.pg-project .buddy-card__ladder { display: grid; gap: 6px; }
+.pg-project .buddy-card__ladder li { display: flex; align-items: center; gap: var(--space-2); font: 700 14px/18px var(--font-body); }
+.pg-project .buddy-card__ladder-key { display: grid; place-items: center; min-width: 64px; height: 26px; padding: 0 8px; border-radius: var(--radius-full); background: var(--violet-soft); color: var(--violet-ink); font: 800 italic 13px/1 var(--font-display); white-space: nowrap; }
+.pg-project .buddy-card__fine { font: 600 13px/18px var(--font-body); color: var(--ink-faint); }
+
+/* The invite link (buddies/_invite_link, shared): the link to copy and its button. */
+.pg-project .buddy-link { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.pg-project .buddy-link__input { flex: 1 1 220px; min-width: 0; min-height: var(--control-md); padding: 10px 14px; font: 600 15px/24px var(--font-body); color: var(--ink); background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-md); box-shadow: inset 0 2px 0 var(--shade); }
+.pg-project .buddy-link__input:focus { outline: none; border-color: var(--royal); box-shadow: 0 0 0 4px var(--royal-glow); }
+.pg-project .buddy-link :is(.buddy-link__compact, .onboarding-button) {
+  appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-md); padding: 0 var(--space-5); margin: 0 0 var(--lip-depth);
+  font: 800 16px/1 var(--font-body); color: var(--on-gold); white-space: nowrap; cursor: pointer;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--gold-lip); transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+.pg-project .buddy-link .buddy-link__compact { width: 100%; min-height: var(--control-sm); font-size: 14px; border-radius: var(--radius-sm); }
+.pg-project .buddy-link :is(.buddy-link__compact, .onboarding-button):active { transform: translateY(var(--press-depth)); box-shadow: inset 0 2px 0 var(--gloss), 0 1px 0 var(--gold-lip); }
+.pg-project .buddy-link :is(.buddy-link__compact, .onboarding-button):focus-visible { box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--gold-lip), var(--focus-ring); }
+.pg-project .buddy-link svg.icon { width: 20px; height: 20px; fill: currentColor; }
+
+
+/* ---------- The pomodoro, over the whole page ---------- */
+.pg-project .focus {
+  position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; overflow: auto; color: var(--on-frame);
+  background-color: var(--frame);
+  background-image: linear-gradient(45deg, var(--frame-track) 25%, transparent 25%, transparent 75%, var(--frame-track) 75%), linear-gradient(45deg, var(--frame-track) 25%, transparent 25%, transparent 75%, var(--frame-track) 75%);
+  background-size: 64px 64px; background-position: 0 0, 32px 32px;
+}
+.pg-project .focus::before { content: ""; position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse at 50% 40%, transparent 30%, var(--frame) 80%); pointer-events: none; }
+.pg-project .focus__bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-4) var(--space-6); }
+.pg-project .focus__dot { width: 12px; height: 12px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px color-mix(in srgb, var(--mint) 30%, transparent); }
+.pg-project .focus__dot[data-off] { background: var(--frame-muted); box-shadow: none; }
+.pg-project .focus__tracking { font: 800 14px/1 var(--font-body); }
+.pg-project .focus__tracked { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: var(--radius-full); background: var(--frame-track); font: 800 italic 16px/1 var(--font-display); color: var(--gold); font-variant-numeric: tabular-nums; }
+.pg-project .focus__sync { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--frame-track); color: var(--on-frame); font-size: 18px; cursor: pointer; }
+.pg-project .focus__sync:hover { color: var(--gold); }
+.pg-project .focus__sync[data-syncing] .sp-icon { animation: pg-project-spin 800ms linear infinite; }
+.pg-project .focus__sync[data-failed] { color: var(--coral); }
+.pg-project .focus__synced { font: 700 13px/1 var(--font-body); color: var(--frame-muted); }
+.pg-project .focus__together { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: var(--radius-full); background: var(--frame-track); font: 800 13px/1 var(--font-body); color: var(--frame-muted); }
+.pg-project .focus__together::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+.pg-project .focus__together[data-in] { color: var(--on-frame); }
+.pg-project .focus__together[data-in]::before { background: var(--mint); }
+.pg-project .focus__exit { margin: 0 0 var(--lip-depth) auto; }
+
+.pg-project .focus__center { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-4); text-align: center; }
+.pg-project .focus__label { font: 800 13px/16px var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+.pg-project .focus__title { font: 900 italic clamp(22px, 3vw, 30px)/1.15 var(--font-display); text-wrap: balance; color: var(--on-frame); }
+.pg-project .focus__prize { display: grid; justify-items: center; gap: var(--space-1); margin: 0; }
+.pg-project .focus__prize-art { display: grid; place-items: center; inline-size: 168px; block-size: 168px; filter: drop-shadow(0 6px 5px #00000066) drop-shadow(0 0 1px #00000099); }
+.pg-project .focus__prize-art img, .pg-project .focus__prize-art .sp-icon { inline-size: 100%; block-size: 100%; object-fit: contain; color: var(--on-frame); }
+.pg-project .focus__prize-name { font: 800 18px/24px var(--font-display); color: var(--on-frame); }
+.pg-project .focus__prize-left { font: 700 15px/22px var(--font-body); color: var(--frame-muted); }
+.pg-project .focus__prize-left strong { color: var(--gold); font-weight: 800; }
+.pg-project .focus__clock { font: 900 italic clamp(72px, 13vw, 128px)/1 var(--font-display); letter-spacing: -0.02em; color: var(--gold); text-shadow: 0 6px 0 var(--gold-lip); font-variant-numeric: tabular-nums; }
+.pg-project .focus__progress { width: 420px; max-width: calc(100% - 20px); padding: 4px; background: var(--frame-lip); border-radius: var(--radius-xs); transform: skewX(var(--slant)); }
+.pg-project .focus__progress-fill { height: 12px; border-radius: 4px; background: linear-gradient(90deg, var(--mint), var(--lime)); box-shadow: inset 0 3px 0 var(--gloss); transition: inline-size 900ms linear; }
+.pg-project .focus__progress-fill[data-break] { background: linear-gradient(90deg, var(--royal-hi), var(--violet)); }
+.pg-project .focus__note-text { max-width: 420px; font: 700 15px/22px var(--font-body); color: var(--frame-muted); text-wrap: pretty; }
+.pg-project .focus__actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-3); padding-top: var(--space-2); }
+.pg-project .focus .focus__text-button { --b-ink: var(--on-frame); }
+.pg-project .focus .focus__text-button:hover { background: var(--frame-track); }
+
+/* The radio along the bottom. */
+.pg-project .focus__radio { flex: none; display: flex; align-items: center; gap: var(--space-4); margin: 0 var(--space-4) var(--space-4); padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--frame-track); box-shadow: 0 var(--lip-depth) 0 var(--frame-lip); }
+.pg-project .focus__track-tag { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-sm); font: 900 italic 14px/1 var(--font-display); color: #ffffff; box-shadow: inset 0 2px 0 var(--gloss); }
+.pg-project .focus__track { flex: none; width: 280px; min-width: 0; display: grid; gap: 2px; text-align: left; }
+.pg-project .focus__track-name { font: 800 italic 16px/20px var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-project .focus__track-number { font: 700 13px/18px var(--font-body); color: var(--frame-muted); }
+.pg-project .focus__equalizer { flex: 1; min-width: 0; height: 32px; display: flex; align-items: flex-end; justify-content: center; gap: 3px; }
+.pg-project .focus__equalizer span { width: 4px; height: 3px; border-radius: 2px; background: var(--gold); }
+.pg-project .focus__equalizer span:nth-child(5n + 1) { background: var(--mint-hi); }
+.pg-project .focus__play, .pg-project .focus__next { flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; font-size: 24px; cursor: pointer; }
+.pg-project .focus__play { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip); }
+.pg-project .focus__play:active { transform: translateY(2px); box-shadow: inset 0 2px 0 var(--gloss), 0 1px 0 var(--gold-lip); }
+.pg-project .focus__play .focus__pause-icon, .pg-project .focus__play[aria-pressed="true"] .focus__play-icon { display: none; }
+.pg-project .focus__play[aria-pressed="true"] .focus__pause-icon { display: inline-flex; }
+.pg-project .focus__next { color: var(--on-frame); background: transparent; }
+.pg-project .focus__next:hover { background: var(--frame); }
+@media (max-width: 600px) {
+  .pg-project .focus__bar { padding: var(--space-3) var(--space-4); }
+  .pg-project .focus__radio { gap: var(--space-3); margin: 0 var(--space-3) var(--space-3); }
+  .pg-project .focus__track { flex: 1; width: auto; }
+  .pg-project .focus__equalizer { display: none; }
+}
+
+@media (max-height: 700px) {
+  .pg-project .focus__prize-art { inline-size: 120px; block-size: 120px; }
+  .pg-project .focus__clock { font-size: clamp(56px, 10vw, 96px); }
+}
+
+/* ---------- The free stickers' strip in the pomodoro (D-051) ----------
+   Concentric, measured: the strip is 28px round (--outer) with 10px of padding (--gap), so what sits against its edge, the
+   sticker tile, the time-left pill and the shop link, is 28 - 10 = 18px round (--inner). The progress track is not nested
+   in anything (0px gap) and is 10px tall, fully round, and its fill takes the track's radius (inherit). Gold on the frame's
+   own navy (--frame-track), never --gold-soft. */
+.pg-project .focus-stickers { --gap: 10px; --outer: 28px; --inner: calc(var(--outer) - var(--gap));
+  box-sizing: border-box; display: flex; align-items: center; gap: 12px; inline-size: 520px; max-inline-size: calc(100% - 8px); padding: var(--gap);
+  border-radius: var(--outer); background: var(--frame-track); color: var(--on-frame); text-align: left;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent), 0 4px 0 var(--frame-lip), 0 0 22px -4px color-mix(in srgb, var(--gold) 45%, transparent); }
+.pg-project .focus-stickers[hidden], .pg-project .focus-stickers__view[hidden] { display: none; }
+.pg-project .focus-stickers__art { flex: none; display: grid; place-items: center; inline-size: 64px; block-size: 64px; border-radius: var(--inner); background: var(--frame); }
+.pg-project .focus-stickers__art img { display: block; inline-size: auto; block-size: 54px; rotate: -6deg; filter: drop-shadow(0 2px 0 #00000055); }
+.pg-project .focus-stickers__view { display: contents; }
+.pg-project .focus-stickers__body { flex: 1; min-inline-size: 0; display: grid; gap: 6px; }
+.pg-project .focus-stickers__title { margin: 0; font: 800 14px/18px var(--font-body); text-wrap: balance; }
+.pg-project .focus-stickers__title b { color: var(--gold); font-weight: 900; }
+.pg-project .focus-stickers__view[data-earned] .focus-stickers__title, .pg-project .focus-stickers[data-kind="earned"] .focus-stickers__title { color: var(--gold); font: 900 italic 18px/22px var(--font-display); }
+.pg-project .focus-stickers__progress { box-sizing: border-box; inline-size: 100%; block-size: 10px; overflow: hidden; border-radius: var(--radius-full); background: var(--frame-lip); }
+.pg-project .focus-stickers__fill { display: block; block-size: 100%; min-inline-size: 8px; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--gold-hi)); transition: inline-size 400ms ease; }
+.pg-project .focus-stickers__count { margin: 0; font: 700 13px/16px var(--font-body); color: var(--frame-muted); }
+.pg-project .focus-stickers__count[hidden], .pg-project .focus-stickers__progress[hidden] { display: none; }
+.pg-project .focus-stickers__clock { flex: none; display: flex; align-items: baseline; gap: 1px; margin: 0; padding: 8px 12px; border-radius: var(--inner); background: var(--frame);
+  font: 900 italic 22px/1 var(--font-display); color: var(--gold); font-variant-numeric: tabular-nums; }
+.pg-project .focus-stickers__clock small { margin-left: 5px; font: 800 12px/1 var(--font-body); color: var(--frame-muted); }
+.pg-project .focus-stickers .focus-stickers__claim { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: var(--inner); text-decoration: none;
+  font: 800 14px/1 var(--font-body); color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: 0 3px 0 var(--gold-lip); }
+.pg-project .focus-stickers[data-pop] { animation: pg-project-sticker-pop 600ms cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes pg-project-sticker-pop { 0% { transform: scale(.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .pg-project .focus-stickers[data-pop] { animation: none; } .pg-project .focus-stickers__fill { transition: none; } }
+/* One screen: with the strip showing, the prize art shrinks to 96px (and the clock a little), so the clock and the controls stay. */
+.pg-project .focus__center:has(.focus-stickers:not([hidden])) { gap: var(--space-2); }
+.pg-project .focus__center:has(.focus-stickers:not([hidden])) .focus__prize-art { inline-size: 96px; block-size: 96px; }
+.pg-project .focus__center:has(.focus-stickers:not([hidden])) .focus__clock { font-size: clamp(56px, 10vw, 104px); }
+@media (max-width: 600px) {
+  .pg-project .focus-stickers { gap: 8px; }
+  .pg-project .focus-stickers__art { inline-size: 44px; block-size: 44px; }
+  .pg-project .focus-stickers__art img { block-size: 36px; }
+  .pg-project .focus-stickers__title { font-size: 13px; line-height: 16px; }
+  .pg-project .focus-stickers__clock { padding: 6px 10px; font-size: 18px; }
+  .pg-project .focus-stickers__clock small { display: none; }
+  .pg-project .focus__center:has(.focus-stickers:not([hidden])) .focus__prize-art { inline-size: 72px; block-size: 72px; }
+}
+
+
+
+/* The Hackatime tick list opens inline under "Hours from" (linked_hours_controller.js), in a white card (border, lip and fill of
+   .project__setup-done). Concentric: the pill rows are 55px tall (27.5px radius) and sit 12px in from the card's inner edge on
+   the left, right and top, so the card's outer radius is 27.5 + 12 + 2px border = 42px. The text lines sit 14px in. */
+.pg-project .project__linked-chips { display: contents; }
+.pg-project .project__linked-panel { flex: 1 0 100%; min-width: 0; padding-bottom: 3px; } /* 3px: the card's lip */
+.pg-project .project__linked-panel[hidden] { display: none; }
+.pg-project .project__linked-card { display: grid; gap: var(--space-3); padding: 12px 12px 14px; border-radius: 42px; background: var(--surface); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.pg-project .project__linked-card .project__step-text { margin: 0; padding-inline: 2px; }
+.pg-project .project__linked-card .hkp__status { margin: 0; padding-inline: 2px; }
+
+/* ---------- The free stickers' card (D-051) ----------
+   Concentric, measured: the card is 32px round (--outer) with 16px of padding (--gap), so what sits against its edge, the
+   time-left panel and the Claim button, is 32 - 16 = 16px round (--inner). The progress track sits 8px inside the panel
+   (--gap-2), so it is 16 - 8 = 8px round (--inner-2); it is 14px tall, so that rounds it fully, and the fill takes the track's
+   radius. The sticker is not clipped: it hops up out of the card's top edge, tilted. */
+.pg-project .sticker-promise { --gap: 16px; --outer: 32px; --inner: calc(var(--outer) - var(--gap)); --gap-2: 8px; --inner-2: calc(var(--inner) - var(--gap-2));
+  position: relative; display: grid; justify-items: center; gap: 6px; margin-top: 64px; padding: 0 var(--gap) var(--gap); text-align: center; color: var(--on-gold);
+  border-radius: var(--outer); background: radial-gradient(120% 70% at 50% 0, var(--gold-hi), transparent 70%), linear-gradient(170deg, var(--gold-hi), var(--gold));
+  box-shadow: 0 5px 0 var(--gold-lip), 0 14px 24px -8px #c47f0866; }
+.pg-project .sticker-promise__art { display: block; height: 168px; margin-top: -64px; margin-bottom: 4px; rotate: -6deg; filter: drop-shadow(0 4px 0 #4a230033); }
+.pg-project .sticker-promise__art img { display: block; width: auto; height: 100%; }
+.pg-project .sticker-promise__title { margin: 0; font: 900 italic clamp(34px, 4vw, 40px)/1 var(--font-display); letter-spacing: -.01em; color: var(--on-gold); text-wrap: balance; }
+.pg-project .sticker-promise__about { margin: 0; font: 700 16px/22px var(--font-body); text-wrap: balance; }
+.pg-project .sticker-promise__about b { font-weight: 900; }
+.pg-project .sticker-promise__panel { display: grid; justify-items: center; gap: 8px; box-sizing: border-box; width: 100%; margin-top: 8px; padding: var(--gap-2) var(--gap-2) 12px;
+  border-radius: var(--inner); background: var(--surface); color: var(--ink); }
+.pg-project .sticker-promise__clock { display: flex; align-items: baseline; gap: 2px; margin: 0; font: 900 38px/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--ink); }
+.pg-project .sticker-promise__clock small { margin-left: 6px; font: 800 14px/1 var(--font-body); color: var(--ink-muted); }
+.pg-project .sticker-promise__progress { box-sizing: border-box; width: 100%; height: 14px; overflow: hidden; border-radius: var(--inner-2); background: var(--surface-sunken); }
+.pg-project .sticker-promise__fill { display: block; height: 100%; min-width: 8px; border-radius: inherit; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); transition: width 400ms ease; }
+.pg-project .sticker-promise__count { margin: 0; font: 800 14px/20px var(--font-body); color: var(--ink-muted); text-wrap: balance; }
+.pg-project .sticker-promise__count a { color: var(--royal-ink); }
+.pg-project .sticker-promise__action { box-sizing: border-box; width: 100%; min-height: 52px; margin-top: 8px; justify-content: center; border-radius: var(--inner); font-size: 18px; }
+/* Claimed is a smaller card: a smaller sticker and title, no panel. */
+.pg-project .sticker-promise[data-state="claimed"] { margin-top: 44px; }
+.pg-project .sticker-promise[data-state="claimed"] .sticker-promise__art { height: 112px; margin-top: -44px; }
+.pg-project .sticker-promise[data-state="claimed"] .sticker-promise__title { font-size: 26px; }
+.pg-project .sticker-promise[data-state="claimed"] .sticker-promise__about { font-size: 15px; line-height: 21px; }
+/* The dark scheme leaves --gold-soft's muddy brown out: a royal card (the app's own navy to blue) with a gold glow behind the
+   sticker and a thin gold rim, the headline in gold. The panel and the button keep the same measured gaps. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pg-project .sticker-promise { color: var(--ink);
+    background: radial-gradient(90% 60% at 50% 0, #ffc21f33, transparent 70%), linear-gradient(170deg, var(--royal-soft), var(--surface));
+    box-shadow: 0 5px 0 var(--surface-sunken), 0 0 0 2px #ffc21f55, 0 14px 28px -8px #ffc21f33; }
+  :root:not([data-theme="light"]) .pg-project .sticker-promise__title { color: var(--gold-ink); }
+  :root:not([data-theme="light"]) .pg-project .sticker-promise__art { filter: drop-shadow(0 0 18px #ffc21f66) drop-shadow(0 4px 0 #00000033); }
+  :root:not([data-theme="light"]) .pg-project .sticker-promise__panel { background: var(--surface-sunken); }
+  :root:not([data-theme="light"]) .pg-project .sticker-promise__progress { background: var(--surface); }
+}
+:root[data-theme="dark"] .pg-project .sticker-promise { color: var(--ink);
+  background: radial-gradient(90% 60% at 50% 0, #ffc21f33, transparent 70%), linear-gradient(170deg, var(--royal-soft), var(--surface));
+  box-shadow: 0 5px 0 var(--surface-sunken), 0 0 0 2px #ffc21f55, 0 14px 28px -8px #ffc21f33; }
+:root[data-theme="dark"] .pg-project .sticker-promise__title { color: var(--gold-ink); }
+:root[data-theme="dark"] .pg-project .sticker-promise__art { filter: drop-shadow(0 0 18px #ffc21f66) drop-shadow(0 4px 0 #00000033); }
+:root[data-theme="dark"] .pg-project .sticker-promise__panel { background: var(--surface-sunken); }
+:root[data-theme="dark"] .pg-project .sticker-promise__progress { background: var(--surface); }
+/* On a phone the aside stacks under the main column. With the card there, the aside dissolves into the layout's grid
+   (display: contents) and the card takes order -1, so it sits first, above the main column; the rest of the aside
+   follows the main column (order 1) as before. */
+@media (max-width: 1023px) {
+  .pg-project .project__side:has(.sticker-promise) { display: contents; }
+  .pg-project .project__side:has(.sticker-promise) > :not(.sticker-promise) { order: 1; }
+  .pg-project .project__side:has(.sticker-promise) > .sticker-promise { order: -1; }
+}

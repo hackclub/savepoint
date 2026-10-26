@@ -1,0 +1,9 @@
+<%# One screenshot's cell in the snapshot editor. An empty one is the template for an upload. %>
+<%= tag.li class: [ "ash__thumb", ("ash__thumb--cover" if cover) ], tabindex: 0, aria: { label: label },
+           data: { id:, action: "keydown->ship-screenshots#key pointerdown->ship-screenshots#grab click->ship-screenshots#pickFor" } do %>
+  <%= tag.img src: url, alt: "" %>
+  <%= tag.button sp_icon("close-fill"), type: "button", class: "ash__thumb-remove", aria: { label: "Remove this screenshot" },
+                 data: { action: "ship-screenshots#remove" } %>
+  <progress max="1" value="0" hidden></progress>
+  <span class="ash__thumb-state" hidden></span>
+<% end %>

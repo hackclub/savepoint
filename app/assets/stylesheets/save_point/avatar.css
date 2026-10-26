@@ -1,0 +1,63 @@
+/* Someone's picture: their Slack one, or the first letter of their name in white on their colour. */
+@layer components {
+  .avatar {
+    --avatar-color: var(--grey-600);
+
+    flex: none;
+    inline-size: 24px;
+    block-size: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--avatar-color);
+    color: var(--white);
+    overflow: hidden;
+    container-type: inline-size;
+
+    .avatar__image {
+      inline-size: 100%;
+      block-size: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .avatar__initial {
+      font-family: var(--font-display, inherit);
+      font-size: 52cqi;
+      line-height: 1;
+      font-weight: 700;
+      text-transform: uppercase;
+
+      &::before { content: attr(data-initial); }
+    }
+  }
+}
+
+/* A name that links to the person's Slack profile in a new tab (name_with_slack). The small external-link icon is the
+ cue. Outside the components layer so the link keeps the surrounding text colour (on the navy plate too). It sits after the last word inside a no-wrap span, so it never wraps onto a line of its own. */
+.slack-name {
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible { text-decoration: underline; }
+}
+
+/* Doubled so a page's own link colour (.pg-buddies a) never wins over the text colour around the name. */
+a.slack-name.slack-name { color: inherit; }
+
+.slack-name__end { white-space: nowrap; }
+
+.slack-name__icon {
+  display: inline-block;
+  margin-inline-start: 0.25em;
+  font-size: 0.75em;
+  line-height: 1;
+  opacity: 0.8;
+  vertical-align: baseline;
+
+  .sp-icon { vertical-align: -0.05em; }
+}
+
+.slack-name:hover .slack-name__icon,
+.slack-name:focus-visible .slack-name__icon { opacity: 0.9; }

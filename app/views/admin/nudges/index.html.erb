@@ -1,0 +1,176 @@
+<% content_for :title, "Bandit · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-nudges" %>
+<% pct = ->(rate) { rate.nil? ? "—" : number_to_percentage(rate * 100, precision: 0) } %>
+<% result = ->(nudge) { { 1 => nudge.setup? ? "did it" : "built", 0 => "didn't", Nudge::OPT_OUT_PENALTY => "stopped" }.fetch(nudge.reward, nudge.reward) } %>
+<% tone = ->(nudge) { { nil => "wait", 1 => "worked", 0 => "missed", Nudge::OPT_OUT_PENALTY => "stopped" }.fetch(nudge.reward, "missed") } %>
+<% totals = @stats.totals %>
+
+<%# How the Slack nudges are doing and what the bandit's learned (Nudge::Stats), as panels of dense tables in Save
+    Point's style (save_point/pages/admin-nudges.css). "Worked" means they built Nudge::REWARD_MINUTES within
+    Nudge::REWARD_WINDOW of it, or did the step a setup nudge asked for. A table that's wider than the screen scrolls
+    inside its panel. %>
+<div class="sp-page pg-admin-nudges">
+  <main class="an">
+    <header class="an__head">
+      <div class="an__title">
+        <span class="an__coin"><%= sp_icon "chart-bar-fill" %></span>
+        <h1>The nudge bandit</h1>
+      </div>
+      <p class="an__note">
+        A nudge worked if they built <%= Nudge::REWARD_MINUTES %> minutes in the <%= Nudge::REWARD_WINDOW.inspect %> after it.
+        A cheer (sent once they've built their <%= Nudge::REWARD_MINUTES %> minutes) worked if they built again the next day.
+        A setup nudge worked if the step it asked for (linking Hackatime, adding a repo) was done by then.
+        Stopping the Slack messages counts as <%= Nudge::OPT_OUT_PENALTY.abs %> failures.
+      </p>
+    </header>
+
+    <section class="admin__tiles an__tiles" aria-label="Totals">
+      <div class="admin__tile"><span class="an__tile-icon"><%= sp_icon "send-plane-fill" %></span><span class="an__tile-label">Sent</span><strong><%= totals.sent %></strong></div>
+      <div class="admin__tile"><span class="an__tile-icon"><%= sp_icon "mouse-fill" %></span><span class="an__tile-label">Clicked</span><strong><%= pct.(totals.click_rate) %></strong><small><%= totals.clicked %> nudges</small></div>
+      <div class="admin__tile an__tile--gold"><span class="an__tile-icon"><%= sp_icon "check-circle-fill" %></span><span class="an__tile-label">Worked</span><strong><%= pct.(totals.work_rate) %></strong><small><%= totals.worked %> of <%= totals.scored %> scored</small></div>
+      <div class="admin__tile"><span class="an__tile-icon"><%= sp_icon "time-fill" %></span><span class="an__tile-label">Waiting to score</span><strong><%= @stats.waiting %></strong></div>
+      <div class="admin__tile an__tile--coral"><span class="an__tile-icon"><%= sp_icon "pause-fill" %></span><span class="an__tile-label">Stopped messages</span><strong><%= @stats.muted_users %></strong><small><%= totals.opted_out %> from a nudge</small></div>
+      <div class="admin__tile an__tile--coral"><span class="an__tile-icon"><%= sp_icon "warning-fill" %></span><span class="an__tile-label">Can't DM</span><strong><%= @stats.failed_dms %></strong></div>
+    </section>
+
+    <section class="sp-panel an__panel" aria-labelledby="an-policies">
+      <h2 class="sp-ribbon sp-ribbon--gold" id="an-policies"><span>Bandit vs holdout</span></h2>
+      <p class="an__note an__note--panel">The holdout (<%= pct.(Nudge::Bandit::HOLDOUT_SHARE) %> of people) always gets the same best guess. If the bandit isn't beating it, it isn't helping.</p>
+      <div class="an__scroll" tabindex="0" role="region" aria-labelledby="an-policies">
+        <table class="an__table admin__table">
+          <thead><tr><th scope="col">Policy</th><th class="an__num" scope="col">Sent</th><th class="an__num" scope="col">Clicked</th><th class="an__num" scope="col">Scored</th><th class="an__num" scope="col">Worked</th><th class="an__num" scope="col">Stopped</th></tr></thead>
+          <tbody>
+            <% @stats.policies.each do |name, row| %>
+              <tr>
+                <th scope="row"><%= name %></th>
+                <td class="an__num"><%= row.sent %></td>
+                <td class="an__num"><%= pct.(row.click_rate) %></td>
+                <td class="an__num"><%= row.scored %></td>
+                <td class="an__num an__strong"><%= pct.(row.work_rate) %></td>
+                <td class="an__num"><%= row.opted_out %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <% @stats.buckets.each do |bucket, arms| %>
+      <section class="sp-panel an__panel" aria-labelledby="an-bucket-<%= bucket %>">
+        <h2 class="sp-ribbon" id="an-bucket-<%= bucket %>"><span><%= bucket.humanize %></span></h2>
+        <div class="an__scroll" tabindex="0" role="region" aria-labelledby="an-bucket-<%= bucket %>">
+          <table class="an__table admin__table">
+            <thead>
+              <tr>
+                <th scope="col">Arm</th>
+                <th class="an__num" scope="col">Sent</th>
+                <th class="an__num" scope="col">Clicked</th>
+                <th class="an__num" scope="col">Worked</th>
+                <th class="an__num" scope="col">Stopped</th>
+                <th class="an__guess" scope="col">Success rate (95%)</th>
+                <th class="an__num" scope="col">Best</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% arms.each do |arm| %>
+                <% row = arm[:row] %>
+                <tr <%= "data-leading" if arm[:best] == arms.map { |a| a[:best] }.max && row.scored.positive? %>>
+                  <th scope="row"><%= arm[:arm].humanize %></th>
+                  <td class="an__num"><%= row.sent %></td>
+                  <td class="an__num"><%= pct.(row.click_rate) %></td>
+                  <td class="an__num"><%= row.worked %>/<%= row.scored %></td>
+                  <td class="an__num"><%= row.opted_out %></td>
+                  <td class="an__guess">
+                    <span class="an__guess-cell">
+                      <span class="an__interval" title="<%= pct.(arm[:low]) %> to <%= pct.(arm[:high]) %>">
+                        <span class="an__interval-range" style="--low: <%= arm[:low] %>; --high: <%= arm[:high] %>"></span>
+                        <span class="an__interval-mean" style="--mean: <%= arm[:mean] %>"></span>
+                      </span>
+                      <span class="an__guess-number"><%= pct.(arm[:mean]) %></span>
+                    </span>
+                  </td>
+                  <td class="an__num an__strong"><%= pct.(arm[:best]) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    <% end %>
+
+    <div class="an__columns">
+      <section class="sp-panel an__panel" aria-labelledby="an-fixed">
+        <h2 class="sp-ribbon" id="an-fixed"><span>Fixed nudges</span></h2>
+        <div class="an__scroll" tabindex="0" role="region" aria-labelledby="an-fixed">
+          <table class="an__table admin__table">
+            <thead><tr><th scope="col">Nudge</th><th class="an__num" scope="col">Sent</th><th class="an__num" scope="col">Clicked</th><th class="an__num" scope="col">Worked</th></tr></thead>
+            <tbody>
+              <% @stats.fixed.each do |(kind, arm), row| %>
+                <tr>
+                  <th scope="row"><%= arm.humanize %> <small class="an__muted"><%= kind %></small></th>
+                  <td class="an__num"><%= row.sent %></td>
+                  <td class="an__num"><%= pct.(row.click_rate) %></td>
+                  <td class="an__num an__strong"><%= pct.(row.work_rate) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+        <p class="an__note an__note--panel">Setup nudges worked if the step got done: Hackatime linked, or a repo added (or put off).</p>
+      </section>
+    </div>
+
+    <% daily = @stats.daily %>
+    <% if daily.any? %>
+      <section class="sp-panel an__panel" aria-labelledby="an-daily">
+        <h2 class="sp-ribbon" id="an-daily"><span>Sent per day</span></h2>
+        <% most = daily.values.map { |kinds| kinds.values.sum }.max %>
+        <div class="an__days">
+          <% daily.each do |day, kinds| %>
+            <div class="an__day" title="<%= kinds["bandit"] %> bandit, <%= kinds["fixed"] %> fixed">
+              <span class="an__day-label"><%= Date.parse(day.to_s).strftime("%b %-d") %></span>
+              <span class="an__day-bar">
+                <span data-kind="bandit" style="--share: <%= kinds["bandit"].fdiv(most) %>"></span>
+                <span data-kind="fixed" style="--share: <%= kinds["fixed"].fdiv(most) %>"></span>
+              </span>
+              <span class="an__day-count"><%= kinds.values.sum %></span>
+            </div>
+          <% end %>
+        </div>
+        <p class="an__note an__note--panel an__legend"><span class="an__key" data-kind="bandit"></span> bandit <span class="an__key" data-kind="fixed"></span> fixed</p>
+      </section>
+    <% end %>
+
+    <section class="sp-panel an__panel" aria-labelledby="an-recent">
+      <h2 class="sp-ribbon" id="an-recent"><span>Latest nudges</span></h2>
+      <div class="an__scroll" tabindex="0" role="region" aria-labelledby="an-recent">
+        <table class="an__table admin__table admin__table--recent">
+          <thead>
+            <tr>
+              <th scope="col">Sent</th>
+              <th scope="col">Who</th>
+              <th scope="col">Arm</th>
+              <th scope="col">Message</th>
+              <th class="an__num" scope="col">Odds</th>
+              <th class="an__num" scope="col">Clicks</th>
+              <th scope="col">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @stats.recent.each do |nudge| %>
+              <tr>
+                <td class="an__when"><%= "#{time_ago_in_words(nudge.sent_at)} ago" if nudge.sent_at %></td>
+                <td class="an__who"><%= link_to (nudge.user.first_name.presence || nudge.user.name), admin_user_path(nudge.user), class: "admin-person" %></td>
+                <td class="an__arm"><%= nudge.arm.humanize %> <small class="an__muted"><%= nudge.holdout ? "holdout" : nudge.bucket || nudge.kind %></small></td>
+                <td class="an__message"><%= nudge.text %></td>
+                <td class="an__num"><%= nudge.propensity && pct.(nudge.propensity) %></td>
+                <td class="an__num"><%= nudge.clicks %></td>
+                <td><span class="an__result" data-tone="<%= tone.(nudge) %>"><%= nudge.reward.nil? ? "waiting" : result.(nudge) %></span></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>

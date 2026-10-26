@@ -1,0 +1,18 @@
+<%# locals: (project:) %>
+<p class="project__step-text">Needed before you ship. Fine to add later.</p>
+<div class="project__step-actions">
+  <%= form_with model: project, url: project_path, method: :patch, class: "project__step-form" do |form| %>
+    <%= form.label :repo_url, "Git repo", class: "visually-hidden" %>
+    <%= form.text_field :repo_url, placeholder: "github.com/you/your-project", required: true,
+          inputmode: "url", autocomplete: "url", autocapitalize: "off", spellcheck: false,
+          class: "sp-input project__step-input", aria: { invalid: project.errors[:repo_url].any? } %>
+    <%= form.button "Add", class: "sp-btn sp-btn--gold project__step-button" %>
+  <% end %>
+  <% unless project.repo_later? %>
+    <%= button_to "Later", project_path, method: :patch, params: { project: { repo_later: true } },
+          class: "sp-btn project__step-button" %>
+  <% end %>
+</div>
+<% if project.errors[:repo_url].any? %>
+  <p class="project__step-error" role="alert"><%= project.errors.full_messages_for(:repo_url).first %></p>
+<% end %>

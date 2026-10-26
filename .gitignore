@@ -1,0 +1,37 @@
+.DS_Store
+__pycache__/
+landing/dist/
+worktrees/
+.claude/state/
+.claude/.wiki-log-state
+.claude/settings.local.json
+
+# Rails, from Save Point
+/.bundle
+/.env*
+!/.env.example
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+/storage/*
+!/storage/.keep
+/tmp/storage/*
+!/tmp/storage/
+!/tmp/storage/.keep
+/public/assets
+/config/*.key
+
+# The wiki and its schema live in the private hackclub/save-point-wiki (D-069).
+# These paths are symlinks into a sibling clone.
+/wiki
+/raw
+/CLAUDE.md
+/DICTIONARY.md
+/WRITING.md
+/templates
+/tools
+/scratchpad/

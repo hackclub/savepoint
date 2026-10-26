@@ -1,0 +1,46 @@
+<%# Step 2: the Hackatime project your hours come from. It needs you signed in to Hack Club, then Hackatime linked, so
+    each of those is a button that comes back here with your answers kept (onboarding#leave). Skipping is fine: the
+    first new project you log time on links itself. %>
+<% hackatime = onboarding_hackatime(current_user) %>
+<div class="onboarding-hackatime">
+  <% case hackatime[:state] %>
+  <% when :signed_out %>
+    <p class="onboarding-hackatime__text">Sign in with Hack Club first. Then you can pick the Hackatime project your hours come from.</p>
+    <%= button_to "/auth/hackclub", params: { origin: onboarding_path }, class: "sp-btn sp-btn--gold sp-btn--lg",
+          form: { class: "onboarding-hackatime__form", data: { turbo: false, action: "submit->onboarding#leave" } } do %>
+      Sign in with Hack Club<%= sp_icon "right-fill" %>
+    <% end %>
+  <% when :unlinked, :expired %>
+    <p class="onboarding-hackatime__text"><%= hackatime[:state] == :expired ? "Your Hackatime link expired. Link it again so we can see your projects." : "Link Hackatime so we can see your projects and hours." %></p>
+    <div class="onboarding-actions">
+      <%= button_to "/auth/hackatime", params: { origin: onboarding_path }, class: "sp-btn sp-btn--gold sp-btn--lg",
+            form: { class: "onboarding-hackatime__form", data: { turbo: false, action: "submit->onboarding#leave" } } do %>
+        Link Hackatime<%= sp_icon "right-fill" %>
+      <% end %>
+      <button type="button" class="sp-btn sp-btn--ghost" data-action="onboarding#skipHackatime">Skip for now</button>
+    </div>
+  <% else %>
+    <% if hackatime[:problem] %>
+      <p class="onboarding-hackatime__text" role="alert"><%= hackatime[:problem] %></p>
+    <% elsif hackatime[:projects].none? %>
+      <p class="onboarding-hackatime__text">Hackatime counts your time through a plugin in the editor you build your game in. Nothing has come through yet.</p>
+      <div class="onboarding-actions">
+        <button type="button" class="sp-btn sp-btn--gold sp-btn--lg" data-action="onboarding#skipHackatime">Keep going<%= sp_icon "right-fill" %></button>
+        <%= link_to hackatime_url, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--ghost" do %>Set up Hackatime in your editor<% end %>
+      </div>
+      <p class="onboarding-hackatime__text">Once it's on, work on your game and the first project links itself. You can also set it up after this, from your project page.</p>
+    <% else %>
+      <%# The same rows as the project and ship pages (shared/_hackatime_rows), one to pick: onboarding keeps its own flow, the
+          answer waits in the tab and saves with the project at the end, so nothing saves on a pick here. The rows come
+          again from the server (onboarding#hackatime) once you've typed a code link, so a project Hackatime links to a
+          different repo goes last with a warning (D-064). %>
+      <div data-onboarding-target="hackatimeList"><%= render "onboarding/hackatime_rows", user: current_user, hackatime: hackatime %></div>
+    <% end %>
+    <%# The empty picker has "Keep going" above, which does the same thing as Skip. %>
+    <% unless !hackatime[:problem] && hackatime[:projects].none? %>
+      <div class="onboarding-actions">
+        <button type="button" class="sp-btn sp-btn--ghost" data-action="onboarding#skipHackatime">Skip for now</button>
+      </div>
+    <% end %>
+  <% end %>
+</div>

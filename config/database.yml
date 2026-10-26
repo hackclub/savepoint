@@ -1,0 +1,23 @@
+# PostgreSQL everywhere. Solid Queue, Solid Cache and Solid Cable keep their tables in the same database (their
+# tables come from a normal migration), so production needs just one: DATABASE_URL.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  <<: *default
+  database: save_point_development
+
+# Warning: The database defined as "test" will be erased and
+# re-generated from your development database when you run "rake".
+# Do not set this db to the same as development or production.
+test:
+  <<: *default
+  database: save_point_test
+
+production:
+  <<: *default
+  url: <%= ENV["DATABASE_URL"] %>
+  # Puma's threads plus Solid Queue's workers and dispatcher, which run inside Puma (SOLID_QUEUE_IN_PUMA).
+  max_connections: <%= ENV.fetch("DB_POOL") { ENV.fetch("RAILS_MAX_THREADS", 5).to_i + 10 } %>

@@ -1,0 +1,50 @@
+/* The page that stops the Slack messages (/n/<token>/stop): one calm confirm card on the
+   checkered ground. Asking, the medallion and ribbon are gold. Once muted, they turn mint and the button goes plain. */
+.pg-nudge-stop { min-height: 100vh; min-height: 100dvh; }
+.pg-nudge-stop__main {
+  display: grid; justify-items: center; align-content: center; gap: var(--space-12);
+  min-height: 100vh; min-height: 100dvh; width: 100%; max-width: var(--content-max); margin-inline: auto;
+  padding: var(--space-8) var(--space-4) var(--space-12);
+}
+
+.pg-nudge-stop__card {
+  --nd-hi: var(--gold-hi); --nd-lo: var(--gold); --nd-line: var(--gold-line); --nd-lip: var(--gold-lip); --nd-ink: var(--on-gold); --nd-soft: var(--gold-soft);
+  justify-items: center; gap: var(--space-3); width: min(100%, 520px);
+  padding: var(--space-12) var(--space-6) var(--space-8); text-align: center;
+}
+.pg-nudge-stop__card.is-muted {
+  --nd-hi: var(--mint-hi); --nd-lo: var(--mint); --nd-line: var(--mint-line); --nd-lip: var(--mint-lip); --nd-ink: var(--on-mint); --nd-soft: var(--mint-soft);
+}
+/* The ribbon sits centred on the card's top edge, not at its left. */
+.pg-nudge-stop__card > .sp-ribbon { left: 50%; translate: -50% 0; white-space: nowrap; }
+.pg-nudge-stop__card > .sp-ribbon .sp-icon { font-size: 20px; }
+.pg-nudge-stop__card.is-muted > .sp-ribbon {
+  color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); border-color: var(--mint-line);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--mint-lip);
+}
+
+.pg-nudge-stop__badge {
+  display: grid; place-items: center; width: 84px; height: 84px; margin-bottom: var(--space-2); border-radius: 50%;
+  font-size: 44px; color: var(--nd-ink); background: linear-gradient(180deg, var(--nd-hi), var(--nd-lo));
+  border: 2px solid var(--nd-line); box-shadow: inset 0 3px 0 var(--gloss), 0 var(--lip-depth) 0 var(--nd-lip), 0 0 0 8px var(--nd-soft);
+}
+.pg-nudge-stop__badge .sp-icon { filter: drop-shadow(0 2px 0 var(--gloss)); }
+.pg-nudge-stop__card.is-muted .pg-nudge-stop__badge { animation: pg-nudge-stop-pop 320ms cubic-bezier(.3, 1.6, .5, 1); }
+
+.pg-nudge-stop__title {
+  margin: 0; max-width: 18ch; font: 900 italic clamp(26px, 4vw, 34px)/1.12 var(--font-display);
+  letter-spacing: -0.01em; color: var(--ink); text-wrap: balance;
+}
+.pg-nudge-stop__note { max-width: 40ch; margin: 0; font: 700 16px/1.55 var(--font-body); color: var(--ink-muted); text-wrap: pretty; }
+
+.pg-nudge-stop__actions { display: flex; justify-content: center; width: 100%; margin-top: var(--space-4); }
+.pg-nudge-stop__actions form { display: flex; justify-content: center; width: 100%; }
+.pg-nudge-stop__button { width: min(100%, 300px); }
+
+@keyframes pg-nudge-stop-pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pg-nudge-stop__card.is-muted .pg-nudge-stop__badge { animation: none; } }
+
+@media (max-width: 480px) {
+  .pg-nudge-stop__main { align-content: start; gap: var(--space-10); padding-top: var(--space-6); }
+  .pg-nudge-stop__card { padding: var(--space-12) var(--space-5) var(--space-6); }
+}

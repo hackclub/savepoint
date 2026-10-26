@@ -1,0 +1,10 @@
+<%# A prize in the shop: the tag in _shop_shapes, coloured by how many hours it costs (LandingHelper#prize_tier),
+    with the prize, its name and its price laid over it. Picking it makes it your goal and opens the claim popup (the
+    goal controller). %>
+<% is_goal = prize == goal %>
+<%= tag.button type: "button", class: [ "shop-card", "shop-card--#{prize_tier(prize)}", "prize", ("is-goal" if is_goal) ], id: "prize-#{prize.key}",
+      aria: { haspopup: "dialog" },
+      data: { controller: "tag-swing", goal_target: "card", action: "goal#claim", key: prize.key, name: prize.name, hours: prize_hours(prize.hours), kind: prize.kind,
+              img: (image_path("save_point/prizes/#{prize.image}") if prize.image) } do %>
+  <%= render "shared/prize_tag", prize:, live_pace: true %>
+<% end %>

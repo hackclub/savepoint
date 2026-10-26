@@ -1,0 +1,331 @@
+<% content_for :title, "#{@project.title} · Save Point" %>
+<% content_for :stylesheets, " save_point/prize_tag save_point/pages/hackatime_picker save_point/pages/project" %>
+<% build_days = @project.build_days %>
+<%# Walks you through setup until you've been through every step, then it's your schedule. %>
+<% set_up = @project.setup_finished? %>
+
+<%# Your project, the dashboard onboarding unlocks: your game and setting up to build it (Hackatime, a repo), then
+    once you're set up, your prize and schedule, with your streak and the leaderboard beside. Until a Hackatime
+    project's linked, the page keeps an eye out for one linking itself. %>
+<% watching = @project.hackatime_linked? && @project.hackatime_projects.none? %>
+<div class="pg-project sp-page" data-saved
+     <% if watching %>data-controller="hackatime-watch"
+     data-hackatime-watch-url-value="<%= hours_project_path(refresh: 1) %>"
+     data-action="visibilitychange@document->hackatime-watch#check"<% end %>>
+  <%= render "shared/top_bar", current: :project %>
+
+  <main class="project__sheet">
+    <div class="project__layout">
+      <div class="project__main">
+        <header class="project__header">
+          <div class="project__header-text">
+            <div class="project__day-row">
+              <span class="project__day"><%= sp_icon "flag-1-fill" %><%= Program.day_label %></span>
+              <% if set_up && @project.tracking? && (@project.ship_in_review || @project.may_ship?) %>
+                <%= link_to project_ship_path, class: [ "project__ship", "sp-btn", "sp-btn--sm", ("sp-btn--gold" unless @project.ship_in_review) ] do %>
+                  <%= sp_icon(@project.ship_in_review ? "time-fill" : "rocket-fill") %>
+                  <%= @project.ship_in_review ? "In review" : "Ship" %>
+                <% end %>
+              <% end %>
+            </div>
+            <%= render "projects/title", project: @project %>
+            <div class="project__prize-zone" data-controller="prize-picker" data-action="click->prize-picker#toggle submit->prize-picker#pick">
+            <div class="project__header-links">
+              <%# Which prize you're building towards, picked right here. %>
+              <%= link_to project_path(edit: ("prize" unless @editing_prize)),
+                    class: "sp-btn sp-btn--sm project__change-tool", aria: { expanded: @editing_prize } do %>
+                <%= sp_icon "gift-fill" %>Change your prize
+              <% end %>
+            </div>
+            <% if @editing_prize %><%= render "projects/prizes", project: @project %><% end %>
+            </div>
+            <% unless set_up %><p class="project__meta"><%= project_meta(@project) %></p><% end %>
+          </div>
+          <% if set_up %><%= render "projects/screenshot", project: @project %><% end %>
+        </header>
+
+        <% if @project.hackatime_auto_linked? %><%= render "projects/auto_linked", project: @project %><% end %>
+
+        <% if set_up %>
+          <%# Setup finished and nothing put off: no setup card. A step other than Hackatime (?step=) opens it; the Hackatime
+              projects are changed inline, right under "Hours from". %>
+          <% setup_step = @step unless @step == "hackatime_project" %>
+          <% if !@project.setup_all_done? || setup_step %>
+          <details class="project__setup-done" <%= "open" if setup_step %>>
+            <summary class="project__setup-summary">
+              <%= @project.repo_put_off? ? sp_icon("time-fill", "project__setup-check project__setup-check--later") : sp_icon("check-circle-fill", "project__setup-check") %>
+              <%= project_setup_summary(@project, setup_step) %>
+              <%= sp_icon "down-fill", "project__setup-chevron" %>
+            </summary>
+            <%= render "projects/steps", project: @project, step: setup_step, refresh_hackatime: false %>
+          </details>
+          <% end %>
+
+          <%# Which Hackatime projects your hours come from (none yet: the first you log time on links itself). Change opens
+              the tick list right under this row, Done closes it, and the chips follow your ticks. One list on the page. %>
+          <% changing = @step == "hackatime_project" %>
+          <div class="project__linked" data-controller="linked-hours" data-linked-hours-open-value="<%= changing %>">
+            <span class="project__linked-label"><%= sp_icon "link-fill" %>Hours from</span>
+            <span class="project__linked-chips" id="project-linked-chips">
+              <% if @project.tracking? %>
+                <ul class="project__linked-list" aria-label="Linked Hackatime projects">
+                  <% @project.hackatime_projects.each do |name| %><li class="project__linked-project"><%= name %></li><% end %>
+                </ul>
+              <% else %>
+                <span class="project__linked-none">
+                  <%= @project.waiting_for_hackatime_project? ? "nothing yet. #{project_links_itself(@project)}" : "nothing yet. Pick your Hackatime project so your hours count." %>
+                </span>
+              <% end %>
+            </span>
+            <%= link_to project_path(step: "hackatime_project"), class: "sp-btn sp-btn--sm project__linked-change",
+                  data: { linked_hours_target: "button", action: "linked-hours#toggle" }, aria: { expanded: changing.to_s, controls: "project-linked-panel" } do %><span data-linked-hours-target="label"><%= changing ? "Done" : (@project.tracking? ? "Change" : "Pick") %></span><% end %>
+            <div class="project__linked-panel" id="project-linked-panel" data-linked-hours-target="panel" <%= "hidden" unless changing %>>
+              <div class="project__linked-card">
+                <%= render "projects/steps/hackatime_project", project: @project, refresh: @refresh_hackatime, mode: "swap",
+                      swap: [ "#project-linked-chips", ".project__schedule" ] %>
+              </div>
+            </div>
+          </div>
+
+          <%# Your schedule, as one panel: the goal as three stat coins (your pace changes here), a tile per build day,
+              and your hours along a bar with what each milestone gets you. %>
+          <section class="project__schedule" aria-labelledby="project-schedule-title">
+            <h2 class="project__schedule-title sp-ribbon" id="project-schedule-title"><span><%= sp_icon "calendar-fill" %>Your schedule</span></h2>
+            <% next_step = project_next_step(@project) %>
+            <% if next_step %>
+              <div class="project__next" data-state="<%= next_step[:state] %>">
+                <p class="project__schedule-note"><%= next_step[:text] %></p>
+                <% if (action = next_step[:action]) %>
+                  <%= link_to action[:path], class: "sp-btn sp-btn--gold sp-btn--sm project__next-action" do %><%= sp_icon action[:icon] %><%= action[:label] %><% end %>
+                <% end %>
+              </div>
+            <% else %>
+              <p class="project__schedule-note"><%= project_schedule_note(@project) %></p>
+            <% end %>
+            <div class="project__plan">
+              <div class="project__goal-cells">
+                <% project_goal(@project).each_with_index do |cell, index| %>
+                  <% content = capture do %>
+                    <span class="project__goal-coin" data-coin="<%= index %>"><%= sp_icon(project_page_goal_icon(index)) %></span>
+                    <span class="project__goal-text">
+                      <span class="project__goal-label">
+                        <%= cell[:label] %>
+                        <% if cell[:pace] %><%= sp_icon "edit-2-fill", "project__goal-edit" %><% end %>
+                      </span>
+                      <span class="project__goal-value"><%= cell[:value] %></span>
+                      <span class="project__goal-note"><%= cell[:note] %></span>
+                    </span>
+                  <% end %>
+                  <% if cell[:pace] %>
+                    <%= link_to content, project_path(edit: ("pace" unless @editing_pace)), class: "project__goal-cell",
+                          aria: { label: "Change #{project_pace_name(@project).downcase}", expanded: @editing_pace } %>
+                  <% else %>
+                    <div class="project__goal-cell"><%= content %></div>
+                  <% end %>
+                <% end %>
+              </div>
+              <% if @editing_pace %>
+                <div class="project__paces" role="group" aria-label="<%= project_pace_name(@project) %>">
+                  <span class="project__paces-label"><%= project_pace_name(@project) %></span>
+                  <% project_pace_options(@project).each do |option| %>
+                    <%= button_to option[:label], project_path, method: :patch, params: { project: { pace_minutes: option[:minutes] } },
+                          class: "sp-btn sp-btn--sm project__pace", disabled: !option[:feasible], title: option[:reason],
+                          aria: { pressed: option[:minutes] == @project.pace_minutes } %>
+                  <% end %>
+                  <% if (note = project_pace_note(@project)) %>
+                    <p class="project__paces-note"><%= note %><% if @project.feasible_paces.none? %> <%= link_to "Change prize", project_path(edit: "prize") %><% end %></p>
+                  <% end %>
+                </div>
+                <div class="project__paces project__build-times" role="group" aria-label="When you build">
+                  <span class="project__paces-label">When you build</span>
+                  <% onboarding_build_times.each do |time| %>
+                    <%= button_to project_path, method: :patch, params: { project: { build_time: time[:value] } },
+                          class: "sp-btn sp-btn--sm project__build-time", aria: { pressed: time[:value] == @project.build_time } do %>
+                      <%= time[:value] %> <small class="project__build-time-hint"><%= time[:hint] %></small>
+                    <% end %>
+                  <% end %>
+                </div>
+              <% end %>
+              <div class="project__plan-body">
+                <ol class="project__days">
+                  <% project_schedule(@project).each do |day| %>
+                    <% if day[:gap] %>
+                      <li class="project__day-gap" aria-hidden="true">···</li>
+                    <% else %>
+                      <li class="project__day-cell" data-state="<%= day[:state] %>" <%= tag.attributes(data: { built: day[:built] }, title: day[:title]) %>>
+                        <span class="project__day-date"><%= day[:date] %></span>
+                        <span class="project__day-value"><%= day[:value] %></span>
+                        <% if day[:note] %><span class="project__day-note"><%= day[:note] %></span><% end %>
+                      </li>
+                    <% end %>
+                  <% end %>
+                  <%# Right after the Due tile, asking for more time (or where the ask's got to). %>
+                  <% if @project.extension || @project.extension_requestable? %>
+                    <li class="project__days-extension" <%= "data-asking" if @asking_extension %>>
+                      <%= render "projects/extension", project: @project, asking: @asking_extension %>
+                    </li>
+                  <% end %>
+                </ol>
+                <%= render "projects/hours_track", project: @project %>
+                <%= render "projects/goal_popup", project: @project %>
+                <%= render "nps_responses/popup" if NpsResponse.ask?(current_user) %>
+              </div>
+            </div>
+          </section>
+
+          <%= render layout: "projects/focus", locals: { project: @project } do %>
+            <section class="project__today" aria-labelledby="project-today-title">
+              <p class="sp-ribbon sp-ribbon--gold project__today-ribbon" aria-hidden="true"><span><%= sp_icon "time-fill" %>Pomodoro</span></p>
+              <div class="project__today-text">
+                <h2 class="project__section-title" id="project-today-title"><%= project_today(@project) %></h2>
+              </div>
+              <%# How long to lock in for, then start: on your own, or with your buddy. %>
+              <div class="project__pomodoro">
+                <div class="project__lengths" role="radiogroup" aria-label="Lock in for"
+                     data-controller="seg-pill" data-seg-pill-option-value=".project__length">
+                  <span class="project__length-pill" data-seg-pill-target="pill" aria-hidden="true"></span>
+                  <% [ 15, 25, 45, 60, 90 ].each do |minutes| %>
+                    <label class="project__length">
+                      <input type="radio" name="pomodoro_minutes" value="<%= minutes %>" class="visually-hidden"
+                             data-focus-target="length" data-action="focus#pickLength" <%= "checked" if minutes == 25 %>>
+                      <%= minutes %>
+                    </label>
+                  <% end %>
+                  <span class="project__lengths-unit">min</span>
+                </div>
+                <div class="project__start-buttons">
+                  <% if (buddy = @project.buddy) %>
+                    <button type="button" class="sp-btn sp-btn--lg project__start-buddy" data-action="focus#startWithBuddy">
+                      <span class="buddy-card__faces" aria-hidden="true">
+                        <%= avatar_tag(current_user, "buddy-face") %><%= avatar_tag(buddy.user, "buddy-face") %>
+                      </span>
+                      With <%= buddy_name(buddy) %>
+                    </button>
+                  <% end %>
+                  <button type="button" class="sp-btn sp-btn--gold sp-btn--lg project__start" data-action="focus#start">
+                    <%= sp_icon "play-fill" %>
+                    Start pomodoro
+                  </button>
+                </div>
+              </div>
+            </section>
+          <% end %>
+        <% else %>
+          <section class="project__setup" aria-labelledby="project-setup-title">
+            <h2 class="project__section-title sp-ribbon" id="project-setup-title"><span><%= sp_icon "settings-3-fill" %>Set up</span></h2>
+            <div class="project__setup-head">
+              <span class="project__setup-count"><%= @project.set_up? ? "#{pluralize(@project.optional_steps_left, "optional step")} left" : "#{pluralize(Project::REQUIRED_STEPS.size - @project.required_steps_done, "required step")} left" %></span>
+            </div>
+            <%= render "projects/steps", project: @project, step: @step, refresh_hackatime: @refresh_hackatime %>
+          </section>
+        <% end %>
+      </div>
+
+      <aside class="project__side" aria-label="Your streak and the leaderboard">
+        <%= render "projects/sticker_promise" %>
+        <% if set_up %>
+          <%# The rest, one card open at a time: the others fold into a row each, with what's in them at a glance. %>
+          <% sections = project_side_sections(@project) %>
+          <div class="project__sections" data-controller="side-sections" data-action="click->side-sections#toggle"
+               data-side-sections-urgent-value="<%= sections[:buddy][:dot] %>">
+            <%= render layout: "projects/side_section", locals: sections[:streak] do %>
+            <section class="project__streak" aria-label="Streak">
+              <p class="project__streak-count">
+                <span class="project__streak-number" <%= "data-going" if @project.streak.positive? %>><%= @project.streak %></span>
+                <span class="project__streak-label">day streak</span>
+              </p>
+              <ol class="project__week" aria-label="This week">
+                <% project_streak_week(@project).each do |day| %>
+                  <li class="project__week-day" <%= "data-today" if day[:today] %> <%= "data-done" if day[:completed] %>>
+                    <span class="project__week-letter"><%= day[:letter] %></span><span class="project__week-cell"></span>
+                  </li>
+                <% end %>
+              </ol>
+              <p class="project__streak-note">20 min a day keeps it going.</p>
+              <div class="project__streak-sync">
+                <span class="project__streak-checked">
+                  <%= project_streak_checked(current_user) %>
+                </span>
+                <%= button_to project_streak_path, method: :patch, class: "sp-btn sp-btn--sm sp-btn--ghost",
+                              form_class: "project__streak-refresh",
+                              form: { data: { controller: "streak-refresh", action: "submit->streak-refresh#spin" } } do %>
+                  <%= sp_icon "refresh-2-fill" %>Refresh
+                <% end %>
+              </div>
+              <% if flash[:streak_alert] %><p class="project__step-error" role="alert"><%= flash[:streak_alert] %></p><% end %>
+              <ul class="project__rewards">
+                <% project_rewards(@project).each do |reward| %>
+                  <li class="project__reward" data-state="<%= reward[:state] %>">
+                    <span class="project__reward-day">Day <%= reward[:days] %></span>
+                    <span class="project__reward-label"><%= reward[:label] %></span>
+                    <span class="project__reward-status"><%= reward[:status] %></span>
+                  </li>
+                <% end %>
+              </ul>
+            </section>
+            <% end %>
+
+            <%= render layout: "projects/side_section", locals: sections[:buddy] do %>
+              <%= render "buddies/card", project: @project %>
+            <% end %>
+
+            <%= render layout: "projects/side_section", locals: sections[:events] do %>
+            <section class="project__card project__events" aria-labelledby="project-events-title">
+              <h2 class="project__card-title" id="project-events-title">Events</h2>
+              <div class="project__event" data-kind="party">
+                <span class="project__event-date"><%= project_event_date(Program::PLAY_PARTY_ON) %></span>
+                <div class="project__event-text">
+                  <h3 class="project__event-title">Play party</h3>
+                  <p class="project__event-note"><%= Program::PLAY_PARTY_AT.strftime("%A at %-l%P") %> ET · on stream</p>
+                  <p class="project__event-note">
+                    <%= @project.party_queued? ? "We'll play your game live." : "We play everyone's game live. Have something running by then." %>
+                  </p>
+                  <% if @project.party_queued? %>
+                    <span class="project__party-queued">
+                      <%= sp_icon "check-circle-fill" %>In the queue
+                    </span>
+                  <% else %>
+                    <%= button_to "Add my game to the queue", project_path, method: :patch, params: { project: { party_queued: true } },
+                          class: "sp-btn sp-btn--sm sp-btn--royal project__event-button" %>
+                  <% end %>
+                </div>
+              </div>
+              <div class="project__event" data-kind="ship">
+                <span class="project__event-date"><%= project_event_date(@project.deadline) %></span>
+                <div class="project__event-text">
+                  <h3 class="project__event-title">Deadline</h3>
+                  <p class="project__event-note">Hit Ship any time up to then, once it's playable. You can keep building after you ship.</p>
+                </div>
+              </div>
+            </section>
+            <% end %>
+
+            <%= render layout: "projects/side_section", locals: sections[:leaderboard] do %>
+            <section class="project__card project__stairs" aria-labelledby="project-stairs-title">
+              <div class="project__card-head">
+                <h2 class="project__card-title" id="project-stairs-title">Leaderboard</h2>
+                <%= link_to "See all", leaderboard_path, class: "sp-btn sp-btn--sm sp-btn--ghost project__card-link" %>
+              </div>
+              <% stairs, stairs_note = leaderboard_stairs(@project) %>
+              <ol class="project__stairs-places">
+                <% stairs.each do |place| %>
+                  <li class="project__stair" data-place="<%= place[:place] %>" <%= "data-you" if place[:you] %>>
+                    <%= avatar_tag(place[:user], "leaderboard__avatar") %>
+                    <span class="project__stair-name"><%= place[:you] ? place[:name] : name_with_slack(place[:user], name: place[:name]) %></span>
+                    <span class="project__stair-hours"><%= place[:hours] %>h</span>
+                    <span class="project__stair-step"><%= sp_icon({ "1" => "trophy-fill", "2" => "medal-fill", "3" => "star-fill" }[place[:place]]) if place[:icon] %><%= place[:label] unless place[:icon] %></span>
+                  </li>
+                <% end %>
+              </ol>
+              <p class="project__stairs-note"><%= stairs_note %></p>
+            </section>
+            <% end %>
+          </div>
+        <% else %>
+          <% if (note = project_setup_note(@project)) %><p class="project__note" role="status"><%= note %></p><% end %>
+          <p class="project__locked"><%= sp_icon "lock-fill" %>Streaks and the leaderboard open once you're set up.</p>
+        <% end %>
+      </aside>
+    </div>
+  </main>
+</div>

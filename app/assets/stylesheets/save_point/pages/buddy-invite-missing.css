@@ -1,0 +1,96 @@
+/* The missing buddy invite (buddy_invites/missing): a dead end, so one friendly card that says the link doesn't work
+   and one gold way onward. Loads after save_point/tokens and save_point/components. Every rule is scoped here. */
+
+.pg-buddy-invite-missing {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+}
+.pg-buddy-invite-missing a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
+
+/* ---------- The card ---------- */
+.pg-buddy-invite-missing .bim-main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--space-10) var(--space-4) var(--space-16);
+}
+.pg-buddy-invite-missing .bim-card {
+  width: min(100%, 480px);
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-6) var(--space-8);
+  text-align: center;
+}
+@media (min-width: 600px) {
+  .pg-buddy-invite-missing .bim-card { padding-inline: var(--space-10); }
+}
+
+/* A link coin, knocked out by a coral cross: sitting half over the card's top edge. */
+.pg-buddy-invite-missing .bim-card__badge {
+  position: absolute;
+  top: -44px;
+  left: 50%;
+  translate: -50% 0;
+}
+.pg-buddy-invite-missing .bim-card__coin {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-full);
+  font-size: 40px;
+  color: var(--on-royal);
+  background: linear-gradient(180deg, var(--royal-hi), var(--royal));
+  border: 2px solid var(--royal-line);
+  box-shadow: inset 0 3px 0 var(--gloss), 0 var(--lip-depth) 0 var(--royal-lip), 0 0 0 6px var(--surface);
+  rotate: -8deg;
+}
+.pg-buddy-invite-missing .bim-card__x {
+  position: absolute;
+  right: -10px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  font-size: 20px;
+  color: var(--surface);
+  background: var(--coral);
+  box-shadow: 0 3px 0 var(--coral-ink), 0 0 0 3px var(--surface);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pg-buddy-invite-missing .bim-card__coin { animation: bim-wobble 2.4s ease-in-out infinite; }
+}
+@keyframes bim-wobble {
+  0%, 100% { rotate: -8deg; }
+  50% { rotate: 6deg; }
+}
+
+.pg-buddy-invite-missing .bim-card__title {
+  margin: var(--space-4) 0 0;
+  max-width: 18ch;
+  font: 900 italic clamp(28px, 4vw, 36px)/1.1 var(--font-display);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.pg-buddy-invite-missing .bim-card__note {
+  margin: 0;
+  max-width: 36ch;
+  font: 700 17px/1.55 var(--font-body);
+  color: var(--ink-muted);
+  text-wrap: pretty;
+}
+.pg-buddy-invite-missing .bim-card__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-2);
+  width: 100%;
+}
+@media (max-width: 420px) {
+  .pg-buddy-invite-missing .bim-card__cta { width: 100%; }
+}

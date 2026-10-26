@@ -1,0 +1,61 @@
+/* Changing tab (loaded on every page, so it is there on both the old and the new page during a transition).
+   Turbo swaps the page inside a view transition (the layout's view-transition meta tag). The top bar stays put with its
+   own group (so does the admin bar), the gold highlight glides to the new tab, and the page and its footer slide sideways: left when the new
+   tab is further right in the nav, right when it is further left. page_slide_controller.js sets data-nav-dir on <html>
+   before the visit. Without a direction (a page that is not a tab, the back button) the page crossfades. Browsers
+   without view transitions swap the page at once. */
+.sp-shell { view-transition-name: page; }
+
+::view-transition-group(top-bar), ::view-transition-group(admin-bar), ::view-transition-group(top-bar-pill), ::view-transition-group(seg-pill) { animation-duration: 320ms; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+/* The gold highlight eases out with no overshoot, so it never leaves the nav. It is under every tab label (z-index), and each
+   tab (its icon and label) crossfades from its old colour to its new one over the same time. */
+::view-transition-group(top-bar-pill), ::view-transition-group(seg-pill) { z-index: 1; }
+::view-transition-group(tab-onboarding), ::view-transition-group(tab-project), ::view-transition-group(tab-buddy),
+::view-transition-group(tab-leaderboard), ::view-transition-group(tab-shop), ::view-transition-group(seg-today), ::view-transition-group(seg-total) { z-index: 2; animation-duration: 320ms; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+/* The pill is not a snapshot (an image keeps its aspect ratio, so it would grow taller as the group widens). The group's own box
+   interpolates position and width at the pill's constant height, and is painted here like the real pill (top-bar.css). */
+::view-transition-old(top-bar-pill), ::view-transition-new(top-bar-pill), ::view-transition-old(seg-pill), ::view-transition-new(seg-pill) { display: none; }
+/* The leaderboard's Today/Total control uses the same pill (its own name, same drawing and easing). */
+::view-transition-group(top-bar-pill), ::view-transition-group(seg-pill) {
+  border-radius: 999px; background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip);
+}
+/* Every other segmented bar that loads pages (the stats toggle, the admin nav) tags its pill and labels with view-transition-class,
+   so one set of rules covers them (the markup gives each its own name). Same look and easing as the two above. */
+::view-transition-group(*.seg-pill), ::view-transition-group(*.seg-label) { animation-duration: 320ms; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+::view-transition-group(*.seg-pill) {
+  z-index: 1; border-radius: 999px; background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip);
+}
+::view-transition-group(*.seg-label) { z-index: 2; }
+::view-transition-old(*.seg-pill), ::view-transition-new(*.seg-pill) { display: none; }
+::view-transition-group(page) { animation-duration: 320ms; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+::view-transition-old(page), ::view-transition-new(page) { animation-duration: 180ms; animation-timing-function: ease-out; }
+
+:root[data-nav-dir]::view-transition-old(page), :root[data-nav-dir]::view-transition-new(page) {
+  animation-duration: 340ms; animation-timing-function: cubic-bezier(.22, 1, .36, 1); animation-fill-mode: both; mix-blend-mode: normal;
+}
+:root[data-nav-dir="forward"]::view-transition-old(page) { animation-name: page-out-left; }
+:root[data-nav-dir="forward"]::view-transition-new(page) { animation-name: page-in-right; }
+:root[data-nav-dir="back"]::view-transition-old(page) { animation-name: page-out-right; }
+:root[data-nav-dir="back"]::view-transition-new(page) { animation-name: page-in-left; }
+@keyframes page-out-left { to { transform: translateX(-100%); } }
+@keyframes page-in-right { from { transform: translateX(100%); } }
+@keyframes page-out-right { to { transform: translateX(100%); } }
+@keyframes page-in-left { from { transform: translateX(-100%); } }
+
+:root[data-nav-dir="same"]::view-transition-group(page), :root[data-nav-dir="same"]::view-transition-old(page),
+:root[data-nav-dir="same"]::view-transition-new(page) { animation: none; }
+
+/* The Today/Total control only has its own transition names (the markup sets them inline) when you switch between its segments, a
+   visit to the same page (data-nav-dir="same"). On any other visit it must stay part of the page, so it slides with it instead of
+   fading in place with no partner. The inline names need !important to be overridden. */
+:root:not([data-nav-dir="same"]) :is(.leaderboard__pill, .leaderboard__sort-label) { view-transition-name: none !important; }
+
+/* Those bars have transition names only while a click on one of them is being visited (page_slide_controller.js sets
+   data-seg-nav on <html>). Any other visit, the back button for one, treats them as part of the page. */
+:root:not([data-seg-nav]) :is(.stats__pill, .stats__label, .admin__pill, .admin__label) { view-transition-name: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

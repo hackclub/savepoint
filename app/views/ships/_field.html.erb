@@ -1,0 +1,12 @@
+<%# locals: (form:, ship:, attribute:, label:, count: false) %>
+<%# One field on the ship form: its label (with a character count, for the description), the input and any error. %>
+<div class="ship__field sp-field<%= " sp-field--error" if ship.errors[attribute].any? %>">
+  <span class="ship__label-row">
+    <%= form.label attribute, label, class: "ship__label sp-label" %>
+    <% if count %><span class="ship__count sp-count" data-ship-target="count"></span><% end %>
+  </span>
+  <%= yield %>
+  <% if ship.errors[attribute].any? %>
+    <span class="ship__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(attribute).first %></span>
+  <% end %>
+</div>

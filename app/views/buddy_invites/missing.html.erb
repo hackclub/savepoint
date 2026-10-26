@@ -1,0 +1,22 @@
+<%# An invite code nobody has (or that's been used): say so, and send them on to start their own project. %>
+<% content_for :title, "Invite not found · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/buddy-invite-missing" %>
+<div class="pg-buddy-invite-missing sp-page">
+  <%= render "shared/top_bar", nav: false %>
+
+  <main class="bim-main">
+    <section class="bim-card sp-panel" aria-labelledby="bim-title">
+      <div class="bim-card__badge" aria-hidden="true">
+        <span class="bim-card__coin"><%= sp_icon "link-fill" %></span>
+        <span class="bim-card__x"><%= sp_icon "close-fill" %></span>
+      </div>
+      <h1 class="bim-card__title" id="bim-title">This invite link isn't valid.</h1>
+      <p class="bim-card__note">Ask your friend for theirs again, or start your own project and invite them.</p>
+      <div class="bim-card__actions">
+        <%= link_to onboarding_path, class: "sp-btn sp-btn--gold sp-btn--lg bim-card__cta" do %>
+          Start building <%= sp_icon "play-fill" %>
+        <% end %>
+      </div>
+    </section>
+  </main>
+</div>

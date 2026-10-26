@@ -1,0 +1,96 @@
+@layer sheet {
+  .formula-bar {
+    block-size: 26px;
+    display: flex;
+    align-items: center;
+    border-block-end: 1px solid var(--border-header);
+    background: var(--surface-grid);
+    font-size: 13px;
+  }
+
+  .formula-bar__name-box {
+    --icon-size: 18px;
+
+    flex: none;
+    inline-size: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 0 14px;
+
+    .icon {
+      color: var(--icon-color);
+    }
+  }
+
+  .formula-bar__name {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: text;
+  }
+
+  /* The name box while it's being typed into: a field with the blue focus ring, like Sheets. */
+  .formula-bar__name-input {
+    min-inline-size: 0;
+    inline-size: 100%;
+    block-size: 22px;
+    margin-inline-start: -6px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: 2px;
+    outline: 2px solid var(--selection);
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--surface-grid);
+  }
+
+  .formula-bar__divider {
+    flex: none;
+    inline-size: 1px;
+    block-size: 16px;
+    background: var(--border-header);
+  }
+
+  .formula-bar__fx {
+    flex: none;
+    padding: 0 12px 0 16px;
+    font: italic 15px Georgia, serif;
+    color: var(--text-placeholder);
+  }
+
+  /* Fills the bar, so there's room to click into it and edit the selected cell. */
+  .formula-bar__content {
+    flex: 1;
+    align-self: stretch;
+    align-content: center;
+    min-inline-size: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: text;
+  }
+}
+
+@layer sheet {
+  @media (width <= 600px) {
+    .formula-bar {
+      block-size: 36px;
+      border-block-start: 1px solid var(--border-subtle);
+    }
+
+    .formula-bar__name-box {
+      inline-size: 52px;
+      padding: 0 0 0 12px;
+      font-weight: 700;
+
+      .icon {
+        display: none;
+      }
+    }
+
+    .formula-bar__fx {
+      padding-inline: 10px;
+    }
+  }
+}

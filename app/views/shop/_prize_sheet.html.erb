@@ -1,0 +1,96 @@
+<%# locals: (card:, public:) %>
+<%# One prize's sheet, a dialog the tag (and a ready card's Claim) opens (prize_sheet_controller.js). It is the landing page's
+    claim popup in the shop's colours: a royal top with the name and the picture on rays, then what the prize is, what it
+    takes, and what you can do with it. For a prize you can pay for, "Claim it" turns the bottom into a second step: the name
+    for the parcel, then confirm. Signed out it is details only, and its one action is to start. %>
+<% prize = card[:prize] %>
+<% state = card[:state] %>
+<% claimable = state == "ready" %>
+<% to_spend = public ? 0 : @project.hours_to_spend %>
+<% left = (to_spend - prize.hours).round(2) %>
+<% title_id = "sheet-#{prize.key}-title" %>
+<dialog class="order-sheet" aria-labelledby="<%= title_id %>" data-prize-sheet-target="dialog" data-action="click->prize-sheet#closeOutside close->prize-sheet#reset">
+  <div class="order-sheet__card shop-card--<%= prize_tier(prize) %>">
+    <div class="order-sheet__top">
+      <div class="order-sheet__head">
+        <h2 class="order-sheet__name" id="<%= title_id %>"><%= prize.name %></h2>
+        <p class="order-sheet__kind"><%= prize.kind %></p>
+      </div>
+      <%# The rays turn about the middle of the picture's own box, wherever it lands. %>
+      <div class="order-sheet__art"><span class="order-sheet__rays" aria-hidden="true"></span><%= render "pages/landing/prize_art", prize: %></div>
+      <svg class="order-sheet__wave" viewBox="0 0 400 48" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 30 C 70 6, 130 4, 200 22 S 330 48, 400 14 V 48 H 0 Z"/></svg>
+    </div>
+
+    <%# Step one: what it is and what it takes. %>
+    <div class="order-sheet__bottom" data-prize-sheet-target="details">
+      <% if prize.facts.any? %>
+        <ul class="order-sheet__facts" aria-label="Facts">
+          <% prize.facts.each do |fact| %><li><%= sp_icon "check-circle-fill" %><span><%= fact %></span></li><% end %>
+        </ul>
+      <% end %>
+
+      <%# The small print stays shut until it is opened. %>
+      <% if prize.terms.any? %>
+        <details class="order-sheet__terms">
+          <summary><%= sp_icon "information-fill" %><span>Terms</span><%= sp_icon "down-fill", "order-sheet__terms-chevron" %></summary>
+          <ul>
+            <% prize.terms.each do |term| %><li><%= term %></li><% end %>
+          </ul>
+        </details>
+      <% end %>
+
+      <%= link_to "View on #{prize.url_host} ↗", prize.url, target: "_blank", rel: "noopener", class: "order-sheet__link" %>
+
+      <div class="order-sheet__price">
+        <%= hours_coin %>
+        <div class="order-sheet__cost">
+          <p class="order-sheet__hours"><b><%= prize_hours(prize.hours) %></b> hrs</p>
+          <%# The pace only matters while there are hours to go. %>
+          <% if public || state == "locked" %><p class="order-sheet__pace"><%= pace_html(prize.pace_minutes) %> to get there by the deadline</p><% end %>
+        </div>
+      </div>
+
+      <% unless public || state == "claimed" %>
+        <div class="order-sheet__meter">
+          <div class="order-sheet__meter-row">
+            <% if state == "locked" %>
+              <span><%= project_hours(to_spend) %> of <%= prize_hours(prize.hours) %> hrs</span>
+              <b><%= project_hours(card[:needed]) %> more <%= card[:needed] == 1 ? "hr" : "hrs" %></b>
+            <% else %>
+              <span>You have enough: <%= project_hours(to_spend) %> hrs to spend</span>
+            <% end %>
+          </div>
+          <div class="order-sheet__track" role="meter" aria-valuemin="0" aria-valuemax="<%= prize_hours(prize.hours) %>" aria-valuenow="<%= [ to_spend, prize.hours ].min %>" aria-label="Approved hours to spend">
+            <span style="width: <%= [ (to_spend * 100.0 / prize.hours).round(1), 100 ].min %>%"></span>
+          </div>
+        </div>
+      <% end %>
+
+      <% if state == "claimed" %>
+        <p class="order-sheet__status"><%= sp_icon "check-circle-fill" %><%= card[:order].waiting? ? "In the queue to be ordered" : "Ordered" %></p>
+      <% elsif !public %>
+        <%# Both are drawn: pressing the button swaps them at once (prize_sheet_controller.js), before the server has answered. %>
+        <p class="order-sheet__status order-sheet__status--goal" data-goal-status<%= " hidden".html_safe unless card[:goal] %>><%= sp_icon "flag-1-fill" %>Your goal</p>
+        <%= button_to project_path, method: :patch, params: { return_to: "shop", project: { prize_key: prize.key } }, class: "sp-btn sp-btn--sm order-sheet__goal",
+              form: { class: "order-sheet__goal-form", hidden: card[:goal], data: { goal_form: true, turbo: false, action: "submit->prize-sheet#setGoal" } } do %><%= sp_icon "flag-1-fill" %>Set as my goal<% end %>
+        <p class="order-sheet__error" role="alert" data-prize-sheet-target="error" hidden></p>
+      <% end %>
+
+      <div class="order-sheet__actions">
+        <button type="button" class="order-sheet__x" aria-label="Close" data-action="prize-sheet#close"><%= sp_icon "close-fill" %></button>
+        <% if public %>
+          <%= link_to onboarding_path, class: "order-sheet__go order-sheet__go--royal" do %><span>Start</span><% end %>
+        <% elsif claimable %>
+          <button type="button" class="order-sheet__go" data-action="prize-sheet#claim"><span>Claim it</span></button>
+        <% else %>
+          <button type="button" class="order-sheet__go order-sheet__go--royal" data-action="prize-sheet#close"><span>Close</span></button>
+        <% end %>
+      </div>
+    </div>
+
+    <%# Step two, for a prize you can pay for: the name on the parcel, then confirm. One request does both. %>
+    <% if claimable %>
+      <%= render "shop/claim_step", prize:, left: %>
+    <% end %>
+  </div>
+</dialog>

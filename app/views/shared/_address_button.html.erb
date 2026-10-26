@@ -1,0 +1,10 @@
+<%# locals: (return_to:, button_class:) %>
+<%# Share your address through Hack Club, then come back to return_to. Not while an admin views as someone: the round
+    trip would sign in as the real person (see shared/address_notice). prompt=consent asks Hack Club to show the
+    address permission again, if it was skipped before. The form sends once. %>
+<% unless impersonating? %>
+  <%= button_to "/auth/hackclub?want=address", params: { origin: return_to, prompt: "consent" }, class: button_class,
+        form: { data: { turbo: false, controller: "once", action: "submit->once#submit" } } do %>
+    <%= sp_icon "home-4-fill" %><%= flash[:address_missing] ? "Try again" : "Share my address" %>
+  <% end %>
+<% end %>

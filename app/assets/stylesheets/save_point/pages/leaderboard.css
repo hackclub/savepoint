@@ -1,0 +1,205 @@
+/* The leaderboard (leaderboards/show): the title and sort, a podium for the top three, then
+   everyone as rows. Loads after save_point/tokens and save_point/components. Every rule sits under .pg-leaderboard. */
+
+.pg-leaderboard {
+  min-height: 100vh;
+  padding-bottom: var(--space-16);
+  color: var(--ink);
+}
+.pg-leaderboard p { margin: 0; }
+.pg-leaderboard a:focus-visible, .pg-leaderboard button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-leaderboard .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* An animal on its colour (avatar_tag). */
+.pg-leaderboard .avatar {
+  --avatar-color: var(--royal);
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--avatar-color); color: var(--on-royal);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--line);
+}
+.pg-leaderboard .avatar svg { width: 64%; height: 64%; }
+
+/* ---------- Title, sort and your rank ---------- */
+.pg-leaderboard__main { padding-top: var(--space-4); }
+.pg-leaderboard .leaderboard { display: grid; gap: var(--space-8); }
+.pg-leaderboard .leaderboard__header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4) var(--space-6); }
+.pg-leaderboard .leaderboard__heading { display: grid; gap: var(--space-2); min-width: 0; }
+.pg-leaderboard .leaderboard__title {
+  margin: 0; font: 900 italic clamp(40px, 7vw, 64px)/1 var(--font-display); letter-spacing: -0.01em; color: var(--royal-ink);
+  -webkit-text-stroke: 0.12em var(--surface); paint-order: stroke fill; filter: drop-shadow(0 4px 0 var(--line));
+}
+.pg-leaderboard .leaderboard__note { font: 700 clamp(16px, 1.5vw, 18px)/1.5 var(--font-body); color: var(--ink-muted); }
+.pg-leaderboard .leaderboard__controls { --lb-h: var(--control-md); --lb-lip: 3px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-3) var(--space-4); padding-bottom: var(--lb-lip); }
+
+/* The sort control and the rank pill share one box height (--control-md, the top bar's pill) and one 3px lip, so
+   their tops and bottoms line up. Inside the sort pill every gap is 4px: top, bottom (the gold lip counts as part of
+   the segment) and the near end. Each segment is the pill's inner height minus 8px, fully rounded. */
+.pg-leaderboard .leaderboard__sorts {
+  display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: start; justify-self: start; flex: none; width: max-content; gap: 4px; padding: 4px; max-width: 100%; box-sizing: border-box; height: var(--lb-h);
+  background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-full); box-shadow: inset 0 2px 0 var(--shade), 0 var(--lb-lip) 0 var(--line-lip);
+}
+.pg-leaderboard .leaderboard__sort {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; height: calc(var(--lb-h) - 4px - 8px - var(--lb-lip)); padding: 0 16px; border-radius: var(--radius-full);
+  font: 800 14px/20px var(--font-body); color: var(--ink-muted); text-decoration: none; white-space: nowrap;
+  transition: background 120ms, color 120ms;
+}
+.pg-leaderboard .leaderboard__sort .sp-icon { font-size: 18px; }
+.pg-leaderboard .leaderboard__sort:hover { color: var(--ink); background: var(--surface); box-shadow: 0 var(--lb-lip) 0 var(--line); }
+/* The gold highlight is its own element inside the current segment (like the top bar's), so it can slide between them. */
+.pg-leaderboard .leaderboard__sort { position: relative; isolation: isolate; }
+.pg-leaderboard .leaderboard__sort-label { display: inline-flex; align-items: center; gap: 6px; }
+.pg-leaderboard .leaderboard__sort[aria-current="page"] { color: var(--on-gold); background: none; box-shadow: none; }
+.pg-leaderboard .leaderboard__pill {
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lb-lip) 0 var(--gold-lip);
+}
+
+/* The rank pill: same box height and lip as the sort pill. The coin sits 4px from the top, bottom and left edge. */
+.pg-leaderboard .leaderboard__you { box-sizing: border-box; height: var(--lb-h); margin: 0; padding: 0 20px 0 4px; gap: var(--space-3); box-shadow: 0 var(--lb-lip) 0 var(--frame-lip); }
+.pg-leaderboard .leaderboard__you .sp-stat__key { width: calc(var(--lb-h) - 8px); height: calc(var(--lb-h) - 8px); font-size: 20px; }
+.pg-leaderboard .leaderboard__you-rank { font: 900 italic 24px/1 var(--font-display); }
+
+/* ---------- Podium ---------- */
+.pg-leaderboard .leaderboard__podium {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: var(--space-3);
+  width: 100%; max-width: 640px; margin: 0 auto; padding: var(--space-4) 0 0; list-style: none;
+}
+.pg-leaderboard .leaderboard__step {
+  --s-hi: var(--gold-hi); --s-lo: var(--gold); --s-line: var(--gold-line); --s-lip: var(--gold-lip); --s-on: var(--on-gold); --s-height: 132px;
+  display: grid; justify-items: center; gap: 4px; min-width: 0; text-align: center;
+}
+.pg-leaderboard .leaderboard__step[data-place="1"] { order: 2; }
+.pg-leaderboard .leaderboard__step[data-place="2"] { order: 1; --s-hi: var(--silver-hi); --s-lo: var(--silver); --s-line: var(--line-strong); --s-lip: var(--line-lip); --s-on: var(--on-silver); --s-height: 96px; }
+.pg-leaderboard .leaderboard__step[data-place="3"] { order: 3; --s-hi: var(--bronze-hi); --s-lo: var(--bronze); --s-line: var(--copper); --s-lip: var(--copper-ink); --s-on: var(--on-bronze); --s-height: 68px; }
+.pg-leaderboard .leaderboard__step-who { position: relative; display: grid; place-items: center; margin-bottom: var(--space-2); }
+.pg-leaderboard .leaderboard__step-avatar { width: 72px; height: 72px; box-shadow: 0 0 0 4px var(--surface), 0 0 0 7px var(--s-line), 0 9px 0 0 var(--s-lip); }
+.pg-leaderboard .leaderboard__step[data-place="1"] .leaderboard__step-avatar { width: 92px; height: 92px; }
+.pg-leaderboard .leaderboard__step-who .leaderboard__medal { position: absolute; right: -10px; bottom: -10px; }
+.pg-leaderboard .leaderboard__step-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 16px/22px var(--font-body); }
+.pg-leaderboard .leaderboard__step[data-you] .leaderboard__step-name { color: var(--gold-ink); }
+.pg-leaderboard .leaderboard__step-value { font: 800 italic 18px/22px var(--font-display); font-variant-numeric: tabular-nums; color: var(--royal-ink); }
+.pg-leaderboard .leaderboard__step-block {
+  display: grid; place-items: start center; width: 100%; height: var(--s-height); margin-top: var(--space-2); padding-top: var(--space-3);
+  font-size: 36px; color: var(--s-on);
+  background: linear-gradient(180deg, var(--s-hi), var(--s-lo)); border: 2px solid var(--s-line); border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
+  box-shadow: inset 0 3px 0 var(--gloss), 0 var(--lip-depth) 0 var(--s-lip);
+}
+.pg-leaderboard .leaderboard__step-block .sp-icon { filter: drop-shadow(0 2px 0 var(--gloss)); }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-leaderboard:not([data-switching]) .leaderboard__step-block { animation: pg-leaderboard-rise 420ms cubic-bezier(.3, 1.6, .5, 1) both; transform-origin: bottom; }
+  .pg-leaderboard:not([data-switching]) .leaderboard__step[data-place="2"] .leaderboard__step-block { animation-delay: 80ms; }
+  .pg-leaderboard:not([data-switching]) .leaderboard__step[data-place="3"] .leaderboard__step-block { animation-delay: 160ms; }
+}
+@keyframes pg-leaderboard-rise { from { transform: scaleY(.2); } to { transform: none; } }
+/* Switching between Today and Total (data-switching, set when the last page was this one): only what the view changes moves.
+   The podium's people and the table's ribbon, heading, rows and numbers fade up into place, the rows one after another (40ms
+   apart, the first ten). The title, the toggle and its gold pill stay put (the pill glides, see transitions.css). */
+@media (prefers-reduced-motion: no-preference) {
+  .pg-leaderboard[data-switching] :is(.leaderboard__step:not(.leaderboard__step--empty) > :not(.leaderboard__step-block), .leaderboard__you-rank, .sp-ribbon span, th[data-sorted]) {
+    animation: pg-leaderboard-in 300ms cubic-bezier(.22, 1, .36, 1) both;
+  }
+  .pg-leaderboard[data-switching] .leaderboard__table tbody tr { animation: pg-leaderboard-in 320ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--row, 0) * 40ms); }
+  .pg-leaderboard[data-switching] .leaderboard__step[data-place="1"] > :not(.leaderboard__step-block) { animation-delay: 40ms; }
+  .pg-leaderboard[data-switching] .leaderboard__step[data-place="3"] > :not(.leaderboard__step-block) { animation-delay: 80ms; }
+}
+@keyframes pg-leaderboard-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (max-width: 479px) {
+  .pg-leaderboard .leaderboard__podium { gap: var(--space-2); }
+  .pg-leaderboard .leaderboard__step-avatar { width: 56px; height: 56px; }
+  .pg-leaderboard .leaderboard__step[data-place="1"] .leaderboard__step-avatar { width: 72px; height: 72px; }
+  .pg-leaderboard .leaderboard__step-name { font-size: 14px; line-height: 20px; }
+  .pg-leaderboard .leaderboard__step-value { font-size: 16px; line-height: 20px; }
+  .pg-leaderboard .leaderboard__step { --s-height: 104px; }
+  .pg-leaderboard .leaderboard__step[data-place="2"] { --s-height: 76px; }
+  .pg-leaderboard .leaderboard__step[data-place="3"] { --s-height: 54px; }
+  .pg-leaderboard .leaderboard__step-block { font-size: 28px; padding-top: var(--space-2); }
+}
+
+/* ---------- Medal and rank coins ---------- */
+.pg-leaderboard .leaderboard__coin, .pg-leaderboard .leaderboard__medal {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  font: 900 italic 17px/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--ink-muted); background: var(--surface-sunken);
+}
+.pg-leaderboard [data-medal] { box-shadow: inset 0 2px 0 var(--gloss), 0 0 0 3px var(--surface), 0 3px 0 3px var(--m-lip); color: var(--m-on); background: linear-gradient(180deg, var(--m-hi), var(--m-lo)); }
+/* In a row the coin sits 8px from the row's top, bottom and left, so no ring or lip: they would eat the gap. */
+.pg-leaderboard .leaderboard__table [data-medal] { box-shadow: inset 0 2px 0 var(--gloss); }
+.pg-leaderboard [data-medal="1"] { --m-hi: var(--gold-hi); --m-lo: var(--gold); --m-lip: var(--gold-lip); --m-on: var(--on-gold); }
+.pg-leaderboard [data-medal="2"] { --m-hi: var(--silver-hi); --m-lo: var(--silver); --m-lip: var(--line-strong); --m-on: var(--on-silver); }
+.pg-leaderboard [data-medal="3"] { --m-hi: var(--bronze-hi); --m-lo: var(--bronze); --m-lip: var(--copper); --m-on: var(--on-bronze); }
+
+/* ---------- Rows ---------- */
+.pg-leaderboard .leaderboard__panel { padding: var(--space-10) var(--space-4) calc(var(--space-4) + 3px); } /* +3px: the last row's lip counts as part of the row */
+.pg-leaderboard .leaderboard__table { width: 100%; border-collapse: separate; border-spacing: 0 var(--space-2); margin-block: calc(var(--space-2) * -1); }
+.pg-leaderboard .leaderboard__table th {
+  padding: 0 var(--space-3) 2px; text-align: left; font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);
+}
+.pg-leaderboard .leaderboard__table th[data-sorted] { color: var(--royal-ink); }
+.pg-leaderboard .leaderboard__table td {
+  padding: 8px var(--space-3); vertical-align: middle;
+  background: var(--surface); border-block: 2px solid var(--line); box-shadow: 0 3px 0 var(--line);
+}
+.pg-leaderboard .leaderboard__table td:first-child { border-left: 2px solid var(--line); border-radius: var(--radius-full) 0 0 var(--radius-full); padding-left: 8px; }
+.pg-leaderboard .leaderboard__table td:last-child { border-right: 2px solid var(--line); border-radius: 0 var(--radius-full) var(--radius-full) 0; padding-right: var(--space-5); }
+.pg-leaderboard .leaderboard__table tr[data-you] td { background: var(--gold-soft); border-color: var(--gold-line); box-shadow: 0 3px 0 var(--gold-line); }
+.pg-leaderboard .leaderboard__table tr[data-you] .leaderboard__name { color: var(--gold-ink); }
+
+.pg-leaderboard td.leaderboard__rank { width: 1%; white-space: nowrap; }
+.pg-leaderboard .leaderboard__rank > * { vertical-align: middle; }
+.pg-leaderboard .leaderboard__coin { display: inline-grid; }
+.pg-leaderboard .leaderboard__change {
+  display: inline-flex; align-items: center; margin-left: 4px; padding: 2px 7px; border-radius: var(--radius-full);
+  font: 800 12px/16px var(--font-body); font-variant-numeric: tabular-nums;
+}
+.pg-leaderboard .leaderboard__change[data-direction="up"] { color: var(--mint-ink); background: var(--mint-soft); }
+.pg-leaderboard .leaderboard__change[data-direction="down"] { color: var(--coral-ink); background: var(--coral-soft); }
+
+.pg-leaderboard .leaderboard__builder { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.pg-leaderboard .leaderboard__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 16px/22px var(--font-body); }
+.pg-leaderboard .leaderboard__streak { flex: none; display: inline-flex; align-items: center; gap: 2px; font: 800 italic 14px/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--gold-ink); }
+.pg-leaderboard .leaderboard__streak .sp-icon { font-size: 18px; color: var(--gold); filter: drop-shadow(0 1.5px 0 var(--gold-lip)); }
+.pg-leaderboard .leaderboard__step > .leaderboard__streak { justify-self: center; }
+/* A step nobody stands on yet: only the block, sunk and dashed, so first place stays in the middle. */
+.pg-leaderboard .leaderboard__step--empty .leaderboard__step-block { background: var(--surface-sunken); border: 2px dashed var(--line-strong); box-shadow: none; color: var(--ink-faint); animation: none; }
+.pg-leaderboard .leaderboard__step--empty .leaderboard__step-block .sp-icon { filter: none; opacity: .6; }
+.pg-leaderboard td.leaderboard__building .leaderboard__name { font-weight: 700; color: var(--ink-muted); }
+.pg-leaderboard .leaderboard__shot { flex: none; width: 52px; height: 32px; object-fit: cover; border-radius: var(--radius-xs); box-shadow: 0 0 0 2px var(--line); }
+
+.pg-leaderboard .leaderboard__number { text-align: right; white-space: nowrap; }
+.pg-leaderboard th.leaderboard__number { text-align: right; }
+.pg-leaderboard td.leaderboard__number { font: 800 italic 17px/22px var(--font-display); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.pg-leaderboard td.leaderboard__number[data-sorted] { font-size: 20px; color: var(--royal-ink); }
+.pg-leaderboard tr[data-you] td.leaderboard__number[data-sorted] { color: var(--gold-ink); }
+
+/* Narrow: each row folds into two lines, who and what they build, with the sorted number on top. */
+@media (max-width: 759px) {
+  /* Rows are 24px round and 12px in, so the panel's corner is 24 + 12 + 2px border: concentric with the first and last row. */
+  .pg-leaderboard .leaderboard__panel { padding: var(--space-10) var(--space-3) calc(var(--space-3) + 3px); border-radius: calc(var(--radius-lg) + var(--space-3) + 2px); }
+  .pg-leaderboard .leaderboard__table, .pg-leaderboard .leaderboard__table tbody { display: block; margin: 0; }
+  .pg-leaderboard .leaderboard__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .pg-leaderboard .leaderboard__table tbody { display: grid; gap: var(--space-2); }
+  .pg-leaderboard .leaderboard__table tr {
+    display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); row-gap: 2px;
+    padding: 8px 16px 8px 8px; background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 3px 0 var(--line);
+  }
+  .pg-leaderboard .leaderboard__table tr[data-you] { background: var(--gold-soft); border-color: var(--gold-line); box-shadow: 0 3px 0 var(--gold-line); }
+  .pg-leaderboard .leaderboard__table td,
+  .pg-leaderboard .leaderboard__table td:first-child,
+  .pg-leaderboard .leaderboard__table td:last-child,
+  .pg-leaderboard .leaderboard__table tr[data-you] td { display: block; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; width: auto; min-width: 0; }
+  .pg-leaderboard .leaderboard__table tr td.leaderboard__rank { grid-row: 1 / span 2; grid-column: 1; display: grid; justify-items: center; gap: 6px; }
+  .pg-leaderboard .leaderboard__change { margin: 0; padding: 0 6px; font-size: 11px; }
+  /* The coin fills the row's height less 8px on top, bottom and left (the row has 8px padding). */
+  .pg-leaderboard .leaderboard__table .leaderboard__coin { width: 100%; max-width: none; height: auto; aspect-ratio: 1; }
+  .pg-leaderboard td.leaderboard__who { grid-row: 1; grid-column: 2; }
+  .pg-leaderboard td.leaderboard__building { grid-row: 2; grid-column: 2; }
+  .pg-leaderboard td.leaderboard__building .leaderboard__builder { gap: var(--space-2); padding-left: 52px; }
+  .pg-leaderboard td.leaderboard__building .leaderboard__name { font-size: 14px; line-height: 20px; }
+  .pg-leaderboard .leaderboard__shot { width: 36px; height: 22px; }
+  .pg-leaderboard td.leaderboard__number { grid-column: 3; grid-row: 2; font-size: 14px; line-height: 20px; }
+  .pg-leaderboard td.leaderboard__number[data-sorted] { grid-row: 1; font-size: 18px; line-height: 22px; }
+  .pg-leaderboard .leaderboard__builder { gap: var(--space-2); }
+  .pg-leaderboard .leaderboard__avatar { width: 32px; height: 32px; margin-left: 4px; margin-right: 4px; }
+  .pg-leaderboard td.leaderboard__building .leaderboard__builder { padding-left: 48px; }
+  .pg-leaderboard .leaderboard__name { font-size: 15px; }
+}
+

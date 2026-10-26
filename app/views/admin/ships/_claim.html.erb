@@ -1,0 +1,16 @@
+<%# locals: (ship:, claim:, held:) %>
+<%# D-063: who's working on this ship. Opening it takes the claim, and the page beats every 30 seconds to keep it
+    (heartbeat_controller.js). When another admin's claim is live, or they take it over, the banner says who, with a button to
+    take it back. Posting a verdict while another admin holds it is refused ("Someone else holds this ship."). %>
+<% if claim %>
+  <div class="ash__claim" data-controller="heartbeat" data-heartbeat-url-value="<%= admin_claims_heartbeat_path %>"
+       data-heartbeat-id-value="<%= ship.id %>" data-heartbeat-stage-value="<%= claim.stage %>">
+    <p class="sp-toast sp-toast--gold ash__claim-banner" role="status" id="admin-ship-claim" data-heartbeat-target="banner" <%= "hidden" unless held %>>
+      <span class="sp-toast__icon"><%= sp_icon "lock-fill" %></span>
+      <span>
+        <strong data-heartbeat-target="holder"><%= claim.user.first_name.presence || "Someone" %></strong> is working on this <%= claim.stage %>.
+        <%= link_to "Take over", admin_ship_path(ship, take: 1, queue: params[:queue].presence) %>
+      </span>
+    </p>
+  </div>
+<% end %>

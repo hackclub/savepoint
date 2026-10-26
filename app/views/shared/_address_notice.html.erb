@@ -1,0 +1,12 @@
+<%# locals: (return_url:) %>
+<%# What to say above an address button: that Hack Club came back with no address (with a link to add one), or that
+    sharing is off while an admin views as someone. %>
+<% if impersonating? %>
+  <p class="sp-help ship__impersonating"><%= sp_icon "information-fill" %>You're viewing as <%= current_user.name %>. They share their own address through Hack Club, so sharing is off while you view as them.</p>
+<% elsif flash[:address_missing] %>
+  <p class="sp-toast sp-toast--coral ship__address-missing" role="alert">
+    <span class="sp-toast__icon"><%= sp_icon "information-fill" %></span>
+    <span>Hack Club didn't send an address. Add one in your Hack Club account, then try again.
+      <%= link_to "Add my address", "https://auth.hackclub.com/portal/address?return_to=#{CGI.escape(return_url)}", target: "_blank", rel: "noopener" %></span>
+  </p>
+<% end %>

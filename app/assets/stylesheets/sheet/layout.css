@@ -1,0 +1,15 @@
+/* Fixed chrome top and bottom; only the grid scrolls. The padding keeps the chrome
+   clear of notches and the home indicator (needs viewport-fit=cover). */
+@layer sheet {
+  .spreadsheet {
+    block-size: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
+    background: var(--surface-chrome);
+
+    > :not(.sheet-viewport) {
+      flex: none;
+    }
+  }
+}

@@ -1,0 +1,575 @@
+@layer sheet {
+  .toolbar-shelf {
+    padding: 6px 16px 8px;
+    background: var(--surface-chrome);
+  }
+
+  .toolbar {
+    block-size: 40px;
+    display: flex;
+    align-items: center;
+    padding-inline: 6px;
+    border-radius: 24px;
+    background: var(--surface-toolbar);
+    color: var(--text-secondary);
+    font: 14px var(--font-chrome);
+    white-space: nowrap;
+  }
+
+  .toolbar__tools {
+    flex: 1;
+    min-inline-size: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+  }
+
+  .toolbar__search {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    inline-size: 118px;
+    block-size: 30px;
+    padding-inline: 10px;
+    margin-inline-end: 6px;
+    border-radius: 15px;
+    background: var(--surface-chrome);
+    cursor: text;
+
+    &:focus-within {
+      box-shadow: inset 0 0 0 2px var(--blue-700);
+    }
+
+    input {
+      min-inline-size: 0;
+      flex: 1;
+      border: 0;
+      outline: none;
+      background: none;
+      color: var(--text-primary);
+      font: inherit;
+
+      &::placeholder {
+        color: var(--text-secondary);
+      }
+
+      &::-webkit-search-cancel-button {
+        display: none;
+      }
+    }
+  }
+
+  .toolbar__button {
+    flex: none;
+    display: grid;
+    place-items: center;
+    inline-size: 28px;
+    block-size: 28px;
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--hover-toolbar);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--blue-700);
+      outline-offset: -2px;
+    }
+
+    /* Toggled on (bold, the format painter, a filter), or its menu is open. */
+    &[aria-pressed="true"]:not(.toolbar__collapse),
+    &[aria-expanded="true"] {
+      background: var(--selection-header-bg);
+      color: var(--navy-900);
+    }
+
+    &[aria-disabled="true"] {
+      opacity: 0.38;
+      background: none;
+      cursor: default;
+    }
+  }
+
+  /* Label followed by a caret: zoom level and font family. */
+  .toolbar__button--text,
+  .toolbar__button--font {
+    display: flex;
+    align-items: center;
+    inline-size: auto;
+    padding-inline-start: 6px;
+  }
+
+  .toolbar__button--font {
+    inline-size: 96px;
+    justify-content: space-between;
+  }
+
+  .toolbar__font-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .toolbar__button--number {
+    inline-size: 34px;
+    font-size: 13px;
+  }
+
+  /* Icon followed by a smaller caret. */
+  .toolbar__button--dropdown {
+    display: flex;
+    align-items: center;
+    inline-size: auto;
+    padding-inline-start: 4px;
+
+    .icon + .icon {
+      --icon-size: 18px;
+    }
+  }
+
+  /* Menus that open from a plain icon (borders, link, functions) don't show a caret. */
+  .toolbar__button--plain {
+    padding-inline-start: 0;
+    inline-size: 28px;
+    justify-content: center;
+
+    > .icon {
+      display: none;
+    }
+  }
+
+  .toolbar__current {
+    display: grid;
+  }
+
+  /* The text and fill color buttons underline their icon with the active cell's colors. */
+  .toolbar__swatch {
+    fill: var(--swatch);
+  }
+
+  [aria-controls="toolbar-menu-textColor"] {
+    --swatch: var(--text-color, #000);
+  }
+
+  [aria-controls="toolbar-menu-fillColor"] {
+    --swatch: var(--fill-color, transparent);
+  }
+
+  /* Merge: the icon merges, the caret picks how. */
+  .toolbar__split {
+    flex: none;
+    display: flex;
+
+    .toolbar__button:first-child {
+      border-start-end-radius: 0;
+      border-end-end-radius: 0;
+    }
+  }
+
+  .toolbar__button--caret {
+    --icon-size: 18px;
+
+    inline-size: 14px;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+  }
+
+  .toolbar__divider {
+    flex: none;
+    inline-size: 1px;
+    block-size: 20px;
+    margin-inline: 6px;
+    background: var(--border-header);
+  }
+
+  .toolbar__font-size {
+    flex: none;
+    inline-size: 32px;
+    block-size: 24px;
+    padding: 0;
+    border: 1px solid var(--border-control);
+    border-radius: 4px;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border: 2px solid var(--blue-700);
+    }
+  }
+
+  .toolbar__collapse {
+    margin-inline-start: 6px;
+  }
+
+  /* Hide the menus: the app bar folds away and the arrow turns down to bring it back. */
+  .spreadsheet--menus-hidden {
+    .app-bar {
+      display: none;
+    }
+
+    .toolbar-shelf {
+      padding-block-start: 8px;
+    }
+
+    .toolbar__collapse .icon {
+      rotate: 180deg;
+    }
+  }
+
+  /* Zoomed out, 1px gridlines would shrink to nothing: keep them a screen pixel thick. */
+  .sheet--zoomed .sheet__cells:not(.sheet__cells--no-gridlines) {
+    --gridline: max(1px, 1px / var(--sheet-zoom));
+
+    background-image:
+      linear-gradient(var(--border-grid) var(--gridline), transparent var(--gridline)),
+      linear-gradient(90deg, var(--border-grid) var(--gridline), transparent var(--gridline));
+  }
+
+  /* Menus open below their button, outside the toolbar's clip. */
+  .toolbar-menu {
+    position: fixed;
+    z-index: 30;
+    min-inline-size: 120px;
+    max-block-size: calc(100dvh - 16px);
+    overflow-y: auto;
+    padding-block: 6px;
+    border-radius: 4px;
+    background: var(--white);
+    box-shadow: 0 2px 6px 2px rgb(60 64 67 / 0.15), 0 1px 2px rgb(60 64 67 / 0.3);
+    color: var(--text-primary);
+    font: 14px var(--font-chrome);
+    white-space: nowrap;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .toolbar-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    inline-size: 100%;
+    min-block-size: 32px;
+    padding-inline: 12px 24px;
+    text-align: start;
+
+    &:hover,
+    &:focus-visible,
+    &[aria-selected="true"] {
+      outline: none;
+      background: var(--grey-100);
+    }
+
+    &[aria-disabled="true"] {
+      opacity: 0.38;
+      background: none;
+      cursor: default;
+    }
+  }
+
+  .toolbar-menu__check {
+    --icon-size: 18px;
+
+    visibility: hidden;
+
+    [aria-checked="true"] > & {
+      visibility: visible;
+    }
+  }
+
+  .toolbar-menu__item--plain {
+    padding-inline-start: 24px;
+  }
+
+  .toolbar-menu__label {
+    flex: 1;
+  }
+
+  /* Sample values on the right, as Sheets shows under "123". */
+  .toolbar-menu__sample {
+    margin-inline-start: 32px;
+    color: var(--grey-600);
+  }
+
+  .toolbar-menu__divider {
+    margin-block: 6px;
+    border: 0;
+    border-block-start: 1px solid var(--border-subtle);
+  }
+
+  .toolbar-menu--sizes {
+    min-inline-size: 56px;
+
+    .toolbar-menu__item {
+      padding-inline: 16px;
+    }
+
+    .toolbar-menu__check {
+      display: none;
+    }
+
+    [aria-checked="true"] {
+      background: var(--selection-header-bg);
+    }
+  }
+
+  /* Icon rows: the align, wrap and rotation menus, and the borders grid. */
+  .toolbar-menu--icons,
+  .toolbar-menu--borders {
+    min-inline-size: 0;
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+
+    .toolbar-menu__item--icon {
+      display: grid;
+      place-items: center;
+      inline-size: 32px;
+      min-block-size: 32px;
+      padding: 0;
+      border-radius: 4px;
+      color: var(--text-secondary);
+    }
+
+    [aria-checked="true"] {
+      background: var(--selection-header-bg);
+      color: var(--navy-900);
+    }
+  }
+
+  .toolbar-menu--borders {
+    display: grid;
+    grid-template-columns: repeat(5, 32px);
+    padding: 8px;
+  }
+
+  .toolbar-menu--search {
+    inline-size: 280px;
+  }
+
+  .toolbar-menu__empty {
+    padding: 8px 24px;
+    color: var(--grey-600);
+  }
+
+  /* Color palettes */
+  .toolbar-menu--palette {
+    padding: 8px 12px 12px;
+  }
+
+  .toolbar-menu__reset {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    inline-size: 100%;
+    block-size: 32px;
+    margin-block-end: 8px;
+    padding-inline: 8px;
+    border-radius: 4px;
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      background: var(--grey-100);
+    }
+  }
+
+  .toolbar-palette {
+    display: grid;
+    grid-template-columns: repeat(10, 20px);
+    gap: 4px;
+
+    /* A gap after the greys and after the bright hues, like Sheets. */
+    > :nth-child(n + 11) {
+      margin-block-start: 0;
+    }
+
+    > :nth-child(n + 11):nth-child(-n + 20),
+    > :nth-child(n + 21):nth-child(-n + 30) {
+      margin-block-start: 6px;
+    }
+  }
+
+  .toolbar-palette__swatch {
+    position: relative;
+    inline-size: 20px;
+    block-size: 20px;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--grey-500);
+    }
+
+    &[aria-checked="true"]::after {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border: 2px solid var(--white);
+      border-radius: 50%;
+      mix-blend-mode: difference;
+    }
+  }
+
+  .toolbar-palette__custom {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-block-start: 12px;
+    padding-block-start: 8px;
+    border-block-start: 1px solid var(--border-subtle);
+    color: var(--grey-600);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .toolbar-palette__add {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 20px;
+    block-size: 20px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px var(--grey-400);
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    --icon-size: 16px;
+
+    input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+  }
+
+  /* Link and comment popovers */
+  .toolbar-menu--form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+
+    input,
+    textarea {
+      inline-size: 280px;
+      padding: 8px 10px;
+      border: 1px solid var(--grey-400);
+      border-radius: 4px;
+      font: inherit;
+      color: var(--text-primary);
+
+      &:focus {
+        outline: none;
+        border-color: var(--blue-700);
+        box-shadow: inset 0 0 0 1px var(--blue-700);
+      }
+    }
+
+    textarea {
+      resize: none;
+    }
+  }
+
+  .toolbar-menu--comment {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-menu__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .toolbar-menu__apply,
+  .toolbar-menu__cancel {
+    block-size: 36px;
+    padding-inline: 16px;
+    border-radius: 18px;
+    font-weight: 500;
+  }
+
+  .toolbar-menu__apply {
+    background: var(--blue-700);
+    color: var(--white);
+
+    &:hover {
+      box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+    }
+  }
+
+  .toolbar-menu__cancel {
+    color: var(--blue-700);
+
+    &:hover {
+      background: var(--grey-100);
+    }
+  }
+
+  /* Sheets' dark tooltips */
+  .toolbar-tooltip {
+    position: fixed;
+    z-index: 40;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--grey-700);
+    color: var(--white);
+    font: 500 12px var(--font-chrome);
+    pointer-events: none;
+    white-space: nowrap;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  /* A filter on the selection: filter buttons along its top row and green column headers. */
+  .toolbar-filter {
+    position: relative;
+    z-index: 3;
+    grid-column: var(--column) / span var(--width);
+    grid-row: var(--row);
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    pointer-events: none;
+
+    > span {
+      justify-self: end;
+      align-self: center;
+      inline-size: 16px;
+      block-size: 16px;
+      margin-inline-end: 4px;
+      border-radius: 2px;
+      background:
+        center / 12px no-repeat
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23188038' d='M4 6h16l-6.5 8v5l-3 1.5V14z'/%3E%3C/svg%3E"),
+        var(--white);
+      box-shadow: inset 0 0 0 1px #188038;
+    }
+  }
+
+  .toolbar-filter__header {
+    background: #c6e9d0;
+  }
+}
+
+@layer sheet {
+  @media (width <= 600px) {
+    .toolbar-shelf {
+      display: none;
+    }
+  }
+}

@@ -1,0 +1,68 @@
+<%# locals: (ship:) %>
+<%# D-063: the fraud stage of a ship whose review approved. Pass it, pass it with a deduction (notes are due), or ban. Only a
+    pass makes the ship approved, with hours to spend and a row in Airtable. Below it, send it back to review with a reason. %>
+<% format = Ship::Limits.method(:format) %>
+<div class="ash__review-said" id="admin-ship-review-said">
+  <p class="sp-label ash__justify-label">Review approved</p>
+  <dl class="ash__limits">
+    <div><dt>Coding</dt><dd><%= format.(ship.review_coding_hours || ship.review_hours) %> hrs</dd></div>
+    <% if ship.review_art_hours&.positive? %><div><dt>Art</dt><dd><%= format.(ship.review_art_hours) %> hrs</dd></div><% end %>
+    <div class="ash__limits-total"><dt>Total from review</dt><dd><%= format.(ship.review_hours) %> hrs</dd></div>
+  </dl>
+  <p class="leaderboard__note ash__note">By <%= ship.reviewer&.first_name.presence || "someone" %>, <%= ship.reviewed_at&.strftime("%b %-d, %H:%M") %> UTC.</p>
+  <% if ship.technical_features.present? %>
+    <p class="sp-label ash__justify-label">Specific technical features</p>
+    <p class="ash__description"><%= ship.technical_features %></p>
+  <% end %>
+  <% if ship.review_judgement.present? %>
+    <p class="sp-label ash__justify-label">Judgement</p>
+    <p class="ash__description"><%= ship.review_judgement %></p>
+  <% end %>
+  <% if ship.deflation_reason.present? %>
+    <p class="sp-label ash__justify-label">Why deflated</p>
+    <p class="ash__description"><%= ship.deflation_reason %></p>
+  <% end %>
+</div>
+
+<%= form_with url: fraud_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "fraud-verdict", html: { novalidate: true }, data: { turbo: false } do |form| %>
+  <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
+  <div class="sp-field">
+    <%= form.label :deduct_hours, "Deduct hours", class: "sp-label" %>
+    <span class="ash__hours-box">
+      <%= form.number_field :deduct_hours, value: params[:deduct_hours].presence || 0, min: 0, max: ship.review_hours.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
+            data: { shortcut: "d" }, aria: { describedby: "admin-ship-deduct-help" } %>
+      <span class="ash__hours-unit" aria-hidden="true">hrs</span>
+    </span>
+    <span class="sp-help" id="admin-ship-deduct-help">Of <%= format.(ship.review_hours) %> hrs approved by review. Used by "Pass with a deduction".</span>
+  </div>
+  <div class="sp-field">
+    <%= form.label :fraud_notes, "Notes", class: "sp-label" %>
+    <%= form.text_area :fraud_notes, value: params[:fraud_notes], rows: 3, class: "sp-input ash__textarea", data: { shortcut: "j" },
+          aria: { describedby: "admin-ship-fraud-notes-help" } %>
+    <span class="sp-help" id="admin-ship-fraud-notes-help">Required for a deduction or a ban. Say what you found.</span>
+    <% if ship.errors[:fraud_notes].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:fraud_notes).first %></span><% end %>
+  </div>
+  <div class="ash__verdicts">
+    <%= form.button type: "submit", name: "verdict", value: "pass", class: "sp-btn sp-btn--mint ash__verdict-btn",
+          data: { shortcut: "p", shortcut_confirm: "" } do %><%= sp_icon "check-fill" %>Pass <kbd class="ash__kbd">p p</kbd><% end %>
+    <%= form.button type: "submit", name: "verdict", value: "deduct", class: "sp-btn ash__verdict-btn",
+          data: { shortcut: "x", shortcut_confirm: "" } do %><%= sp_icon "check-circle-fill" %>Pass with a deduction <kbd class="ash__kbd">x x</kbd><% end %>
+    <%= form.button type: "submit", name: "verdict", value: "ban", class: "sp-btn ash__verdict-btn ash__verdict-btn--ban",
+          data: { shortcut: "b", shortcut_confirm: "" } do %><%= sp_icon "warning-fill" %>Fraud: reject and ban <kbd class="ash__kbd">b b</kbd><% end %>
+  </div>
+  <p class="leaderboard__note ash__note"><kbd class="ash__kbd">d</kbd> deduct <kbd class="ash__kbd">j</kbd> notes. Press a verdict key twice.</p>
+<% end %>
+
+<details class="ash__sendback-details" id="send-back" <%= "open" if params[:reason].present? || ship.errors[:base].any? %>>
+  <summary>Send back to review</summary>
+  <%= form_with url: send_back_admin_ship_path(ship), method: :post, class: "ash__verdict-form", html: { novalidate: true }, data: { turbo: false } do |form| %>
+    <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
+    <p class="leaderboard__note ash__note">Review approved this ship and the fraud check hasn't run. Sending it back clears the review and the checklist, and nobody's told.</p>
+    <div class="sp-field">
+      <%= form.label :reason, "Reason", class: "sp-label" %>
+      <%= form.text_area :reason, value: params[:reason], rows: 2, class: "sp-input ash__textarea" %>
+      <% if ship.errors[:base].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:base).first %></span><% end %>
+    </div>
+    <%= form.button type: "submit", class: "sp-btn ash__verdict-btn ash__verdict-btn--coral" do %><%= sp_icon "refresh-2-fill" %>Send back to review<% end %>
+  <% end %>
+</details>

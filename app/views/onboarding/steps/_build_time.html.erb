@@ -1,0 +1,27 @@
+<%# Step 4: when you'll build, one of Project::BUILD_TIMES. Pledge nudges arrive at that time (D-037). Tiles are labels
+    over radios, so arrows and Tab work as they do on any radio group. Nothing starts picked: "Start building" waits for
+    an answer, then saves your project. %>
+<div class="onboarding-when">
+  <div class="onboarding-when__grid" role="radiogroup" aria-labelledby="onboarding-question-4">
+    <% onboarding_build_times.each do |time| %>
+      <label class="onboarding-time">
+        <input type="radio" name="onboarding-build-time" value="<%= time[:value] %>" class="onboarding-time__input"
+               data-onboarding-target="buildTime" data-action="onboarding#pickBuildTime">
+        <span class="onboarding-time__art"><%= sp_icon time[:icon] %></span>
+        <span class="onboarding-time__name"><%= time[:value] %></span>
+        <span class="onboarding-time__hint"><%= time[:hint] %></span>
+        <span class="onboarding-time__tick" aria-hidden="true"><%= sp_icon "check-fill" %></span>
+      </label>
+    <% end %>
+  </div>
+
+  <div class="onboarding-start">
+    <button type="button" class="sp-btn sp-btn--gold sp-btn--lg" data-onboarding-target="start" data-action="onboarding#saveProject" disabled>
+      <span data-onboarding-target="startLabel">Start building</span><%= sp_icon "right-fill" %>
+    </button>
+    <p class="onboarding-start__error" role="alert" data-onboarding-target="saveError" hidden>
+      <%= sp_icon "warning-fill" %><span data-onboarding-target="saveErrorText">Couldn't start your project.</span>
+      <button type="button" class="sp-btn sp-btn--ghost sp-btn--sm" data-action="onboarding#saveProject">Try again</button>
+    </p>
+  </div>
+</div>

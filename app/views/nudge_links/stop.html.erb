@@ -1,0 +1,35 @@
+<% muted = @nudge.user.slack_muted_at.present? %>
+<% content_for :title, "Slack messages · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/nudge-stop" %>
+<%# Asks before stopping the Slack messages (links get opened ahead of time), then shows the result with a way back.
+    No sign-in: the token in the URL is enough. %>
+<div class="sp-page pg-nudge-stop">
+  <%= render "shared/top_bar", nav: false %>
+  <main class="pg-nudge-stop__main">
+    <section class="sp-panel pg-nudge-stop__card<%= " is-muted" if muted %>" aria-labelledby="nudge-stop-title">
+      <p class="sp-ribbon<%= " sp-ribbon--gold" unless muted %>"><span><%= sp_icon "notification-fill" %>Slack messages</span></p>
+
+      <div class="pg-nudge-stop__badge" aria-hidden="true">
+        <%= sp_icon(muted ? "check-fill" : "notification-fill") %>
+      </div>
+
+      <% if muted %>
+        <h1 id="nudge-stop-title" class="pg-nudge-stop__title">We won't message you on Slack anymore.</h1>
+        <p class="pg-nudge-stop__note">Your project, hours and streak all keep working. Changed your mind?</p>
+        <div class="pg-nudge-stop__actions">
+          <%= button_to nudge_stop_path(@nudge.token), method: :delete, class: "sp-btn sp-btn--lg pg-nudge-stop__button" do %>
+            <%= sp_icon "play-fill" %>Keep sending them
+          <% end %>
+        </div>
+      <% else %>
+        <h1 id="nudge-stop-title" class="pg-nudge-stop__title">Stop the Slack messages?</h1>
+        <p class="pg-nudge-stop__note">You won't get reminders on Slack anymore. Your project, hours and streak all keep working.</p>
+        <div class="pg-nudge-stop__actions">
+          <%= button_to nudge_stop_path(@nudge.token), class: "sp-btn sp-btn--gold sp-btn--lg pg-nudge-stop__button" do %>
+            <%= sp_icon "pause-fill" %>Stop messages
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+  </main>
+</div>

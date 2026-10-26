@@ -1,0 +1,13 @@
+/*
+ * Every stylesheet in app/assets is linked individually (stylesheet_link_tag :app),
+ * sorted by path. This file sorts first, so it fixes the cascade order up front and
+ * each file wraps itself in one of these layers. Load order then never matters.
+ *
+ *   foundation/  fonts, design tokens, element defaults
+ *   components/  small reusable pieces (icon, ...)
+ *   sheet/       the spreadsheet chrome: app bar, toolbar, formula bar, grid, tabs
+ *   onboarding/  the Start building flow, drawn over the same chrome (in the sections layer)
+ *   project/     your project, the sheet onboarding unlocks (also the sections layer)
+ *   save_point/  Save Point's style sheet and the landing page: only layouts/save_point loads them, unlayered
+ */
+@layer reset, tokens, base, components, sheet, sections;

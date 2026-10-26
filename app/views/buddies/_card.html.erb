@@ -1,0 +1,40 @@
+<%# locals: (project:) %>
+<%# Your buddy, in the sidebar: an invite to pair up, the invite you've sent, or the two of you. %>
+<% buddy = project.buddy %>
+<% pair = project.pair %>
+<section class="project__card buddy-card" aria-labelledby="buddy-card-title">
+  <% if buddy %>
+    <div class="buddy-card__head">
+      <span class="buddy-card__faces" aria-hidden="true">
+        <%= avatar_tag(project.user, "buddy-face") %><%= avatar_tag(buddy.user, "buddy-face") %>
+      </span>
+      <span class="buddy-card__who">
+        <%= link_to "You + #{buddy_name(buddy)}", buddy_path, class: "buddy-card__title", id: "buddy-card-title" %>
+        <span class="buddy-card__note"><%= name_with_slack(buddy.user) %> is building <%= buddy.title.sub(/\A\w/, &:downcase) %></span>
+      </span>
+      <% hours = pair_hours(project) %>
+      <span class="buddy-card__streak" title="You <%= hours[:mine] %> hrs, them <%= hours[:theirs] %> hrs"><b><%= hours[:together] %> hrs</b><span>together</span></span>
+    </div>
+  <% elsif project.buddy_invited? %>
+    <div class="buddy-card__head buddy-card__head--spread">
+      <span class="buddy-card__faces" aria-hidden="true">
+        <%= avatar_tag(project.user, "buddy-face") %><span class="buddy-face" data-pending>…</span>
+      </span>
+      <span class="buddy-card__badge">Pending</span>
+    </div>
+    <div class="buddy-card__who">
+      <h2 class="buddy-card__title" id="buddy-card-title">Invite sent</h2>
+      <p class="buddy-card__note">You'll be paired once they sign up.</p>
+    </div>
+    <%= render "buddies/invite_link", project:, compact: true %>
+  <% else %>
+    <span class="buddy-card__faces" aria-hidden="true">
+      <%= avatar_tag(project.user, "buddy-face") %><span class="buddy-face" data-empty>+</span>
+    </span>
+    <div class="buddy-card__who">
+      <h2 class="buddy-card__title" id="buddy-card-title">Build with a friend</h2>
+      <p class="buddy-card__note">You each make your own game.</p>
+    </div>
+    <%= render "buddies/invite_link", project:, mark_invited: true, compact: true %>
+  <% end %>
+</section>

@@ -1,0 +1,90 @@
+/* Admin: the README and the snapshot editor on one ship (admin/ships/_readme and _snapshot_edit). They sit in the ship page's
+   panels, so they share admin-ship.css's classes; this sheet adds only what is theirs. Every rule is under .pg-admin-ship.
+   Loads after admin-ship. Corners are concentric: a shape inside a panel has the panel's radius less its border and the
+   gap between them (--gap, the panel's padding), and nothing goes below 0. */
+
+.pg-admin-ship .ash__readme,
+.pg-admin-ship .ash__snapshot { --gap: var(--space-4); --inner: max(0px, calc(var(--radius-lg) - 2px - var(--gap))); }
+@media (min-width: 600px) {
+  .pg-admin-ship .ash__readme,
+  .pg-admin-ship .ash__snapshot { --gap: var(--space-5); }
+}
+
+/* A fold: a summary that opens what is under it. No box of its own, so what is inside meets the panel's corner. */
+.pg-admin-ship .ash__fold > :not(summary) { margin-top: var(--space-4); }
+.pg-admin-ship .ash__fold-summary {
+  display: inline-flex; align-items: center; justify-self: start; gap: var(--space-2); min-height: var(--control-sm); padding: 0 var(--space-3);
+  border-radius: var(--radius-sm); cursor: pointer; list-style: none; font: 800 14px/20px var(--font-body); color: var(--royal-ink); overflow-wrap: anywhere;
+}
+.pg-admin-ship .ash__fold-summary::-webkit-details-marker { display: none; }
+.pg-admin-ship .ash__fold-summary::before { content: ""; width: 0; height: 0; border: 5px solid transparent; border-left-color: currentColor; border-right-width: 0; transition: transform 120ms; }
+.pg-admin-ship .ash__fold[open] > .ash__fold-summary::before { transform: rotate(90deg); }
+.pg-admin-ship .ash__fold-summary:hover { background: var(--royal-soft); }
+.pg-admin-ship .ash__fold-summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* The README: GitHub's own markup, cleaned, on a sunken sheet that scrolls when it is long. */
+.pg-admin-ship .ash__readme-body {
+  max-height: 640px; overflow: auto; padding: var(--gap); border-radius: var(--inner); background: var(--surface-sunken);
+  font: 500 15px/24px var(--font-body); color: var(--ink); overflow-wrap: anywhere;
+}
+.pg-admin-ship .ash__readme-body > :first-child { margin-top: 0; }
+.pg-admin-ship .ash__readme-body > :last-child { margin-bottom: 0; }
+.pg-admin-ship .ash__readme-body :is(h1, h2, h3, h4, h5, h6) { margin: var(--space-5) 0 var(--space-2); font: 800 italic 1.25em/1.2 var(--font-display); }
+.pg-admin-ship .ash__readme-body h1 { font-size: 1.6em; }
+.pg-admin-ship .ash__readme-body p,
+.pg-admin-ship .ash__readme-body ul,
+.pg-admin-ship .ash__readme-body ol,
+.pg-admin-ship .ash__readme-body blockquote,
+.pg-admin-ship .ash__readme-body pre,
+.pg-admin-ship .ash__readme-body table { margin: 0 0 var(--space-3); }
+.pg-admin-ship .ash__readme-body ul,
+.pg-admin-ship .ash__readme-body ol { padding-left: var(--space-6); }
+.pg-admin-ship .ash__readme-body img { max-width: 100%; height: auto; }
+.pg-admin-ship .ash__readme-body code { padding: 1px 4px; border-radius: 4px; background: var(--surface); font: 600 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
+.pg-admin-ship .ash__readme-body pre { overflow-x: auto; padding: var(--space-3); border-radius: var(--radius-xs); background: var(--surface); }
+.pg-admin-ship .ash__readme-body pre code { padding: 0; background: none; }
+.pg-admin-ship .ash__readme-body blockquote { padding-left: var(--space-3); border-left: 4px solid var(--line-strong); color: var(--ink-muted); }
+.pg-admin-ship .ash__readme-body table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.pg-admin-ship .ash__readme-body :is(th, td) { padding: 6px 10px; border: 2px solid var(--line); }
+.pg-admin-ship .ash__readme-body hr { border: 0; border-top: 2px dashed var(--line); }
+
+/* The snapshot: who edited it last, then the editor. */
+.pg-admin-ship .ash__edited { font: 600 14px/20px var(--font-body); }
+.pg-admin-ship .ash__saved { display: flex; align-items: flex-start; gap: 6px; font: 700 15px/22px var(--font-body); color: var(--mint-ink); }
+.pg-admin-ship .ash__saved [data-icon] { flex: none; margin-top: 2px; font-size: 18px; }
+.pg-admin-ship .ash__snapshot-note { font: 600 14px/21px var(--font-body); }
+.pg-admin-ship .ash__fold > .ash__sub { margin-top: var(--space-6); }
+.pg-admin-ship .ash__fold > .ash__sub + .ash__snapshot-note { margin-top: var(--space-1); }
+.pg-admin-ship .ash__snapshot-form { display: grid; gap: var(--space-4); margin: 0; }
+.pg-admin-ship .ash__snapshot-save { justify-self: start; }
+
+/* The screenshots: a grid of cells, the cover first. */
+.pg-admin-ship .ash__shots { display: grid; gap: var(--space-3); justify-items: start; }
+.pg-admin-ship .ash__shot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-3); width: 100%; margin: 0; padding: 0; list-style: none; }
+.pg-admin-ship .ash__thumb {
+  position: relative; aspect-ratio: 16 / 10; overflow: hidden; cursor: grab; touch-action: none;
+  border: 2px solid var(--line-strong); border-radius: var(--inner); background: var(--surface-sunken);
+}
+.pg-admin-ship .ash__thumb:focus-visible { outline: none; border-color: var(--royal); box-shadow: var(--focus-ring); }
+.pg-admin-ship .ash__thumb--cover { border-color: var(--royal); }
+.pg-admin-ship .ash__thumb--cover::after {
+  content: "Cover"; position: absolute; left: 6px; bottom: 6px; padding: 0 var(--space-2); border-radius: var(--radius-full);
+  background: var(--royal); font: 800 11px/20px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--on-royal);
+}
+.pg-admin-ship .ash__thumb img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.pg-admin-ship .ash__thumb.is-dragging { opacity: 0.6; cursor: grabbing; }
+.pg-admin-ship .ash__thumb.is-busy { opacity: 0.7; }
+.pg-admin-ship .ash__thumb-remove {
+  appearance: none; position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  border: 2px solid var(--line-strong); border-radius: var(--radius-full); background: var(--surface); color: var(--coral-ink); cursor: pointer;
+}
+.pg-admin-ship .ash__thumb-remove .sp-icon { font-size: 16px; }
+.pg-admin-ship .ash__thumb-remove:hover { background: var(--coral-soft); }
+.pg-admin-ship .ash__thumb-remove:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-admin-ship .ash__thumb progress { position: absolute; left: 6px; right: 6px; bottom: 6px; width: calc(100% - 12px); height: 6px; }
+.pg-admin-ship .ash__thumb-state {
+  position: absolute; left: 6px; top: 6px; padding: 0 var(--space-2); border-radius: var(--radius-full); background: var(--surface);
+  font: 800 11px/20px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+}
+.pg-admin-ship .ash__shot-status { min-height: 20px; font: 700 14px/20px var(--font-body); color: var(--mint-ink); white-space: pre-line; }
+.pg-admin-ship .ash__shot-status--error { color: var(--coral-ink); }

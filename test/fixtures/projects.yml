@@ -1,0 +1,16 @@
+orpheus:
+  user: orpheus
+  idea: a rhythm game
+  prize_key: micro
+  pace_minutes: 45
+  build_time: evening
+  signed_on: 2026-09-30
+
+ana:
+  user: ana
+  idea: pong
+  prize_key: u2c
+  pace_minutes: 20
+  build_time: after school
+  signed_on: 2026-09-30
+  buddy_code: k3j9x2qa

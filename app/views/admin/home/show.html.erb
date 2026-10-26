@@ -1,0 +1,216 @@
+<% content_for :title, "Admin · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/admin-home" %>
+<% waiting = @waiting.values.sum %>
+
+<%# The admin home: what's waiting on an admin (a tile each, to the page that has it), then flat readouts and charts under
+    three ribbons (who's building, where people drop, prizes and ships; none of it a link), then every admin page with
+    what it's for, and how many of each there are where that's a number. %>
+<div class="pg-admin-home">
+  <div class="sp-container">
+    <header class="pg-admin-home__head">
+      <div class="pg-admin-home__title">
+        <h1>Admin</h1>
+        <p class="pg-admin-home__total sp-stat<%= " is-zero" if waiting.zero? %>">
+          <span class="sp-stat__key"><%= sp_icon "notification-fill" %></span><%= waiting %> <span class="sp-stat__unit">waiting</span>
+        </p>
+      </div>
+      <p class="pg-admin-home__lead">
+        <%= waiting.zero? ? "Nothing's waiting on you." : "#{pluralize(waiting, "thing")} waiting on you." %>
+        Every admin page is below, and in the links along the top of each one.
+      </p>
+    </header>
+
+    <main class="pg-admin-home__main">
+      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-waiting">
+        <h2 class="sp-ribbon sp-ribbon--gold" id="admin-home-waiting"><span><%= sp_icon "flag-1-fill" %>Waiting on you</span></h2>
+        <div class="pg-admin-home__tiles">
+          <% admin_pages.select { |page| @waiting.key?(page[:label]) }.each do |page| %>
+            <% count = @waiting.fetch(page[:label]) %>
+            <%= link_to page[:path], class: "admin__tile admin__tile--link", data: { waiting: (true if count.positive?) } do %>
+              <span class="admin__tile-name"><%= admin_page_icon page[:label] %><%= page[:label] %></span>
+              <strong><%= count %></strong>
+              <small><%= admin_waiting_label(page[:label]) %></small>
+            <% end %>
+          <% end %>
+        </div>
+      </section>
+
+      <% daily = @summary[:daily] %>
+      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-so-far">
+        <h2 class="sp-ribbon" id="admin-home-so-far"><span><%= sp_icon "fire-fill" %>Who's building</span></h2>
+        <div class="pg-admin-home__readouts">
+          <div class="admin__readout">
+            <span class="admin__readout-name"><%= sp_icon "user-3-fill" %>Sign-ups</span>
+            <strong><%= number_with_delimiter(@summary[:signups]) %></strong>
+            <small><%= number_with_delimiter(@summary[:signups_today]) %> today</small>
+          </div>
+          <div class="admin__readout">
+            <span class="admin__readout-name"><%= sp_icon "fire-fill" %><abbr title="Daily active builders">DAU</abbr></span>
+            <strong><%= @summary[:dau] ? number_with_delimiter(@summary[:dau]) : "–" %></strong>
+            <small>built <%= @summary[:dau_date] ? @summary[:dau_date].strftime("%b %-d") : "yesterday" %></small>
+          </div>
+        </div>
+
+        <h3 class="pg-admin-home__sub">Day by day <span>finished days, UTC, participants only</span></h3>
+        <div class="pg-admin-home__charts">
+          <% latest = daily.last %>
+          <% new_share = latest && latest[:dau].positive? ? "#{latest[:states][:new]} of #{latest[:dau]} were new" : "nobody built" %>
+          <%= render "chart_card", name: "Daily active builders", icon: "fire-fill", rows: daily, chart: admin_stacked_chart(daily), legend: Admin::ChartsHelper::BUILD_STATES,
+                                   headline: (number_with_delimiter(latest[:dau]) if latest), sub: (admin_chart_date(latest[:date]) if latest),
+                                   takeaway: latest ? "On #{admin_chart_date(latest[:date])}, #{new_share}." : "No finished days yet." %>
+          <% signups_total = daily.sum { |row| row[:signups] } %>
+          <%= render "chart_card", name: "Sign-ups", icon: "user-3-fill", rows: daily, chart: admin_daily_chart(daily, :signups, unit: "sign-ups"),
+                                   headline: (number_with_delimiter(latest[:signups]) if latest), sub: (admin_chart_date(latest[:date]) if latest),
+                                   takeaway: daily.any? ? "#{number_with_delimiter(signups_total)} in #{pluralize(daily.size, "finished day")}, #{(signups_total.fdiv(daily.size)).round(1)} a day." : "No finished days yet." %>
+          <% hours_total = daily.sum { |row| row[:hours] } %>
+          <%= render "chart_card", name: "Hours built", icon: "time-fill", rows: daily, chart: admin_daily_chart(daily, :hours, unit: "hours"),
+                                   headline: (admin_hours(latest[:hours]) if latest), sub: (admin_chart_date(latest[:date]) if latest),
+                                   takeaway: daily.any? ? "#{admin_hours(hours_total)} h in #{pluralize(daily.size, "finished day")}, #{admin_hours(hours_total.fdiv(daily.size))} h a day." : "No finished days yet." %>
+          <% on_day = @summary[:sign_up_day] %>
+          <% signed, built = on_day.sum { |row| row[:signed_up] }, on_day.sum { |row| row[:built] } %>
+          <% last_day = on_day.reverse.find { |row| row[:percent] } %>
+          <%= render "chart_card", name: "Built on their sign-up day", icon: "play-fill", rows: on_day,
+                                   chart: admin_daily_chart(on_day, :percent, unit: "% built that day", max: 100,
+                                     title: ->(row) { row[:percent] ? "#{row[:date].strftime("%a %b %-d")}: #{row[:percent]}% of #{row[:signed_up]} built their first 20 minutes that day (#{row[:built]})" : "#{row[:date].strftime("%a %b %-d")}: no sign-ups" }),
+                                   headline: (("#{last_day[:percent]}%") if last_day), sub: (admin_chart_date(last_day[:date]) if last_day),
+                                   takeaway: signed.positive? ? "#{(built * 100.0 / signed).round}% of #{number_with_delimiter(signed)} sign-ups built 20 minutes on the day they signed up." : "Nobody has signed up on a finished day yet." %>
+        </div>
+
+        <% nudges = @summary[:nudge_results] %>
+        <h3 class="pg-admin-home__sub">Did nudges work <span>built any time the day it was sent or the next, cheers left out</span></h3>
+        <div class="admin-chart admin-chart--steps">
+          <% if nudges[:total][:n].zero? %>
+            <p class="admin-chart__empty">No nudges old enough to judge yet.</p>
+          <% else %>
+            <p class="admin-chart__takeaway"><%= nudges[:total][:percent] %>% of <%= number_with_delimiter(nudges[:total][:n]) %> nudges were followed by building, the day they went or the next.</p>
+            <ol class="admin-chart__steps">
+              <% nudges[:kinds].each do |row| %>
+                <li class="admin-chart__step">
+                  <div class="admin-chart__step-head"><span><%= row[:kind].humanize %></span><strong><%= row[:percent] %>%</strong></div>
+                  <div class="admin-chart__meter" title="<%= row[:kind].humanize %>: <%= row[:built] %> of <%= row[:n] %> built (<%= row[:percent] %>%)"><span style="width: <%= row[:percent] %>%"></span></div>
+                  <small class="admin-chart__lost"><%= row[:built] %> of <%= pluralize(row[:n], "nudge") %></small>
+                </li>
+              <% end %>
+            </ol>
+          <% end %>
+        </div>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-funnel">
+        <h2 class="sp-ribbon" id="admin-home-funnel"><span><%= sp_icon "down-fill" %>Where people drop</span></h2>
+        <% funnel = @summary[:participant_funnel] %>
+        <% steps = admin_funnel_steps(funnel, @summary[:participant_waiting]) %>
+        <% worst = steps.find { |step| step[:biggest_drop] } %>
+        <h3 class="pg-admin-home__sub">From signing in to a prize</h3>
+        <div class="admin-chart admin-chart--steps">
+          <% if funnel[:participants].zero? %>
+            <p class="admin-chart__empty">Nobody has signed in yet.</p>
+          <% else %>
+            <p class="admin-chart__verdict<%= " is-clear" unless worst %>">
+              <% if worst %>
+                <%= sp_icon "warning-fill" %><span><strong>Biggest drop:</strong> <%= worst[:from] %> &rarr; <%= worst[:label] %>, <%= number_to_percentage(worst[:kept_percent], precision: 1, strip_insignificant_zeros: true) %> kept.</span>
+              <% else %>
+                <%= sp_icon "check-circle-fill" %><span>Nobody has dropped off between any two steps.</span>
+              <% end %>
+            </p>
+            <ol class="admin-chart__steps">
+              <% steps.each do |step| %>
+                <%= tag.li class: [ "admin-chart__step", ("is-biggest-drop" if step[:biggest_drop]), ("is-empty" if step[:count].zero?) ] do %>
+                  <div class="admin-chart__step-head"><span><%= step[:label] %></span><strong><%= number_with_delimiter(step[:count]) %></strong></div>
+                  <div class="admin-chart__meter" title="<%= step[:label] %>: <%= step[:count] %> of <%= funnel[:participants] %> (<%= step[:width] %>%)"><span style="width: <%= step[:width] %>%"></span></div>
+                  <% if step[:from] %>
+                    <small class="admin-chart__lost">
+                      <% if step[:lost].positive? || step[:waiting].zero? %>
+                        <%= sp_icon "down-fill" %><%= number_with_delimiter(step[:lost]) %> lost from <%= step[:from].downcase %><%= ", #{number_to_percentage(step[:kept_percent], precision: 1, strip_insignificant_zeros: true)} kept" if step[:kept_percent] && step[:waiting].zero? %>
+                      <% end %>
+                      <% if step[:waiting].positive? %>
+                        <span class="admin-chart__waiting"><%= sp_icon "time-fill" %><%= number_with_delimiter(step[:waiting]) %> <%= step[:waiting_text] %></span>
+                      <% end %>
+                    </small>
+                  <% end %>
+                <% end %>
+              <% end %>
+            </ol>
+          <% end %>
+        </div>
+
+        <h3 class="pg-admin-home__sub">Hours, from built to approved</h3>
+        <% stages = admin_funnel_stages(@summary) %>
+        <% built_hours = stages.sum { |stage| stage[:hours] } %>
+        <%= render "split_card", name: "Hours", icon: "time-fill", head: "Hours", parts: stages.map { |stage| { id: stage[:id], name: stage[:name], about: stage[:about], value: stage[:hours], text: "#{admin_hours(stage[:hours])} h" } },
+                                 takeaway: built_hours.zero? ? "No hours built yet." : "#{admin_share(@summary[:approved_hours] / built_hours)} of the #{admin_hours(built_hours)} h built is approved." %>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-prizes">
+        <h2 class="sp-ribbon" id="admin-home-prizes"><span><%= sp_icon "gift-fill" %>Prizes and ships</span></h2>
+        <% pace = @summary[:pace] %>
+        <% spend = @summary[:prize_spend] %>
+        <% aiming = pace[:reached] + pace[:on_track] + pace[:behind] %>
+        <div class="pg-admin-home__charts pg-admin-home__charts--wide">
+          <%= render "split_card", name: "On track for their goal", icon: "rocket-fill", head: "People",
+                                   parts: [ { id: "reached", name: "Reached", about: "have the hours for their goal", value: pace[:reached] },
+                                            { id: "on_track", name: "On track", about: "need no more a day than they pledged", value: pace[:on_track] },
+                                            { id: "behind", name: "Behind", about: "need more a day than they pledged", value: pace[:behind] } ].each { |part| part[:text] = part[:value].to_s },
+                                   takeaway: aiming.zero? ? "Nobody with a goal to chase yet." : "#{pace[:reached] + pace[:on_track]} of #{aiming} have reached their goal or are on track for it#{", #{pace[:claimed]} already claimed theirs" if pace[:claimed].positive?}." %>
+          <%= render "split_card", name: "Prize spend", icon: "gift-fill", head: "Dollars",
+                                   parts: [ { id: "waiting", name: "Waiting", about: "#{pluralize(spend[:waiting][:count], "order")} to order", value: spend[:waiting][:dollars], text: admin_dollars(spend[:waiting][:dollars]) },
+                                            { id: "ordered", name: "Ordered", about: pluralize(spend[:ordered][:count], "order"), value: spend[:ordered][:dollars], text: admin_dollars(spend[:ordered][:dollars]) },
+                                            { id: "projected", name: "Still to claim", about: "goals of #{spend[:projected][:count]} reached or on track", value: spend[:projected][:dollars], text: admin_dollars(spend[:projected][:dollars]) } ],
+                                   takeaway: "#{admin_dollars(spend[:claimed_dollars])} claimed so far, and #{admin_dollars(spend[:projected][:dollars])} more if everyone who has reached their goal or is on track claims it." %>
+        </div>
+
+        <% flow = @summary[:ship_flow] %>
+        <% ships_total = flow[:days].sum { |row| row[:ships] } %>
+        <h3 class="pg-admin-home__sub">Ships and the review wait</h3>
+        <div class="pg-admin-home__charts pg-admin-home__charts--wide">
+          <%= render "chart_card", name: "Ships a day", icon: "send-plane-fill", rows: flow[:days], chart: admin_daily_chart(flow[:days], :ships, unit: "ships"),
+                                   headline: (flow[:days].last[:ships] if flow[:days].any?), sub: (admin_chart_date(flow[:days].last[:date]) if flow[:days].any?),
+                                   takeaway: "#{pluralize(ships_total, "ship")} made on finished days." %>
+          <div class="admin__readout admin__readout--wait">
+            <span class="admin__readout-name"><%= sp_icon "time-fill" %>Review wait</span>
+            <% if flow[:oldest_in_review_at] %>
+              <strong><%= admin_wait(flow[:oldest_in_review_at]) %></strong>
+              <small>oldest of <%= flow[:in_review] %> in review</small>
+            <% else %>
+              <strong>None</strong>
+              <small>nothing waiting</small>
+            <% end %>
+            <% if flow[:awaiting_fraud].to_i.positive? %>
+              <small><%= flow[:awaiting_fraud] %> awaiting a fraud check</small>
+            <% end %>
+          </div>
+        </div>
+      </section>
+
+      <section class="sp-panel pg-admin-home__panel" aria-labelledby="admin-home-pages">
+        <h2 class="sp-ribbon" id="admin-home-pages"><span><%= sp_icon "more-1-fill" %>Every page</span></h2>
+        <div class="pg-admin-home__scroll">
+          <table class="admin__table admin__table--pages">
+            <thead>
+              <tr>
+                <th scope="col">Page</th>
+                <th scope="col">What it's for</th>
+                <th scope="col">Now</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% admin_pages.each do |page| %>
+                <tr>
+                  <th scope="row"><%= link_to page[:path], data: { turbo: (false if page[:external]) } do %><%= admin_page_icon page[:label] %><%= page[:label] %><% end %></th>
+                  <td><%= page[:about] %></td>
+                  <td class="pg-admin-home__now">
+                    <% if @waiting.key?(page[:label]) %>
+                      <%= tag.span class: [ "sp-badge", ("sp-badge--gold" if @waiting[page[:label]].positive?) ] do %><%= @waiting[page[:label]] %> <%= admin_waiting_label(page[:label]) %><% end %>
+                    <% elsif @totals.key?(page[:label]) %>
+                      <%= number_with_delimiter(@totals[page[:label]]) %>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>

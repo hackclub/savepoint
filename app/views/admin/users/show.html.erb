@@ -1,0 +1,126 @@
+<% content_for :title, "#{admin_person_name(@user)} · People · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-user" %>
+
+<%# One person and their projects: who they are, how to reach them, a button to see the site as them, then each project
+    they have with its ships and orders. Real names and emails are here, so nothing on this page is recorded. %>
+<div class="pg-admin-user sp-page">
+  <div class="au sp-container">
+    <main class="au__main">
+      <header class="au__head">
+        <p class="au__back"><%= link_to admin_users_path do %><%= sp_icon "left-fill" %>All people<% end %></p>
+        <div class="au__who">
+          <%= avatar_tag(@user, "au__avatar", aria: { hidden: true }, role: nil, title: nil) %>
+          <div class="au__who-text">
+            <h1 class="au__title"><%= admin_person_name(@user) %></h1>
+          </div>
+        </div>
+        <% if flash[:alert] %>
+          <p class="sp-toast sp-toast--coral au__alert" role="alert">
+            <span class="sp-toast__icon"><%= sp_icon "warning-fill" %></span><%= flash[:alert] %>
+          </p>
+        <% end %>
+        <div class="au__actions">
+          <% if @user.impersonable_by?(current_user) && !impersonating? %>
+            <%= button_to admin_user_impersonation_path(@user), method: :post, class: "sp-btn sp-btn--sm sp-btn--royal",
+                  form: { data: { turbo: false } } do %>
+              <%= sp_icon "user-3-fill" %>View as <%= @user.first_name.presence || "them" %>
+            <% end %>
+          <% elsif @user.listed_admin? %>
+            <span class="sp-badge sp-badge--violet au__admin"><%= sp_icon "lock-fill" %>admin</span>
+          <% end %>
+        </div>
+      </header>
+
+      <section class="sp-panel au__panel" aria-labelledby="admin-user-details">
+        <h2 class="sp-ribbon au__ribbon" id="admin-user-details"><span><%= sp_icon "user-3-fill" %>Details</span></h2>
+        <dl class="au__details">
+          <dt>Email</dt><dd><%= @user.email %></dd>
+          <dt>Slack</dt>
+          <dd>
+            <% if @user.slack_display_name.present? %><%= name_with_slack(@user, name: @user.slack_display_name) %>
+            <% else %><span class="au__muted">no Slack name</span><% end %>
+          </dd>
+          <dt>Slack ID</dt><dd><% if @user.slack_id.present? %><%= @user.slack_id %><% else %><span class="au__muted">none</span><% end %></dd>
+          <dt>Hack Club ID</dt><dd><%= @user.hca_id %></dd>
+          <dt>Timezone</dt><dd><%= @user.timezone.presence || "UTC" %></dd>
+          <dt>Signed in</dt><dd><%= project_date(@user.created_at) %>, <%= @user.created_at.year %></dd>
+          <dt>Streak</dt>
+          <dd>
+            <%= pluralize(@user.current_streak, "day") %>
+            <% if @user.streak_synced_at %><small class="au__muted">· hours synced <%= time_ago_in_words(@user.streak_synced_at) %> ago</small>
+            <% else %><small class="au__muted">· hours never synced</small><% end %>
+          </dd>
+        </dl>
+      </section>
+
+      <section class="sp-panel au__panel" aria-labelledby="admin-user-projects">
+        <h2 class="sp-ribbon sp-ribbon--gold au__ribbon" id="admin-user-projects"><span><%= sp_icon "game-2-fill" %>Projects <span class="au__count"><%= @projects.size %></span></span></h2>
+        <% if @projects.empty? %>
+          <p class="au__empty">No pledge yet.</p>
+        <% else %>
+          <ul class="au__projects">
+            <% @projects.each do |project| %>
+              <% goal = project.chosen_prize %>
+              <% ships = project.ships.sort_by(&:created_at).reverse %>
+              <li class="au__card" id="<%= dom_id(project) %>">
+                <h3 class="au__card-title"><%= link_to project.title, admin_project_path(project) %></h3>
+                <p class="au__chips">
+                  <% if project.tracking? %>
+                    <span class="au__chip au__chip--mint">tracking</span>
+                  <% elsif project.hackatime_linked? %>
+                    <span class="au__chip au__chip--gold">Hackatime linked</span>
+                  <% else %>
+                    <span class="au__chip">no Hackatime</span>
+                  <% end %>
+                  <span class="au__chip"><%= project_pace_label(project.pace_minutes) %></span>
+                </p>
+                <dl class="au__facts">
+                  <dt>Goal</dt>
+                  <dd>
+                    <% if goal %>
+                      <span class="au__goal">
+                        <span class="au__goal-thumb"><%= goal.image ? image_tag("save_point/prizes/#{goal.image}", alt: "", loading: "lazy") : sp_icon(goal.icon) %></span>
+                        <%= goal.name %>
+                      </span>
+                    <% else %><span class="au__muted">none</span><% end %>
+                  </dd>
+                  <dt>Hours</dt><dd><%= project_hours_label(project) %></dd>
+                  <dt>Ships</dt>
+                  <dd>
+                    <% if ships.empty? %><span class="au__muted">not shipped yet</span>
+                    <% else %>
+                      <ul class="au__list">
+                        <% ships.each do |ship| %>
+                          <li class="au__row" data-decision="<%= ship.status %>">
+                            <%= link_to ship.title, admin_ship_path(ship) %>
+                            <span class="au__muted"><%= project_hours(ship.hours) %> hrs · <%= project_date(ship.created_at) %></span>
+                            <span class="au__status"><%= ship_status_label(ship) %></span>
+                          </li>
+                        <% end %>
+                      </ul>
+                    <% end %>
+                  </dd>
+                  <dt>Orders</dt>
+                  <dd>
+                    <% if project.orders.empty? %><span class="au__muted">none</span>
+                    <% else %>
+                      <ul class="au__list">
+                        <% project.orders.sort_by(&:created_at).reverse.each do |order| %>
+                          <li class="au__row" data-decision="<%= order.ordered? ? "approved" : "in_review" %>">
+                            <%= order.configuration %>
+                            <span class="au__muted"><%= project_date(order.created_at) %></span>
+                            <span class="au__status"><%= order.status %></span>
+                          </li>
+                        <% end %>
+                      </ul>
+                    <% end %>
+                  </dd>
+                </dl>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </section>
+    </main>
+  </div>
+</div>

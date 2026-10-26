@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<%# Every admin page gets the same bar, in the same place: here, above the page, so it neither moves with the page's own
+    layout nor slides with the page when it changes (transitions.css). %>
+<% admin_page = controller.is_a?(Admin::BaseController) %>
+<%# The controller lives on <html>, which Turbo keeps between pages: it picks the slide direction before each visit.
+    The order is the nav's, left to right. %>
+<html lang="en" data-controller="page-slide"
+      data-page-slide-order-value="<%= [ onboarding_path, project_path, buddy_path, leaderboard_path, shop_path ].to_json %>">
+  <head>
+    <meta charset="utf-8">
+    <title><%= content_for(:title) || "Save Point" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="apple-mobile-web-app-title" content="Save Point">
+    <meta name="application-name" content="Save Point">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%# Page changes slide: Turbo Drive swaps the page inside a view transition (page_slide_controller.js, top-bar.css). %>
+    <meta name="view-transition" content="same-origin">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= render "layouts/social_tags" %>
+    <%= yield :head %>
+
+    <link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
+    <link rel="icon" href="/icon.svg?v=2" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+
+    <%# Save Point's style sheet only (app/assets/stylesheets/save_point, then the page's own): none of Save Point's
+        spreadsheet, which the application layout loads. %>
+    <%# The shared sheets are tracked: a new deploy reloads the page. The page's own sheets are not, or every tab change
+        would look like a changed asset and Turbo would reload instead of sliding. Turbo adds the new page's sheets and
+        drops the old page's, and each is scoped to its page. %>
+    <%= stylesheet_link_tag "save_point/tokens", "save_point/components", "save_point/avatar", "save_point/footer", "save_point/transitions", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag(*content_for(:stylesheets).to_s.split) if content_for?(:stylesheets) %>
+    <%# The admin pages share one bar (admin/_nav), rendered below. Its sheet is here, not in the partial, because the head is built first. %>
+    <%= stylesheet_link_tag "save_point/pages/admin-nav" if admin_page %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <%# Every page ends in the same two footer lines. The landing page places its own dark one (inside its .sp-page, under the FAQ). %>
+  <% own_footer = content_for?(:own_footer) %>
+  <%= tag.body class: ("sp-has-foot" unless own_footer) do %>
+    <% if own_footer %>
+      <%= yield %>
+    <% else %>
+      <%# The page and the footer slide as one piece when you change tab (top-bar.css), under the top bar. The admin bar
+          is in the shell, so the ground runs under it, but it has its own transition name, so it stays put. %>
+      <div class="sp-shell"><div class="sp-shell__page"><%= render "admin/nav" if admin_page %><%= yield %></div><%= render "shared/footer", plain: true %></div>
+    <% end %>
+    <%= render "layouts/impersonation" if impersonating? %>
+  <% end %>
+</html>

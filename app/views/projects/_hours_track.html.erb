@@ -1,0 +1,48 @@
+<%# locals: (project:, logged: nil) %>
+<%# The hours bar: your hours as a fill, and your prize's picture at the end, so you
+    can see what you're filling toward. Labels sit under the markers, dark on the page, never on the fill. %>
+<%# `logged` is only for /dev's gallery, to draw the bar at any level. Otherwise it's your logged hours less what you've spent. %>
+<% logged ||= project.hours_unspent_logged %>
+<% spent = project.hours_spent %>
+<% milestones = project_milestones(project, logged:) %>
+<% prize = project.chosen_prize %>
+<div class="project__track" role="img"
+     aria-label="<%= project_hours(logged) %> of <%= project_hours(project.hours_needed) %> hours logged. <%= milestones.map { |m| "#{m[:hours_text]} hours, #{m[:name]}#{m[:reached] ? ", reached" : ""}" }.to_sentence %>.">
+  <p class="project__track-now">
+    <strong class="project__track-count"><%= project_hours(logged) %></strong>
+    <span>of <%= project_hours(project.hours_needed) %> hrs logged</span>
+    <% if spent.positive? %><span class="project__track-spent">(<%= project_hours(spent) %> spent in the shop)</span><% end %>
+  </p>
+  <%# Logged enough, but no approved ship covers it yet: the shop only spends approved hours. %>
+  <% if logged >= project.hours_needed && project.hours_to_spend < project.hours_needed && !project.goal_claimed? %>
+    <p class="project__track-note"><%= sp_icon "rocket-fill" %>You've logged enough. Ship it to unlock the <%= project.prize_short %>.</p>
+  <% end %>
+  <div class="project__track-rail" aria-hidden="true">
+    <div class="project__track-bar">
+      <div class="project__track-inner">
+        <span class="project__track-fill" style="--fill: <%= project_hours_percent(project, logged:).round(2) %>%"></span>
+      </div>
+    </div>
+    <ol class="project__track-stops">
+      <% milestones.each do |milestone| %>
+        <li class="project__track-stop<%= " project__track-stop--prize" if milestone[:last] %>" style="--at: <%= milestone[:at].round(2) %>%"
+            <%= "data-reached" if milestone[:reached] %>>
+          <% if milestone[:last] %>
+            <span class="project__track-badge"><%= prize ? render("pages/landing/prize_art", prize:) : sp_icon("game-2-fill") %></span>
+          <% else %>
+            <span class="project__track-disc"><%= milestone[:reached] ? sp_icon("check-fill") : milestone[:hours_text] %></span>
+          <% end %>
+        </li>
+      <% end %>
+    </ol>
+  </div>
+  <ol class="project__track-labels" aria-hidden="true">
+    <% milestones.each do |milestone| %>
+      <li class="project__track-label<%= " project__track-label--prize" if milestone[:last] %>" style="--at: <%= milestone[:at].round(2) %>%"
+          <%= "data-reached" if milestone[:reached] %>>
+        <strong><%= milestone[:hours_text] %> hrs</strong>
+        <span><%= milestone[:name] %></span>
+      </li>
+    <% end %>
+  </ol>
+</div>

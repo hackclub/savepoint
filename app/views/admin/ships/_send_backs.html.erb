@@ -1,0 +1,20 @@
+<%# locals: (send_backs:) %>
+<%# D-063: every time this ship waited for its fraud check and went back to review: who sent it, why, and the review that was
+    cleared. The review form opens from the last one. %>
+<% if send_backs.any? %>
+  <section class="sp-panel ash__panel" aria-labelledby="admin-ship-send-backs">
+    <h2 class="sp-ribbon ash__ribbon" id="admin-ship-send-backs"><span><%= sp_icon "refresh-2-fill" %>Sent back to review</span></h2>
+    <ul class="ash__sendbacks">
+      <% send_backs.each do |send_back| %>
+        <% earlier = send_back.earlier_review %>
+        <li>
+          <p><strong><%= send_back.user.first_name.presence || "Someone" %></strong> <span class="admin__muted"><%= send_back.created_at.strftime("%b %-d, %H:%M") %> UTC</span></p>
+          <p><%= send_back.reason %></p>
+          <p class="admin__muted">
+            Earlier review by <%= earlier["reviewer"].presence || "someone" %>, <%= Ship::Limits.format(earlier["hours"].to_d) %> hrs approved<%= ", #{earlier["judgement"]}" if earlier["judgement"].present? %>.
+          </p>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>

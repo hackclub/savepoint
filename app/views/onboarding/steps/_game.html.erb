@@ -1,0 +1,22 @@
+<%# Step 1: your game, as a name and where its code is. The code link is optional, and you can add it later. %>
+<%= form_with url: onboarding_path, method: :get, class: "onboarding-game", html: { novalidate: true },
+      data: { action: "submit->onboarding#saveGame" } do %>
+  <div class="onboarding-field">
+    <label class="onboarding-field__label" for="onboarding-name">Game name</label>
+    <input type="text" id="onboarding-name" class="sp-input onboarding-field__input" maxlength="80" autocomplete="off" required
+           data-onboarding-target="name" data-action="input->onboarding#typeGame">
+  </div>
+  <div class="onboarding-field">
+    <label class="onboarding-field__label" for="onboarding-repo">Code link <span class="onboarding-field__optional">optional</span></label>
+    <input type="text" id="onboarding-repo" class="sp-input onboarding-field__input" placeholder="github.com/you/your-game" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false"
+           data-onboarding-target="repo" data-action="input->onboarding#typeGame">
+    <p class="onboarding-field__hint" role="alert" data-onboarding-target="repoHint" hidden>That doesn't look like a link.</p>
+  </div>
+  <label class="onboarding-check">
+    <input type="checkbox" class="sp-check" data-onboarding-target="jame" data-action="change->onboarding#typeGame">
+    <span>It was a jame gam entry.</span>
+  </label>
+  <div class="onboarding-actions">
+    <button type="submit" class="sp-btn sp-btn--gold sp-btn--lg" data-onboarding-target="gameNext" disabled>Next<%= sp_icon "right-fill" %></button>
+  </div>
+<% end %>

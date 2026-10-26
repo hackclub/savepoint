@@ -1,0 +1,74 @@
+<%# The ship's snapshot, as the reviewer and the Airtable copy see it. An edit changes this ship only: its project keeps
+    its own. The fields save with the button, the screenshots as they change (ship_screenshots_controller.js). Nobody
+    edits their own ship. Styled in admin-ship-snapshot.css. %>
+<% content_for :stylesheets, " save_point/pages/admin-ship-snapshot" unless content_for(:stylesheets).to_s.include?("admin-ship-snapshot") %>
+<% shots = snapshot.screenshots %>
+<% errors = snapshot.errors %>
+<section class="sp-panel ash__panel ash__snapshot" aria-labelledby="admin-ship-snapshot">
+  <h2 class="sp-ribbon ash__ribbon" id="admin-ship-snapshot"><span><%= sp_icon "edit-2-fill" %>Snapshot</span></h2>
+  <% if flash[:notice] %>
+    <p class="ash__saved" role="status"><%= sp_icon "check-circle-fill" %><%= flash[:notice] %></p>
+  <% end %>
+  <% if snapshot.edited_at %>
+    <p class="admin__muted ash__edited" id="snapshot-edited">
+      Edited by <%= snapshot.edited_by ? admin_person_name(snapshot.edited_by) : "someone" %>, <%= time_ago_in_words(snapshot.edited_at) %> ago.
+    </p>
+  <% end %>
+  <% if snapshot.own?(current_user) %>
+    <p class="admin__muted">Someone else edits your own ship.</p>
+  <% else %>
+    <details class="ash__fold" id="snapshot-edit" <%= "open" if errors.any? %>>
+      <summary class="ash__fold-summary">Edit the snapshot</summary>
+      <p class="admin__muted ash__snapshot-note">
+        Changes this ship only, for review and Airtable. The project keeps its own title, links and screenshot.
+      </p>
+
+      <h3 class="sp-label ash__sub">Screenshots</h3>
+      <p class="admin__muted ash__snapshot-note">
+        The first is the cover. Drag one, or focus it and use the arrow keys, to move it. Click one to replace it.
+      </p>
+      <div class="ash__shots" data-controller="ship-screenshots"
+           data-ship-screenshots-url-value="<%= admin_ship_screenshots_path(ship) %>"
+           data-ship-screenshots-order-url-value="<%= order_admin_ship_screenshots_path(ship) %>"
+           data-ship-screenshots-max-value="<%= Ship::Snapshot::MAX_SCREENSHOTS %>"
+           data-ship-screenshots-types-value="<%= Project::SCREENSHOT_TYPES.join(",") %>"
+           data-ship-screenshots-max-bytes-value="<%= Project::SCREENSHOT_MAX_SIZE %>">
+        <ol class="ash__shot-list" aria-label="Screenshots, in order" data-ship-screenshots-target="list">
+          <% shots.each.with_index(1) do |shot, number| %>
+            <%= render "admin/ships/snapshot_shot", id: shot.id, url: rails_storage_redirect_path(shot), cover: number == 1,
+                       label: "Screenshot #{number} of #{shots.size}#{", the cover" if number == 1}" %>
+          <% end %>
+        </ol>
+        <button type="button" class="sp-btn sp-btn--sm ash__shot-add" data-ship-screenshots-target="add"
+                data-action="ship-screenshots#pick" <%= "hidden" if shots.size >= Ship::Snapshot::MAX_SCREENSHOTS %>>
+          <%= sp_icon "upload-2-fill" %>Add screenshots
+        </button>
+        <template data-ship-screenshots-target="template"><%= render "admin/ships/snapshot_shot", id: nil, url: nil, label: "", cover: false %></template>
+        <input type="file" multiple hidden accept="<%= Project::SCREENSHOT_TYPES.join(",") %>"
+               data-ship-screenshots-target="input" data-action="change->ship-screenshots#chosen">
+        <p class="ash__shot-status" id="snapshot-shot-status" data-ship-screenshots-target="status" aria-live="polite"></p>
+      </div>
+
+      <h3 class="sp-label ash__sub">Text and links</h3>
+      <%= form_with model: snapshot, scope: :snapshot, url: snapshot_admin_ship_path(ship), method: :patch, class: "ash__snapshot-form",
+                    id: "snapshot-form", data: { turbo: false } do |form| %>
+        <% fields = [ [ :title, "Title", :text_field, {} ], [ :changes_made, "What they changed", :text_area, { rows: 3 } ],
+                      [ :description, "Description", :text_area, { rows: 4 } ], [ :repo_url, "Repository link", :text_field, {} ],
+                      [ :demo_url, Ship.human_attribute_name(:demo_url), :text_field, {} ] ] %>
+        <% fields.each do |name, label, kind, options| %>
+          <div class="sp-field">
+            <%= form.label name, label, class: "sp-label" %>
+            <%= form.public_send(kind, name, class: [ "sp-input", ("ash__textarea" if kind == :text_area) ], **options,
+                                 aria: { invalid: errors[name].any?.presence, describedby: ("snapshot-#{name}-error" if errors[name].any?) }) %>
+            <% if errors[name].any? %>
+              <span class="ash__error" role="alert" id="snapshot-<%= name %>-error"><%= sp_icon "warning-fill" %><%= errors.messages_for(name).first %></span>
+            <% end %>
+          </div>
+        <% end %>
+        <%= form.button type: "submit", class: "sp-btn sp-btn--royal ash__snapshot-save" do %>
+          <%= sp_icon "save-2-fill" %>Save snapshot
+        <% end %>
+      <% end %>
+    </details>
+  <% end %>
+</section>

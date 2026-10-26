@@ -1,0 +1,14 @@
+<%# Opens the claim popup for its prize card (the goal controller). The copies past the first are hidden from screen
+    readers and the tab order. %>
+<%= link_to "#prizes", class: [ "reel__item", "reel__item--#{prize_tier(prize)}" ], aria: { hidden: hidden || nil }, tabindex: (-1 if hidden),
+      data: { action: "goal#claimFromReel", goal_key_param: prize.key } do %>
+  <span class="reel__art"><svg class="reel__dots" aria-hidden="true" focusable="false"><use href="#sp-reel-halftone"/></svg><%= render "pages/landing/prize_art", prize: %></span>
+  <span class="reel__name"><%= prize.name %></span>
+  <span class="reel__price">
+    <%= hours_coin %>
+    <span class="reel__cost">
+      <span class="reel__hrs" data-goal-target="pace" data-hours="<%= prize_hours(prize.hours) %>"><%= pace_html(prize.pace_minutes) %></span>
+      <span class="reel__total"><%= prize_hours(prize.hours) %> hrs total</span>
+    </span>
+  </span>
+<% end %>

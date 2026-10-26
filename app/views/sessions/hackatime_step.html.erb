@@ -1,0 +1,16 @@
+<% content_for :title, "One more step · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/sign-in-hackatime" %>
+
+<%# The second half of signing in (D-026): straight after Hack Club Auth, with no Hackatime token yet. The form posts
+    itself on to Hackatime, which signs in with Hack Club too, so it often passes through with no screen. The button
+    stays for when scripts don't run. %>
+<div class="pg-sign-in-hackatime sp-page">
+  <section class="sp-panel sign-in-hackatime">
+    <h2>One more step: Hackatime</h2>
+    <p>Taking you to Hackatime, which counts your coding time.</p>
+    <%= button_to "/auth/hackatime", params: { origin: sign_in_hackatime_path }, class: "sp-btn sp-btn--gold sp-btn--lg",
+          form: { data: { turbo: false, controller: "auto-submit" } } do %>
+      Continue to Hackatime<%= sp_icon "right-fill" %>
+    <% end %>
+  </section>
+</div>

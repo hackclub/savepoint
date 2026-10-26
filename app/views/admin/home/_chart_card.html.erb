@@ -1,0 +1,24 @@
+<%# One day-by-day chart card: its name, the latest value, a one-line takeaway, the chart, the first and last day under it, and a key. %>
+<%# locals: name, icon, chart, rows, takeaway, headline (optional), sub (optional), legend (optional: [ { id:, name: } ]) %>
+<% headline = local_assigns[:headline] %>
+<figure class="admin-chart admin-chart--daily">
+  <figcaption>
+    <span class="admin__readout-name"><%= sp_icon icon %><%= name %></span>
+    <% if headline %>
+      <strong><%= headline %></strong>
+      <small><%= local_assigns[:sub] %></small>
+    <% end %>
+  </figcaption>
+  <p class="admin-chart__takeaway"><%= takeaway %></p>
+  <%= chart %>
+  <% if rows.any? %>
+    <p class="admin-chart__axis"><span><%= admin_chart_date(rows.first[:date]) %></span><span><%= admin_chart_date(rows.last[:date]) %></span></p>
+  <% end %>
+  <% if local_assigns[:legend] %>
+    <ul class="admin-chart__keys">
+      <% legend.each do |item| %>
+        <li><span class="admin-chart__key admin-chart__key--<%= item[:id] %>" aria-hidden="true"></span><%= item[:name] %></li>
+      <% end %>
+    </ul>
+  <% end %>
+</figure>

@@ -1,0 +1,28 @@
+<%# locals: (state:, badge:, icon:, tone:, title:, ship: nil, project: nil) %>
+<%# Where the ship page ends up instead of the form: shipped and in review, closed, or waiting on your address. The
+    game's screenshot (once shipped), the status as a badge, what it means, and where to go next (the block). %>
+<main class="ship__done" data-state="<%= state %>">
+  <div class="ship__card sp-panel">
+    <%# The ship's own screenshot once shipped, else the project's, so the address step previews the game. No
+        screenshot, no stage: the badge and title start at the top of the card. %>
+    <% shot = [ ship, project ].compact.map(&:screenshot).find { |s| s.attached? && s.blob.persisted? } %>
+    <% if shot %>
+      <div class="ship__stage">
+        <% if state == "shipped" %>
+          <span class="ship__burst" aria-hidden="true">
+            <% %w[star-fill sparkles-fill star-fill sparkles-fill star-fill sparkles-fill].each do |name| %>
+              <%= sp_icon name %>
+            <% end %>
+          </span>
+        <% end %>
+        <figure class="ship__polaroid">
+          <%= image_tag url_for(shot), alt: "" %>
+          <figcaption><%= ship&.title.presence || project&.title %></figcaption>
+        </figure>
+      </div>
+    <% end %>
+    <span class="sp-badge sp-badge--<%= tone %> ship__status"><%= sp_icon icon %><%= badge %></span>
+    <h2 class="ship__done-title"><%= title %></h2>
+    <%= yield %>
+  </div>
+</main>

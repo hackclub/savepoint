@@ -1,0 +1,22 @@
+<%# The NPS popup on the project page, when the participant is due and has some Hackatime time (NpsResponse.ask?). It
+    opens a moment after the page is up. Skip keeps it shut for 12 hours (nps_popup_controller.js, in this browser);
+    an answer does too, by the server. %>
+<% content_for :stylesheets, " save_point/pages/nps" %>
+<div class="nps-popup" data-controller="nps-popup" data-nps-popup-hours-value="<%= NpsResponse::INTERVAL.in_hours.to_i %>">
+  <dialog class="nps-popup__dialog" aria-labelledby="nps-popup-title" data-nps-popup-target="dialog" data-action="click->nps-popup#closeOutside">
+    <div class="sp-modal nps-popup__modal">
+      <div class="sp-modal__head">
+        <h2 id="nps-popup-title">How's Save Point going?</h2>
+        <p>Be honest. We read every answer.</p>
+      </div>
+      <%= form_with scope: :nps_response, url: nps_path, class: "sp-modal__body nps__form", data: { turbo: false } do %>
+        <%= hidden_field_tag :back, "project", id: nil %>
+        <%= render "nps_responses/questions", nps: NpsResponse.new, idp: "nps_popup" %>
+        <div class="sp-modal__actions">
+          <button type="button" class="sp-btn sp-btn--ghost" data-action="nps-popup#skip">Skip</button>
+          <button type="submit" class="sp-btn sp-btn--gold"><%= sp_icon "heart-fill" %>Send</button>
+        </div>
+      <% end %>
+    </div>
+  </dialog>
+</div>

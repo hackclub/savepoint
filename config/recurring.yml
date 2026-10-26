@@ -1,0 +1,46 @@
+# examples:
+#   periodic_cleanup:
+#     class: CleanSoftDeletedRecordsJob
+#     queue: background
+#     args: [ 1000, { batch_size: 500 } ]
+#     schedule: every hour
+#   periodic_cleanup_with_command:
+#     command: "SoftDeletedRecord.due.delete_all"
+#     priority: 2
+#     schedule: at 5am every day
+
+production:
+  clear_solid_queue_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every hour at minute 12
+  streak_sweep:
+    class: StreakSweepJob
+    schedule: every hour at minute 15
+  # D-066: a game submitted to the jame gam only counts time after the submission.
+  jame_gam_sweep:
+    class: JameGamSweepJob
+    schedule: every 30 minutes
+  nudge_delivery:
+    class: NudgeDeliveryJob
+    schedule: every 15 minutes
+  nudge_scoring:
+    class: NudgeScoringJob
+    schedule: every hour at minute 40
+  metric_snapshot:
+    class: MetricSnapshotJob
+    schedule: every hour at minute 50
+  slack_profiles_sync:
+    class: SlackProfilesSyncJob
+    schedule: at 3:30am every day
+  # D-028: adds linked people to the Slack channel, a few at a time.
+  join_slack_channels:
+    class: JoinSlackChannelsSweepJob
+    schedule: every 10 minutes
+  # D-027: the rolling copy of Postgres rows to the Save Point Airtable base. Off unless AIRTABLE_SYNC=1.
+  airtable_sync:
+    class: Airtable::SyncJob
+    schedule: every minute
+  # Once a day, so the board's arrows mean "since yesterday".
+  leaderboard_snapshot:
+    class: LeaderboardSnapshotJob
+    schedule: at 9am every day

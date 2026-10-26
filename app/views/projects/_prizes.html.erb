@@ -1,0 +1,17 @@
+<%# locals: (project:) %>
+<%# Changing your prize, right here: every prize in Prize::ALL as the shop's tags, fewest hours first, in one row that
+    scrolls sideways. Yours is the gold one. Pressing a tag picks it (prize_picker_controller.js sends the same form and
+    closes the row). Your game and pace stay. %>
+<div class="project__prize-picker" data-prize-picker-target="picker" role="group" aria-label="Your prize">
+  <%= render "pages/landing/shop_shapes" %>
+  <div class="project__prize-track" data-prize-picker-target="track">
+    <% Prize::ALL.sort_by(&:hours).each do |prize| %>
+      <% mine = prize.key == project.prize_key %>
+      <%= button_to project_path, method: :patch, params: { project: { prize_key: prize.key } }, form_class: "project__prize-option",
+            class: [ "shop-card", "shop-card--#{prize_tier(prize)}", ("is-goal" if mine) ], aria: { pressed: mine, label: "#{prize.name}, #{project_hours(prize.hours)} hrs" },
+            data: { controller: "tag-swing", prize_picker_target: ("mine" if mine) } do %>
+        <%= render "shared/prize_tag", prize:, pace: project_prize_pace(project, prize) %>
+      <% end %>
+    <% end %>
+  </div>
+</div>

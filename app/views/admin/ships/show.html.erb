@@ -1,0 +1,218 @@
+<% content_for :title, "#{@ship.title} · Ships · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-ship" %>
+<% project = @ship.project %>
+<% user = project.user %>
+<% tone = { "approved" => "mint", "rejected" => "coral", "changes_needed" => "coral" }.fetch(@ship.status, "gold") %>
+<% status_icon = { "approved" => "check-circle-fill", "rejected" => "close-circle-fill", "changes_needed" => "refresh-2-fill", "awaiting_fraud" => "search-fill" }.fetch(@ship.status, "time-fill") %>
+<% own = @ship.by?(current_user) %>
+
+<%# One ship in full, as it was submitted (D-002): who, the hours that count, then what they say they changed beside the
+    repository's commits from Save Point's dates, the game before (from the Unified YSWS DB) and after, the links and
+    the description. A button each way while it's in review; then what was decided. Real names and emails are here, so
+    nothing on this page is recorded. Styled in admin-ship.css. %>
+<div class="sp-page pg-admin-ship" data-controller="shortcuts">
+  <div class="ash">
+    <main class="ash__main">
+      <header class="ash__head">
+        <p class="ash__back"><%= link_to admin_ships_path do %><%= sp_icon "left-fill" %>All ships<% end %></p>
+        <h1 class="ash__title"><%= @ship.title %></h1>
+        <% if @ship.pending? && !own %>
+          <%# D-063: the queue's skip, to the next ship waiting for this stage. %>
+          <p class="ash__skip">
+            <%= link_to "Skip", (@ship.in_review? ? admin_review_path(skip: @ship.id) : admin_fraud_path(skip: @ship.id)), class: "sp-btn sp-btn--sm", data: { shortcut: "n" } %>
+            <kbd class="ash__kbd">n</kbd>
+          </p>
+        <% end %>
+        <p class="leaderboard__note ash__byline">
+          Shipped <%= @ship.created_at.strftime("%b %-d, %H:%M") %> UTC by
+          <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %>
+          (<%= user.email %><% if user.slack_display_name.present? %>, <%= name_with_slack(user, name: user.slack_display_name) %> on Slack<% end %>).
+        </p>
+        <% if flash[:alert] %>
+          <p class="sp-toast sp-toast--coral ash__alert" role="alert">
+            <span class="sp-toast__icon"><%= sp_icon "warning-fill" %></span><%= flash[:alert] %>
+          </p>
+        <% end %>
+        <% if flash[:notice] %>
+          <p class="sp-toast ash__alert" role="status"><span class="sp-toast__icon"><%= sp_icon "check-fill" %></span><%= flash[:notice] %></p>
+        <% end %>
+        <%= render "admin/ships/claim", ship: @ship, claim: @claim, held: @held %>
+        <% if own && @ship.pending? %>
+          <p class="ash__problem" data-own="true"><%= sp_icon "lock-fill" %>This is your own ship. Someone else judges it.</p>
+        <% end %>
+      </header>
+
+      <section class="ash__tiles" aria-label="The numbers">
+        <div class="admin__tile ash__tile ash__tile--<%= tone %>">
+          <span><%= sp_icon status_icon %>Status</span><strong data-decision="<%= @ship.status %>"><%= ship_status_label(@ship) %></strong>
+          <% unless @ship.in_review? %><small><%= (@ship.decided_by || @ship.reviewer)&.first_name.presence || "someone" %> · <%= (@ship.decided_at || @ship.reviewed_at || @ship.updated_at).strftime("%b %-d") %></small><% end %>
+        </div>
+        <div class="admin__tile ash__tile ash__tile--mint">
+          <span><%= sp_icon "time-fill" %>Hours that count</span><strong><%= project_hours(@ship.counted_hours) %></strong>
+          <small>since <%= { override: "the set start", jame_gam: "the jame gam submission", sign_up: "sign-up", launch: "Save Point began" }.fetch(project.hours_start_source) %><% if @ship.counted_hours < @ship.hours %>, <%= project_hours(@ship.hours - @ship.counted_hours) %> cut<% end %></small>
+        </div>
+        <div class="admin__tile ash__tile ash__tile--gold">
+          <span><%= sp_icon "keyboard-fill" %>Hours when shipped</span><strong><%= project_hours(@ship.hours) %></strong><small><%= project_hours(project.hours_logged) %> now</small>
+        </div>
+        <div class="admin__tile ash__tile ash__tile--royal">
+          <span><%= sp_icon "game-2-fill" %>Project</span><strong><%= link_to project.title, admin_project_path(project) %></strong><small><%= project.hackatime_projects.join(", ").presence || "no Hackatime project" %></small>
+        </div>
+      </section>
+
+      <%= render "admin/ships/evidence", evidence: @evidence, limits: @limits %>
+      <%= render "admin/ships/hours_start", ship: @ship %>
+
+      <div class="ash__changes">
+        <section class="sp-panel ash__panel ash__statement" aria-labelledby="admin-ship-statement">
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-statement"><span><%= sp_icon "edit-2-fill" %>What they changed</span></h2>
+          <% if @ship.changes_made.present? %>
+            <p class="ash__description ash__statement-text"><%= @ship.changes_made %></p>
+          <% else %>
+            <p class="admin__muted">This ship was sent before the question existed.</p>
+          <% end %>
+        </section>
+
+        <section class="sp-panel ash__panel ash__commits" aria-labelledby="admin-ship-commits">
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-commits"><span><%= sp_icon "github-fill" %>Commits since Save Point began</span></h2>
+          <% if @commits.ok? && @commits.commits.any? %>
+            <p class="admin__muted ash__commits-note">
+              <%= @commits.commits.size %><%= "+" if @commits.more %> from <%= project.hours_start.utc.strftime("%b %-d") %> to <%= @ship.created_at.utc.strftime("%b %-d, %H:%M") %> UTC.
+            </p>
+            <ol class="ash__commit-list">
+              <% @commits.commits.each do |commit| %>
+                <li class="ash__commit">
+                  <%= link_to commit.sha, commit.url, target: "_blank", rel: "noopener", class: "ash__sha" %>
+                  <span class="ash__commit-message"><%= commit.message.presence || "(no message)" %></span>
+                  <small class="admin__muted"><%= commit.author %> · <%= commit.date.utc.strftime("%b %-d, %H:%M") %></small>
+                </li>
+              <% end %>
+            </ol>
+          <% elsif @commits.ok? %>
+            <p class="ash__problem" data-commits="none"><%= sp_icon "warning-fill" %>No commits between Save Point's start and the ship.</p>
+          <% else %>
+            <p class="ash__problem" data-commits="<%= @commits.status %>"><%= sp_icon "warning-fill" %><%= @commits.message %></p>
+          <% end %>
+        </section>
+      </div>
+
+      <section class="sp-panel ash__panel ash__beforeafter" aria-labelledby="admin-ship-beforeafter">
+        <h2 class="sp-ribbon ash__ribbon" id="admin-ship-beforeafter"><span><%= sp_icon "pic-fill" %>Before and after</span></h2>
+        <div class="ash__pair">
+          <figure class="ash__shot ash__before" data-unified="<%= @earlier_ship.status %>">
+            <% if @earlier_ship.found? && safe_http_url?(@earlier_ship.entry.screenshot_url) %>
+              <%= safe_link_to @earlier_ship.entry.screenshot_url, target: "_blank", rel: "noopener" do %>
+                <%= safe_image_tag @earlier_ship.entry.screenshot_url, alt: "Earlier screenshot of #{@ship.title}" %>
+              <% end %>
+            <% else %>
+              <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span><%= @earlier_ship.found? ? "The earlier ship has no screenshot." : (@earlier_ship.message || "Nothing to show.") %></span></p>
+            <% end %>
+            <figcaption>
+              <strong>Before</strong>
+              <% if @earlier_ship.found? %>
+                <%= @earlier_ship.entry.program %><% if @earlier_ship.entry.approved_at.present? %>, approved <%= @earlier_ship.entry.approved_at.to_s.first(10) %><% end %><% if @earlier_ship.entry.hours.present? %>, <%= @earlier_ship.entry.hours %> hrs<% end %>.
+                Time before that date was already counted there.
+                <%= safe_link_to "Open its code", @earlier_ship.entry.code_url, target: "_blank", rel: "noopener" %>.
+              <% elsif @earlier_ship.status == :none %>
+                No earlier ship in the Unified YSWS DB.
+              <% end %>
+            </figcaption>
+          </figure>
+          <% if @ship.screenshot.attached? %>
+            <figure class="admin__ship-shot ash__shot ash__after">
+              <%= link_to url_for(@ship.screenshot), target: "_blank", rel: "noopener" do %>
+                <%= image_tag url_for(@ship.screenshot), alt: "Screenshot of #{@ship.title}" %>
+              <% end %>
+              <figcaption class="admin__muted"><strong>After</strong> <%= sp_icon "pic-fill" %>They said it shows the game running, not a mockup.</figcaption>
+            </figure>
+          <% end %>
+        </div>
+      </section>
+
+      <%= render "admin/ships/readme", readme: @readme, ship: @ship %>
+      <%= render "admin/ships/snapshot_edit", snapshot: @snapshot, ship: @ship %>
+
+      <div class="ash__split">
+        <section class="sp-panel ash__panel ash__submitted admin__ship" aria-labelledby="admin-ship-submitted">
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-submitted"><span><%= sp_icon "rocket-fill" %>What they submitted</span></h2>
+          <dl class="admin__ship-details ash__details">
+            <dt><%= sp_icon "github-fill" %>Repo</dt>
+            <dd><%= safe_link_to @ship.repo_url, @ship.repo_url, target: "_blank", rel: "noopener" %></dd>
+            <dt><%= sp_icon "play-fill" %>Demo</dt>
+            <dd><%= safe_link_to @ship.demo_url, @ship.demo_url, target: "_blank", rel: "noopener" %></dd>
+            <dt><%= sp_icon "keyboard-fill" %>Hackatime</dt>
+            <dd><%= @ship.hackatime_projects.join(", ").presence || "no Hackatime project" %></dd>
+            <dt><%= sp_icon "edit-2-fill" %>Description</dt>
+            <dd class="admin__ship-description ash__description"><%= @ship.description %></dd>
+          </dl>
+        </section>
+
+        <div class="ash__side">
+        <%# D-049: the reviewer's checklist, saved on every tick (Admin::ShipsController#checklist). %>
+        <% checklist = { "runs" => "The game runs from the demo link", "continued" => "It continues an earlier game, not a brand new one",
+                         "readme" => "The README says how to run it", "screenshot" => "The screenshot shows the game running",
+                         "hours_fit" => "The hours fit the scope of the changes", "art_cap" => "The art time is within the #{Ship::Limits::ART_CAP_PERCENT}% cap",
+                         "not_double" => "The hours aren't already approved in another program" } %>
+        <section class="sp-panel ash__panel" aria-labelledby="admin-ship-checklist"
+                 data-controller="checklist" data-checklist-url-value="<%= checklist_admin_ship_path(@ship) %>">
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-checklist"><span><%= sp_icon "check-circle-fill" %>Checklist</span></h2>
+          <div class="ash__ticks">
+            <% defaults = @ship.checklist_defaults(earlier: @earlier_ship, limits: @limits) %>
+            <% checklist.each do |key, label| %>
+              <label class="ash__tick">
+                <input type="checkbox" class="sp-check" name="<%= key %>" <%= "checked" if @ship.checklist_tick(key, defaults) %>
+                       <%= "disabled" if !@ship.in_review? || own %> data-action="checklist#save">
+                <span><%= label %></span>
+                <%# D-050: "auto" while the app's value stands. The reviewer's tick replaces it. %>
+                <% if defaults.key?(key) && !@ship.review_checklist.key?(key) %>
+                  <small class="ash__auto" data-checklist-target="auto" title="<%= defaults[key].last %>">auto</small>
+                <% end %>
+              </label>
+            <% end %>
+          </div>
+        </section>
+
+        <section class="sp-panel ash__panel ash__decide ash__decide--<%= tone %>" aria-labelledby="admin-ship-decision">
+          <h2 class="sp-ribbon <%= "sp-ribbon--gold" if @ship.pending? %> ash__ribbon" id="admin-ship-decision"><span><%= sp_icon "flag-1-fill" %><%= @ship.awaiting_fraud? ? "Fraud check" : "Decision" %></span></h2>
+          <%# D-063: three states. Waiting for a review, the verdict form. Waiting for its fraud check, the fraud form. Decided, what
+              was decided. Your own ship has no form: someone else judges it. %>
+          <% if @ship.in_review? && !own %>
+            <%= render "admin/ships/verdict", ship: @ship, limits: @limits, earlier_ship: @earlier_ship, send_backs: @send_backs %>
+          <% elsif @ship.awaiting_fraud? && !own %>
+            <%= render "admin/ships/fraud", ship: @ship %>
+          <% elsif @ship.pending? %>
+            <p class="leaderboard__note ash__note">Waiting for <%= @ship.in_review? ? "a review" : "its fraud check" %> by someone else.</p>
+          <% else %>
+            <%= render "admin/ships/decided", ship: @ship, earlier_ship: @earlier_ship, status_icon: %>
+          <% end %>
+        </section>
+        </div>
+      </div>
+
+      <%= render "admin/ships/send_backs", send_backs: @send_backs %>
+
+      <% if @others.any? %>
+        <section class="sp-panel ash__panel" aria-labelledby="admin-ship-others">
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-others"><span><%= sp_icon "refresh-2-fill" %>Earlier ships of this project</span></h2>
+          <div class="admin__scroll ash__scroll">
+            <table class="leaderboard__table admin__table admin__table--ships ash__table">
+              <thead>
+                <tr>
+                  <th scope="col">Who</th>
+                  <th scope="col">Ship</th>
+                  <th class="leaderboard__number" scope="col">Hours</th>
+                  <th scope="col">Shipped</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @others.each do |ship| %>
+                  <%= render "admin/ships/row", ship: %>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      <% end %>
+    </main>
+  </div>
+</div>

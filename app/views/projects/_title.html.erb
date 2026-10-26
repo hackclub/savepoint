@@ -1,0 +1,22 @@
+<%# locals: (project:) %>
+<%# The project's name, renamable in place: click it, type, then Enter (or click away) to keep it or Escape to put it
+    back. Renaming it to nothing puts back your idea. %>
+<div class="project__title-wrap" data-controller="project-title">
+  <h1 class="project__title-heading">
+    <button type="button" class="project__title-button" title="Rename project" data-project-title-target="view"
+            data-action="project-title#edit">
+      <span class="project__title"><%= project.title %></span>
+      <%= sp_icon "edit-2-fill", "project__title-edit" %>
+    </button>
+  </h1>
+  <%= form_with model: project, url: project_path, method: :patch, class: "project__title-form", html: { hidden: true },
+        data: { project_title_target: "form" } do |form| %>
+    <%= form.label :name, "Project name", class: "visually-hidden" %>
+    <%= form.text_field :name, value: project.title, maxlength: 80, autocomplete: "off", spellcheck: false,
+          class: "project__title project__title-input", data: { project_title_target: "input",
+          action: "keydown->project-title#key blur->project-title#commit" } %>
+  <% end %>
+  <% if project.errors[:name].any? %>
+    <p class="project__title-error" role="alert"><%= project.errors.full_messages_for(:name).first %></p>
+  <% end %>
+</div>

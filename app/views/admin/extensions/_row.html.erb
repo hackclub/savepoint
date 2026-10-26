@@ -1,0 +1,23 @@
+<%# locals: (extension:) %>
+<%# One ask: who, their project, why and when, then whatever the table puts last (buttons, or the decision). On
+    phones each row is a card, and data-label names each cell (admin-extensions.css). %>
+<% project = extension.project %>
+<% user = project.user %>
+<tr id="<%= dom_id(extension) %>">
+  <th scope="row" class="pg-admin-extensions__who">
+    <span class="pg-admin-extensions__person">
+      <%= admin_avatar_link(user, "pg-admin-extensions__avatar") %>
+      <span class="pg-admin-extensions__name">
+        <%= admin_person_link(user) %>
+        <small class="pg-admin-extensions__muted"><%= user.email %><% if user.slack_display_name.present? %> · <%= name_with_slack(user, name: user.slack_display_name) %><% end %></small>
+      </span>
+    </span>
+  </th>
+  <td data-label="Project">
+    <span class="pg-admin-extensions__project"><%= project.title %></span>
+    <small class="pg-admin-extensions__muted"><%= project_hours(project.hours_logged) %> hrs</small>
+  </td>
+  <td class="pg-admin-extensions__reason" data-label="Why"><%= extension.reason %></td>
+  <td class="pg-admin-extensions__asked" data-label="Asked"><%= extension.created_at.strftime("%b %-d") %></td>
+  <%= yield %>
+</tr>

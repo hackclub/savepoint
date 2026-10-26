@@ -1,0 +1,48 @@
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+}
+
+@layer base {
+  /* The page itself never scrolls (each sheet scrolls inside it). `clip`, not `hidden`: a hidden page still scrolls
+     when something focuses an element out of view, and takes the menus with it. */
+  html,
+  body {
+    block-size: 100%;
+    overflow: clip;
+  }
+
+  body {
+    font-family: var(--font-cell);
+    color: var(--text-primary);
+    background: var(--surface-grid);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  a {
+    color: var(--green);
+
+    &:hover {
+      color: var(--red);
+    }
+  }
+}

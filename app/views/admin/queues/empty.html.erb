@@ -1,0 +1,27 @@
+<% content_for :title, "#{@stage == "review" ? "Review" : "Fraud check"} queue · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-ships" %>
+
+<%# D-063: the queue has no ship for this admin: none waiting, or what's left is held by another admin, skipped here, or their own. %>
+<div class="sp-page pg-admin-ships">
+  <main class="pg-admin-ships__wrap pg-admin-ships__main">
+    <header class="pg-admin-ships__head">
+      <h1 class="pg-admin-ships__title"><%= @stage == "review" ? "The review queue" : "The fraud queue" %></h1>
+    </header>
+    <div class="pg-admin-ships__empty" id="admin-queue-empty">
+      <%= sp_icon "check-circle-fill", "pg-admin-ships__empty-icon" %>
+      <p>
+        <% if @left.zero? %>
+          Nothing's waiting.
+        <% else %>
+          Nothing left for you: <%= @left %> waiting, held by someone else, skipped, or yours.
+        <% end %>
+      </p>
+    </div>
+    <div class="pg-admin-ships__start">
+      <% if @skipped.positive? %>
+        <%= link_to "Start again (#{@skipped} skipped)", (@stage == "review" ? admin_review_path(reset: 1) : admin_fraud_path(reset: 1)), class: "sp-btn sp-btn--gold sp-btn--sm" %>
+      <% end %>
+      <%= link_to "All ships", admin_ships_path, class: "sp-btn sp-btn--sm" %>
+    </div>
+  </main>
+</div>

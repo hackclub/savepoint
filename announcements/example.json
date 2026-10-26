@@ -1,0 +1,14 @@
+{
+  "text": "Headline here",
+  "blocks": [
+    { "type": "header", "text": { "type": "plain_text", "text": "Headline here" } },
+    { "type": "section", "text": { "type": "mrkdwn", "text": "Body text here." } },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        { "type": "button", "text": { "type": "plain_text", "text": "Button label" }, "url": "https://savepoint.hackclub.com" }
+      ]
+    }
+  ]
+}

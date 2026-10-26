@@ -1,0 +1,33 @@
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>
+
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+# Cloudflare R2, through its S3 API: where screenshots live in production, so they outlive a deploy (the container's
+# disk doesn't). Production has no credentials file, so the keys are Orchard env vars: R2_ACCOUNT_ID,
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET. The R2 API token needs object read and write on the bucket.
+# R2 rejects the newer checksum headers the SDK sends by default, hence the two checksum settings.
+cloudflare:
+  service: S3
+  endpoint: https://<%= ENV["R2_ACCOUNT_ID"] %>.r2.cloudflarestorage.com
+  access_key_id: <%= ENV["R2_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["R2_SECRET_ACCESS_KEY"] %>
+  bucket: <%= ENV["R2_BUCKET"] %>
+  region: auto
+  request_checksum_calculation: when_required
+  response_checksum_validation: when_required
+
+# Remember not to checkin your GCS keyfile to a repository
+# google:
+#   service: GCS
+#   project: your_project
+#   credentials: <%= Rails.root.join("path/to/gcs.keyfile") %>
+#   bucket: your_own_bucket-<%= Rails.env %>
+
+# mirror:
+#   service: Mirror
+#   primary: local
+#   mirrors: [ amazon, google, microsoft ]

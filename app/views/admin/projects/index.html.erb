@@ -1,0 +1,122 @@
+<% content_for :title, "Projects · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-projects" %>
+
+<%# Every project, newest first: who, what they pledged, where they've got to, and a link to each in full. Real names
+    and emails are here, so nothing on this page is recorded. %>
+<div class="sp-page pg-admin-projects">
+  <main class="pg-admin-projects__wrap pg-admin-projects__main">
+    <header class="pg-admin-projects__head">
+      <div class="pg-admin-projects__title-row">
+        <h1 class="pg-admin-projects__title">Every project</h1>
+        <span class="sp-stat pg-admin-projects__count-stat">
+          <span class="sp-stat__key"><%= sp_icon "game-2-fill" %></span>
+          <span class="pg-admin-projects__count"><%= pluralize(@total, "project") %></span>
+        </span>
+      </div>
+      <p class="pg-admin-projects__note">
+        Newest first. Hours are since Hackatime time started counting, as of each person's last sync. Open one to see
+        it in full: the pledge, the Hackatime projects behind it, each day built, the buddy and the ships.
+      </p>
+      <%= form_with url: admin_projects_path, method: :get, class: "pg-admin-projects__search", role: "search" do |form| %>
+        <span class="pg-admin-projects__search-field">
+          <%= sp_icon "search-fill" %>
+          <%= form.search_field :q, value: @query, placeholder: "Project, idea, name, email or Slack", aria: { label: "Search projects" },
+                autocomplete: "off", spellcheck: false, class: "sp-input" %>
+        </span>
+        <%= form.button "Search", type: "submit", class: "sp-btn sp-btn--royal" %>
+        <% if @query.present? %><%= link_to "Clear", admin_projects_path, class: "sp-btn sp-btn--ghost" %><% end %>
+      <% end %>
+    </header>
+
+    <% if @projects.empty? %>
+      <div class="sp-panel pg-admin-projects__empty-panel">
+        <%= sp_icon "search-fill", "pg-admin-projects__empty-icon" %>
+        <p class="pg-admin-projects__empty">No projects<%= " match that" if @query.present? %>.</p>
+      </div>
+    <% else %>
+      <% if @total > @projects.size %>
+        <p class="pg-admin-projects__note pg-admin-projects__more">
+          <%= sp_icon "information-fill" %>
+          <span>The newest <%= @projects.size %> of <%= @total %>. Search for the rest.</span>
+        </p>
+      <% end %>
+      <div class="pg-admin-projects__panel">
+        <table class="pg-admin-projects__table">
+          <thead>
+            <tr>
+              <th scope="col">Project</th>
+              <th scope="col">Who</th>
+              <th scope="col">Pledge</th>
+              <th scope="col">Hackatime</th>
+              <th class="pg-admin-projects__num" scope="col">Hours</th>
+              <th class="pg-admin-projects__num" scope="col">Streak</th>
+              <th scope="col">Buddy</th>
+              <th scope="col">Ship</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @projects.each do |project| %>
+              <% user = project.user %>
+              <% hours = project.tracking? ? (@seconds.fetch(user.id, 0) / 3600.0).round(1) : 0 %>
+              <tr id="<%= dom_id(project) %>">
+                <th scope="row" class="pg-admin-projects__project">
+                  <%= link_to project.title, admin_project_path(project), class: "pg-admin-projects__project-link" %>
+                  <small class="pg-admin-projects__muted"><%= project.idea %></small>
+                </th>
+                <td data-label="Who">
+                  <span class="pg-admin-projects__who">
+                    <%= admin_avatar_link(user, "pg-admin-projects__avatar") %>
+                    <span>
+                      <span class="pg-admin-projects__name"><%= admin_person_link(user) %></span>
+                      <small class="pg-admin-projects__muted"><%= user.email %><% if user.slack_display_name.present? %> · <%= name_with_slack(user, name: user.slack_display_name) %><% end %></small>
+                    </span>
+                  </span>
+                </td>
+                <td data-label="Pledge">
+                  <%= project_prize_name(project) %>
+                  <small class="pg-admin-projects__muted"><%= project_pace_label(project.pace_minutes) %> · <%= project.build_time %> · signed <%= project_date(project.signed_on) %></small>
+                </td>
+                <td data-label="Hackatime">
+                  <% if project.tracking? %>
+                    <%= project.hackatime_projects.join(", ") %>
+                    <% if project.hackatime_auto_linked %><small class="pg-admin-projects__muted">linked itself</small><% end %>
+                  <% elsif project.hackatime_linked? %>
+                    <span class="pg-admin-projects__chip pg-admin-projects__chip--gold">linked, no project yet</span>
+                  <% else %>
+                    <span class="pg-admin-projects__chip">not linked</span>
+                  <% end %>
+                </td>
+                <td class="pg-admin-projects__num pg-admin-projects__hours" data-label="Hours"><%= project_hours(hours) %></td>
+                <td class="pg-admin-projects__num pg-admin-projects__streak" data-label="Streak"><%= user.current_streak %></td>
+                <td data-label="Buddy">
+                  <% if (buddy = project.buddy) %>
+                    <%= link_to buddy.title, admin_project_path(buddy) %>
+                  <% elsif project.buddy_skipped %>
+                    <span class="pg-admin-projects__muted">skipped</span>
+                  <% elsif project.buddy_invited %>
+                    <span class="pg-admin-projects__muted">invited</span>
+                  <% else %>
+                    <span class="pg-admin-projects__muted">—</span>
+                  <% end %>
+                </td>
+                <td data-label="Ship">
+                  <% if (ship = project.ship_in_review) %>
+                    <%= link_to "In review", admin_ship_path(ship), class: "pg-admin-projects__ship pg-admin-projects__ship--review" %>
+                  <% elsif project.shipped? %>
+                    <%= link_to "Approved", admin_ship_path(project.ships.max_by(&:created_at)), data: { decision: "approved" },
+                          class: "pg-admin-projects__ship pg-admin-projects__ship--approved" %>
+                  <% elsif project.ships.any? %>
+                    <%= link_to (project.ship_rejected ? "Rejected" : "Sent back"), admin_ship_path(project.ships.max_by(&:created_at)), data: { decision: "rejected" },
+                          class: "pg-admin-projects__ship pg-admin-projects__ship--rejected" %>
+                  <% else %>
+                    <span class="pg-admin-projects__muted">—</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </main>
+</div>

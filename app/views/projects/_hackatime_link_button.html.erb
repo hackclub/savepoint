@@ -1,0 +1,4 @@
+<%# locals: (label:) %>
+<%# Off to Hackatime to say we can read your projects and hours, then back to your project. %>
+<%= button_to label, "/auth/hackatime", params: { origin: project_path },
+      class: "sp-btn sp-btn--gold project__step-button", form: { data: { turbo: false } } %>

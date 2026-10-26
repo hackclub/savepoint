@@ -1,0 +1,12 @@
+<%# locals: (key:, icon:, label:, value:, tone: nil, dot: false, open: false) %>
+<%# One sidebar card that folds into a row (icon, label, value) when another is open. Opening one closes the rest. %>
+<details class="side-section" name="project-sidebar" data-section="<%= key %>" <%= "open" if open %>>
+  <summary class="side-section__row">
+    <span class="side-section__coin"><%= project_page_icon(icon, "side-section__icon") %></span>
+    <span class="side-section__label"><%= label %></span>
+    <% if dot %><span class="side-section__dot" aria-label="Needs you"></span><% end %>
+    <span class="side-section__value" <%= "data-tone=#{tone}" if tone %>><%= value %></span>
+    <%= sp_icon "down-fill", "side-section__chevron" %>
+  </summary>
+  <%= yield %>
+</details>

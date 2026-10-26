@@ -1,0 +1,85 @@
+@layer tokens {
+  :root {
+    /* Brand */
+    --red: #ec3750;
+    --green: #1e7b45;
+    --green-dark: #145a32;
+    --green-header: #f1f5f2;
+
+    /* Cell states */
+    --green-50: #e6f4ea;
+    --yellow-100: #fff3c4;
+    --amber-900: #5c4400;
+
+    /* Chrome neutrals */
+    --grey-900: #1f1f1f;
+    --grey-700: #444746;
+    --grey-600: #747775;
+    --grey-500: #9aa0a6;
+    --grey-400: #c7c7c7;
+    --grey-300: #dde3ea;
+    --grey-250: #e1e5ea;
+    --grey-200: #e1e1e1;
+    --grey-100: #edf2fa;
+    --grey-75: #f8f9fa;
+    --grey-50: #f9fbfd;
+    --white: #fff;
+
+    /* Selection / interactive blues */
+    --blue-600: #1a73e8;
+    --blue-700: #0b57d0;
+    --blue-150: #c4d7f8;
+    --blue-100: #d3e3fd;
+    --blue-50: #e1e9f7;
+    --sky-250: #b3dcf6;
+    --sky-200: #c2e7ff;
+    --navy-900: #001d35;
+
+    /* Semantic */
+    --surface-chrome: var(--grey-50);
+    --surface-toolbar: var(--grey-100);
+    --surface-header: var(--grey-75);
+    --surface-grid: var(--white);
+
+    --text-primary: var(--grey-900);
+    --text-secondary: var(--grey-700);
+    --text-placeholder: var(--grey-500);
+    --icon-color: var(--grey-700);
+    --text-kicker: #555;
+    --text-formula: #6b6b6b;
+
+    --border-grid: var(--grey-200);
+    --border-header: var(--grey-400);
+    --border-control: var(--grey-600);
+    --border-subtle: #e1e3e1;
+
+    --hover-chrome: var(--grey-250);
+    --hover-toolbar: var(--grey-300);
+
+    --selection: var(--blue-600);
+    --selection-header-bg: var(--blue-100);
+    --selection-header-fg: var(--blue-700);
+
+    /* Type: Roboto for app chrome, Arial for text "typed into cells", Plex Mono for formulas */
+    --font-chrome: "Roboto", Arial, sans-serif;
+    --font-cell: Arial, Helvetica, sans-serif;
+    --font-mono: "IBM Plex Mono", monospace;
+    --font-signature: "Caveat", cursive;
+
+    /* Grid geometry */
+    --cell-width: 100px;
+    --cell-height: 30px;
+    --column-count: 26;
+    --row-header-width: 46px;
+    --column-header-height: 22px;
+  }
+
+  /* Phones: narrower cells so a sheet fits four columns, with E peeking in. */
+  @media (width <= 600px) {
+    :root {
+      --cell-width: 84px;
+      --cell-height: 28px;
+      --row-header-width: 32px;
+    }
+  }
+}

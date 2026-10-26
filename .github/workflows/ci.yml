@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The token only reads the repository. No job here writes to it.
+permissions:
+  contents: read
+
+jobs:
+  # One job, because branch protection on main requires the check named "checks".
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/save_point_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips
+      - uses: ruby/setup-ruby@e1bd6146574da5e0795075b5319b300edb30c5b0 # v1.333.0
+        with:
+          bundler-cache: true
+      - name: The app's copy of the style sheet matches design/system
+        run: |
+          bin/rails style_sheet:sync
+          git diff --exit-code -- app/assets
+          test -z "$(git status --porcelain -- app/assets)"
+      - name: Style
+        run: bin/rubocop -f github
+      - name: Security scans
+        run: |
+          bin/brakeman --no-pager
+          bin/bundler-audit
+          bin/importmap audit
+      - name: Tests
+        run: bin/rails db:test:prepare test
+      - name: System tests
+        run: bin/rails test:system
+      - name: Keep screenshots from failed system tests
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: screenshots
+          path: ${{ github.workspace }}/tmp/screenshots
+          if-no-files-found: ignore

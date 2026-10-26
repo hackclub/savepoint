@@ -1,0 +1,161 @@
+<%# The prize shop's card, drawn once and used by every card (_prize_card): a tag with a hook cut in its top for the
+    silver clip, a panel in its tier's colour with halftone dots that melt together near the bottom, the navy name
+    band, and the price. Its colours come from custom properties on .shop-card (landing.css), which reach into <use>.
+    Units: the card is 400 wide and 554 tall, and the clip rises 40 above it. %>
+<svg class="shop-shapes" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <%# Metaballs: blur the dots, then cut the blur off sharp, so close ones grow necks between them. The dots go back on
+        top, so the small ones the cut would lose still show. Its region covers the card's dots and the claim popup's. %>
+    <filter id="sp-goo" x="-10" y="40" width="420" height="420" filterUnits="userSpaceOnUse">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.8"/>
+      <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 35 -6.1" result="goo"/>
+      <feMerge><feMergeNode in="goo"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <%# Depth: the outline is lit from the top (a lighter navy fading to the frame), with a lip of darker navy under it. %>
+    <linearGradient id="sp-navy-line" x1="0" y1="0" x2=".1" y2="1">
+      <stop offset="0" style="stop-color: var(--frame-track)"/><stop offset=".5" style="stop-color: var(--frame)"/><stop offset="1" style="stop-color: var(--frame-lip)"/>
+    </linearGradient>
+    <linearGradient id="sp-shop-rim-light" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="330">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".6"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".16"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sp-shop-face-light" gradientUnits="userSpaceOnUse" x1="0" y1="113" x2="0" y2="215">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".6"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sp-shop-face-shade" gradientUnits="userSpaceOnUse" x1="0" y1="113" x2="0" y2="143">
+      <stop offset="0" stop-color="#0a1038" stop-opacity=".3"/><stop offset="1" stop-color="#0a1038" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sp-shop-price-shade" gradientUnits="userSpaceOnUse" x1="0" y1="340" x2="0" y2="420">
+      <stop offset="0" stop-color="#1b2470" stop-opacity=".22"/><stop offset="1" stop-color="#1b2470" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="sp-soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.2"/></filter>
+    <clipPath id="sp-shop-inner"><rect x="38" y="113" width="324" height="317" rx="7"/></clipPath>
+    <%# The panel's light fades out down the panel. A mask, so the light can take each tier's colour (--sc-light). %>
+    <linearGradient id="sp-shop-panel-fade-ramp" x1="0" y1="0" x2=".15" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".8"/><stop offset=".3" stop-color="#ffffff" stop-opacity=".35"/>
+      <stop offset=".62" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <%# The outline's light runs the other way: none at the top, rising toward the band. %>
+    <linearGradient id="sp-shop-edge-fade-ramp" x1="0" y1="0" x2=".15" y2="1">
+      <stop offset=".05" stop-color="#ffffff" stop-opacity="0"/><stop offset=".72" stop-color="#ffffff" stop-opacity=".7"/>
+    </linearGradient>
+    <mask id="sp-shop-edge-fade" maskUnits="userSpaceOnUse" x="28" y="103" width="344" height="327">
+      <rect x="28" y="103" width="344" height="327" fill="url(#sp-shop-edge-fade-ramp)"/>
+    </mask>
+    <mask id="sp-shop-panel-fade" maskUnits="userSpaceOnUse" x="38" y="113" width="324" height="317">
+      <rect x="38" y="113" width="324" height="317" fill="url(#sp-shop-panel-fade-ramp)"/>
+    </mask>
+    <linearGradient id="sp-shop-price" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdfdff"/><stop offset=".6" stop-color="#f2f4fc"/><stop offset="1" stop-color="#e2e7fb"/>
+    </linearGradient>
+    <linearGradient id="sp-shop-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfd0d6"/><stop offset=".45" stop-color="#f4f4f6"/><stop offset=".8" stop-color="#8b8d96"/><stop offset="1" stop-color="#d8d9de"/>
+    </linearGradient>
+    <linearGradient id="sp-shop-metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bcc1d8"/><stop offset=".36" stop-color="#e0e3ef"/><stop offset=".5" stop-color="#ffffff"/>
+      <stop offset=".64" stop-color="#d8dbea"/><stop offset=".93" stop-color="#959cb9"/><stop offset="1" stop-color="#c6cadd"/>
+    </linearGradient>
+    <%# Your goal: a gold tag with a deeper gold edge (.shop-card.is-goal). %>
+    <linearGradient id="sp-goal-fill" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" style="stop-color: var(--gold-soft)"/><stop offset=".5" style="stop-color: var(--gold-hi)"/><stop offset="1" style="stop-color: var(--gold)"/>
+    </linearGradient>
+    <linearGradient id="sp-goal-line" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" style="stop-color: var(--gold)"/><stop offset=".45" style="stop-color: var(--gold-line)"/><stop offset="1" style="stop-color: var(--gold-lip)"/>
+    </linearGradient>
+    <linearGradient id="sp-glint-band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffcf3a" stop-opacity="0"/><stop offset=".3" stop-color="#ffcf3a" stop-opacity=".35"/>
+      <stop offset=".5" stop-color="#ffefa6" stop-opacity=".75"/><stop offset=".7" stop-color="#ffcf3a" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#ffcf3a" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="sp-shop-price-shape"><path d="M28 429.5C28 405.5 44 392 72 392H300C345 392 372 377.5 372 344.5V501A25.5 25.5 0 0 1 346.5 526.5H53.5A25.5 25.5 0 0 1 28 501Z"/></clipPath>
+    <clipPath id="sp-shop-price-inner"><path d="M35 429.5C35 409 49 399 72 399H300C340 399 365 387 365 344.5V494A25.5 25.5 0 0 1 339.5 519.5H60.5A25.5 25.5 0 0 1 35 494Z"/></clipPath>
+    <clipPath id="sp-shop-tag"><path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z"/></clipPath>
+    <radialGradient id="sp-shop-sheen" cx=".5" cy=".55" r=".5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <symbol id="sp-shop-card" viewBox="0 -40 400 594" overflow="visible">
+      <%# The lip: the tag again, a hand lower and darker, so the card has thickness. %>
+      <path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z" transform="translate(0 9)"
+            stroke-width="18" stroke-linejoin="round" style="fill: var(--sc-lip); stroke: var(--sc-lip)"/>
+      <path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z"
+            stroke-width="18" stroke-linejoin="round" style="fill: var(--sc-card); stroke: var(--sc-outline)"/>
+      <%# A soft highlight along the rim, bright at the top and gone by the middle. %>
+      <path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z" fill="none" stroke="url(#sp-shop-rim-light)" stroke-width="4" stroke-linejoin="round" filter="url(#sp-soft)"/>
+      <rect x="28" y="103" width="344" height="327" rx="15" style="fill: var(--sc-panel-line)"/>
+      <rect x="28" y="103" width="344" height="327" rx="15" mask="url(#sp-shop-edge-fade)" style="fill: var(--sc-light)"/>
+      <rect x="38" y="113" width="324" height="317" rx="7" style="fill: var(--sc-panel)"/>
+      <%# Light from the top, so the panel's colour deepens toward the band, like a rarity card's. %>
+      <rect x="38" y="113" width="324" height="317" rx="7" mask="url(#sp-shop-panel-fade)" style="fill: var(--sc-light)"/>
+      <%# The halftone (LandingHelper#shop_halftone), melted together by the goo filter. %>
+      <g clip-path="url(#sp-shop-inner)">
+        <g filter="url(#sp-goo)" style="fill: var(--sc-dots)">
+          <% shop_halftone_bleed(bleed: 34, bleed_bottom: 60).each do |x, y, r| %><circle cx="<%= x %>" cy="<%= y %>" r="<%= r %>"/><% end %>
+        </g>
+      </g>
+      <%# The face is lit from the top and sunk a little under the rim: a shadow below the rim's top, a bright edge inside it. %>
+      <rect x="38" y="113" width="324" height="317" rx="7" fill="url(#sp-shop-face-shade)"/>
+      <%# The band and the price both dip at the left and rise at the right. The price's top is the band's, 65.5 lower, so
+          the two stay parallel. It is clipped to its own shape, so its stroke sits inside. %>
+      <path d="M28 364C28 340 44 326.5 72 326.5H300C345 326.5 372 312 372 279V440H28Z" style="fill: var(--sc-band)"/>
+      <path d="M28 429.5C28 405.5 44 392 72 392H300C345 392 372 377.5 372 344.5V501A25.5 25.5 0 0 1 346.5 526.5H53.5A25.5 25.5 0 0 1 28 501Z"
+            clip-path="url(#sp-shop-price-shape)" fill="url(#sp-shop-price)" stroke-width="14" style="stroke: var(--sc-price-line)"/>
+      <%# The band catches light on its top edge. The price is sunk: a shade under its top edge. %>
+      <path d="M28 429.5C28 405.5 44 392 72 392H300C345 392 372 377.5 372 344.5V501H28Z" clip-path="url(#sp-shop-price-inner)" fill="url(#sp-shop-price-shade)"/>
+    </symbol>
+
+    <%# The silver clip the tag hangs from. It comes down from above, over the hook, and rests on the floor of the
+        cranny under the hook's curl. Cards draw it after the tag, so it sits on top. %>
+    <%# The reel's halftone (_reel_item): the shop's, in a 160 by 112 panel, drawn once and used in every reel card. %>
+    <filter id="sp-goo-reel" x="-16" y="0" width="192" height="128" filterUnits="userSpaceOnUse">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.4"/>
+      <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 35 -6.1" result="goo"/>
+      <feMerge><feMergeNode in="goo"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="sp-reel-halftone" viewBox="0 0 160 112" preserveAspectRatio="xMidYMax slice" overflow="visible">
+      <g filter="url(#sp-goo-reel)">
+        <% shop_halftone_bleed(bleed: 16, bleed_bottom: 16, left: 0, right: 160, top: 50, bottom: 112, step: 8, depth: 52, min_radius: 0.6,
+                         wave: LandingHelper::SHOP_HALFTONE_WAVE.map { |t, y| [ t, y - 175 ] }).each do |x, y, r| %><circle cx="<%= x %>" cy="<%= y %>" r="<%= r %>"/><% end %>
+      </g>
+    </symbol>
+
+    <symbol id="sp-shop-clip" viewBox="0 -40 400 594" overflow="visible">
+      <rect x="206.5" y="-22" width="23" height="97" rx="11.5" fill="url(#sp-shop-rim)"/>
+      <rect x="207.7" y="-20.8" width="20.6" height="94.6" rx="10.3" fill="#ffffff"/>
+      <rect x="208.7" y="-19.8" width="18.6" height="92.6" rx="9.3" fill="url(#sp-shop-rim)"/>
+      <rect x="209.5" y="-19" width="17" height="91" rx="8.5" fill="url(#sp-shop-metal)"/>
+      <rect x="209.5" y="-19" width="17" height="91" rx="8.5" fill="url(#sp-shop-sheen)"/>
+      <rect x="220" y="-14" width="4" height="22" rx="2" fill="#ffffff"/>
+    </symbol>
+    <%# The enchantment glint on your goal, like Minecraft's: two layers of diagonal gold streaks sliding diagonally at
+        slightly different angles and speeds, inside the tag. Each layer repeats every 600, so it loops without a jump. %>
+    <symbol id="sp-shop-glint" viewBox="0 -40 400 594">
+      <g clip-path="url(#sp-shop-tag)">
+        <g transform="rotate(-45 200 277)">
+          <g>
+            <animateTransform attributeName="transform" type="translate" from="0 0" to="600 0" dur="8s" repeatCount="indefinite"/>
+            <rect x="-900" y="-450" width="170" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="-650" y="-450" width="80" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="-510" y="-450" width="210" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="-300" y="-450" width="170" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="-50" y="-450" width="80" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="90" y="-450" width="210" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="300" y="-450" width="170" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="550" y="-450" width="80" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="690" y="-450" width="210" height="1500" fill="url(#sp-glint-band)"/>
+          </g>
+        </g>
+        <g transform="rotate(-32 200 277)">
+          <g>
+            <animateTransform attributeName="transform" type="translate" from="0 0" to="600 0" dur="12s" repeatCount="indefinite"/>
+            <rect x="-810" y="-450" width="130" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="-570" y="-450" width="220" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="-210" y="-450" width="130" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="30" y="-450" width="220" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="390" y="-450" width="130" height="1500" fill="url(#sp-glint-band)"/>
+            <rect x="630" y="-450" width="220" height="1500" fill="url(#sp-glint-band)"/>
+          </g>
+        </g>
+      </g>
+    </symbol>
+  </defs>
+</svg>

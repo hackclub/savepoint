@@ -1,0 +1,45 @@
+<%# locals: (items:, label:) %>
+<%# One dropdown of the menu bar, with its submenus nested inside the items that open them. %>
+<div class="menu-bar__dropdown" role="menu" aria-label="<%= label %>" tabindex="-1" hidden>
+  <% items.each do |item| %>
+    <% if item == MenuBarHelper::SEPARATOR %>
+      <div class="menu-bar__separator" role="separator"></div>
+    <% else %>
+      <% disabled = (true if item[:disabled]) %>
+      <% external = item[:href] && !item[:href].start_with?("#") %>
+      <% content = capture do %>
+        <span class="menu-bar__check" aria-hidden="true">
+          <svg class="icon" viewBox="0 -960 960 960"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>
+        </span>
+        <span class="menu-bar__label"><%= item[:label] %></span>
+        <% if item[:hint] %><span class="menu-bar__hint"><%= item[:hint] %></span><% end %>
+        <% if item[:shortcut] %><kbd class="menu-bar__shortcut" data-shortcut="<%= item[:shortcut] %>"><%= item[:shortcut] %></kbd><% end %>
+        <% if external %>
+          <svg class="icon menu-bar__arrow" viewBox="0 -960 960 960" aria-hidden="true"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h560v-280h80v280q0 33-23.5 56.5T760-120H200Zm188-212-56-56 372-372H560v-80h280v280h-80v-144L388-332Z"/></svg>
+        <% elsif item[:items] %>
+          <svg class="icon menu-bar__arrow" viewBox="0 -960 960 960" aria-hidden="true"><path d="M400-280v-400l200 200-200 200Z"/></svg>
+        <% end %>
+      <% end %>
+
+      <% if item[:items] %>
+        <div class="menu-bar__group">
+          <%= tag.button content, type: "button", class: "menu-bar__entry", role: "menuitem",
+                aria: { haspopup: "menu", expanded: false, disabled: }, data: { action: "mouseenter->menu-bar#enter click->menu-bar#choose" } %>
+          <%= render "pages/menu_items", items: item[:items], label: item[:label] %>
+        </div>
+      <% elsif item[:href] %>
+        <%= link_to content, item[:href], class: "menu-bar__entry", role: "menuitem", tabindex: -1,
+              target: ("_blank" if external), rel: ("noopener" if external),
+              data: { action: "mouseenter->menu-bar#enter click->menu-bar#choose" } %>
+      <% else %>
+        <%= tag.button content, type: "button", class: "menu-bar__entry", role: (item.key?(:checked) ? "menuitemcheckbox" : "menuitem"),
+              aria: { disabled:, checked: (item[:checked].to_s if item.key?(:checked)) },
+              data: {
+                action: "mouseenter->menu-bar#enter click->menu-bar#choose",
+                command: item[:command], menu_action: item[:action], title: (item[:label] if item[:action] == "prompt"),
+                value: (item[:value].to_json if item.key?(:value))
+              }.compact %>
+      <% end %>
+    <% end %>
+  <% end %>
+</div>

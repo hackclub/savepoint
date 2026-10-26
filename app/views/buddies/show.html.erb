@@ -1,0 +1,97 @@
+<% content_for :title, "Buddy · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/buddies" %>
+<% buddy = @buddy %>
+<% pair = @project.pair %>
+
+<%# The Buddy tab: how building with a buddy works and your invite link, or once you're paired, the two of you.
+    Save Point's style (D-009): save_point/pages/buddies.css, every rule under .pg-buddies. %>
+<div class="pg-buddies sp-page">
+  <%= render "shared/top_bar", current: :buddy %>
+
+  <main class="pg-buddies__main sp-container">
+    <% if buddy %>
+      <section class="pg-buddies__hero" aria-labelledby="buddies-title">
+        <span class="pg-buddies__duo" aria-hidden="true">
+          <%= avatar_tag(current_user, "pg-buddies__face") %>
+          <span class="pg-buddies__link"><%= sp_icon "heart-fill" %></span>
+          <%= avatar_tag(buddy.user, "pg-buddies__face") %>
+        </span>
+        <h1 class="pg-buddies__title" id="buddies-title">You + <%= name_with_slack(buddy.user) %></h1>
+        <p class="pg-buddies__lead"><%= @project.title %> · <%= buddy.title %></p>
+      </section>
+
+      <div class="pg-buddies__pair">
+        <div class="pg-buddies__col">
+          <div class="pg-buddies__streak">
+            <% hours = pair_hours(@project) %>
+            <span class="pg-buddies__streak-label"><%= sp_icon "fire-fill" %>Together</span>
+            <span class="pg-buddies__streak-value"><b><%= hours[:together] %></b> hrs</span>
+            <span class="pg-buddies__streak-note">you <%= hours[:mine] %> · them <%= hours[:theirs] %></span>
+          </div>
+
+          <%# Today's minutes for each of you, against each one's own daily pace. %>
+          <section class="sp-panel pg-buddies__week" aria-labelledby="buddies-week-title">
+            <h2 class="sp-ribbon" id="buddies-week-title"><span><%= sp_icon "calendar-fill" %>Today</span></h2>
+            <ul class="buddy-hours">
+              <% [ [ "You", @project ], [ name_with_slack(buddy.user), buddy ] ].each do |name, project| %>
+                <% today = today_minutes(project) %>
+                <% done = today[:pace].positive? && today[:minutes] >= today[:pace] %>
+                <li class="buddy-hours__row" <%= "data-done" if done %>>
+                  <span class="buddy-hours__top">
+                    <span class="buddy-hours__name">
+                      <%= avatar_tag(project.user, "pg-buddies__face pg-buddies__face--sm", aria: { hidden: true }, role: nil) %><%= name %>
+                    </span>
+                    <span class="buddy-hours__value">
+                      <% if done %><%= sp_icon "check-circle-fill" %><% end %>
+                      <%= today[:pace].positive? ? "#{today[:minutes]} of #{today[:pace]} min" : project_hours(today[:minutes] / 60.0) %>
+                    </span>
+                  </span>
+                  <% if today[:pace].positive? %>
+                    <span class="sp-meter__bar buddy-hours__bar" aria-hidden="true">
+                      <span class="sp-meter__track">
+                        <span class="sp-meter__fill" style="--approved: <%= [ today[:minutes] * 100.0 / today[:pace], 100 ].min.round %>%"></span>
+                      </span>
+                    </span>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </section>
+        </div>
+
+        <aside class="pg-buddies__col">
+          <section class="sp-panel pg-buddies__buddy" aria-labelledby="buddies-buddy-name">
+            <div class="sp-plate pg-buddies__plate">
+              <span class="sp-plate__avatar"><%= avatar_tag(buddy.user, "pg-buddies__face pg-buddies__face--fill") %></span>
+              <span class="sp-plate__main">
+                <span class="sp-plate__name" id="buddies-buddy-name"><%= name_with_slack(buddy.user) %></span>
+                <span class="sp-plate__nums"><%= buddy.title %> · <b>Day <%= buddy.day_number %></b></span>
+              </span>
+            </div>
+            <% if (shot = buddy.screenshot).attached? && shot.blob.persisted? %>
+              <%= image_tag url_for(shot), alt: "Screenshot of #{buddy.title}", class: "pg-buddies__shot" %>
+            <% end %>
+          </section>
+        </aside>
+      </div>
+    <% else %>
+      <section class="pg-buddies__hero" aria-labelledby="buddies-title">
+        <span class="pg-buddies__duo" aria-hidden="true">
+          <%= avatar_tag(current_user, "pg-buddies__face") %>
+          <span class="pg-buddies__link"><%= sp_icon "add-fill" %></span>
+          <span class="pg-buddies__face pg-buddies__face--empty"><%= sp_icon "user-3-fill" %></span>
+        </span>
+        <h1 class="pg-buddies__title" id="buddies-title">Build with a friend</h1>
+      </section>
+
+      <div class="pg-buddies__ways">
+        <section class="sp-panel pg-buddies__way" aria-labelledby="buddies-invite-title">
+          <span class="pg-buddies__way-icon"><%= sp_icon "link-fill" %></span>
+          <h2 class="pg-buddies__way-title" id="buddies-invite-title">Invite a friend</h2>
+          <p class="pg-buddies__way-text">They sign up with your link, and you're paired.</p>
+          <%= render "buddies/invite_link", project: @project, mark_invited: true %>
+        </section>
+      </div>
+    <% end %>
+  </main>
+</div>

@@ -1,0 +1,16 @@
+<%# The admin pages, so you can get between them (Admin::NavHelper): the one you're on is marked. The layout renders it
+    once for every admin page, in a box of one size, so it never moves (styles in save_point/pages/admin-nav.css).
+    The logo goes back to the site. %>
+<div class="admin-bar-box">
+<div class="admin-bar">
+  <%= link_to root_path, class: "admin-bar__brand" do %>
+    <%= image_tag "save_point/logo.png", alt: "Save Point", width: 1000, height: 410 %>
+  <% end %>
+  <nav class="admin__nav" aria-label="Admin pages" data-seg-nav>
+    <% [ { label: "Admin", path: admin_root_path }, *admin_pages ].each_with_index do |page, index| %>
+      <% active = current_page?(page[:path]) %>
+      <%= link_to page[:path], aria: { current: ("page" if active) }, data: { turbo: (false if page[:external]) } do %><%= tag.span(class: "admin__pill", style: "view-transition-name: admin-pill", aria: { hidden: true }) if active %><span class="admin__label" style="view-transition-name: admin-option-<%= index %>"><%= admin_page_icon page[:label] %><%= page[:label] %></span><% end %>
+    <% end %>
+  </nav>
+</div>
+</div>

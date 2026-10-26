@@ -1,0 +1,9 @@
+<%# locals: (project:) %>
+<p class="project__step-warning">Hours only count after this is linked.</p>
+<% if (how = project_hackatime_how(project)) %>
+  <p class="project__step-text"><%= how %></p>
+<% end %>
+<%= render "projects/hackatime_link_button", label: "Link Hackatime" %>
+<% if flash[:alert] %>
+  <p class="project__step-error" role="alert"><%= flash[:alert] %></p>
+<% end %>

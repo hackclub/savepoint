@@ -1,0 +1,29 @@
+<%# Step 3: your prize, every one in Prize::ALL, fewest hours first, each with the pace a day it takes. The one you
+    claimed on the landing page starts picked (the controller). Next goes on to when you'll build. %>
+<div class="onboarding-prizes">
+  <div class="onboarding-prizes__grid">
+    <% onboarding_prizes.each do |prize| %>
+      <button type="button" class="onboarding-prize onboarding-prize--<%= prize_tier(prize) %>" aria-pressed="false"
+              data-onboarding-target="prize" data-prize="<%= prize.key %>"
+              data-action="onboarding#pickPrize" data-onboarding-prize-param="<%= prize.key %>">
+        <span class="onboarding-prize__art">
+          <%= prize.image ? image_tag("save_point/prizes/#{prize.image}", alt: "", loading: "lazy") : sp_icon(prize.icon) %>
+          <span class="onboarding-prize__tick" aria-hidden="true"><%= sp_icon "check-fill" %></span>
+        </span>
+        <span class="onboarding-prize__name"><%= prize.name %></span>
+        <span class="onboarding-prize__kind"><%= prize.kind %></span>
+        <span class="onboarding-prize__price">
+          <%= hours_coin %>
+          <span class="onboarding-prize__cost">
+            <span class="onboarding-prize__pace"><%= pace_html(prize.pace_minutes) %></span>
+            <span class="onboarding-prize__total"><%= prize_hours(prize.hours) %> hrs total</span>
+          </span>
+        </span>
+      </button>
+    <% end %>
+  </div>
+
+  <div class="onboarding-actions">
+    <button type="button" class="sp-btn sp-btn--gold sp-btn--lg" data-onboarding-target="prizeNext" data-action="onboarding#savePrize" disabled>Next<%= sp_icon "right-fill" %></button>
+  </div>
+</div>

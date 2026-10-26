@@ -1,0 +1,41 @@
+{
+  "text": "<!channel> Want a chance to keep going on your game ??! Save Point: savepoint.hackclub.com",
+  "blocks": [
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": ":jamegam-yay: *Want a chance to keep going on your game ??!* <!channel> :jamegam-yay:" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*:question_1: Wait what??*\nthe jam is over, but your game doesn't have to be!! keep working on it over the next week and get a prize for the time you put in :jamegam-welcome:" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*:jamegam-joystick: how does it work?*\nSign up at <https://savepoint.hackclub.com?utm_source=slack&utm_medium=announcement&utm_campaign=jamegam|savepoint.hackclub.com>\npick your jam game, or any other game you want to continue\nkeep building! only time after you submit to the jam counts\nship it when it's better than when you started" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*:jamegam-present: and what about prizes??*\nsave point has everything from aseprite, robux, and steam cards, to keyboards and controllers!\nPrizes start at 45 minutes a day!!" }
+    },
+    {
+      "type": "image",
+      "image_url": "https://savepoint.hackclub.com/announcements/jamegam-banner.png",
+      "alt_text": "Save Point: Finish that game you started. Get a $25 Steam card, an 8BitDo 2C or a Keychron K2."
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*save point ends November 2nd at 4PM EST so go now!!!!!*" }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Join", "emoji": true },
+          "style": "primary",
+          "url": "https://savepoint.hackclub.com?utm_source=slack&utm_medium=announcement&utm_campaign=jamegam"
+        }
+      ]
+    }
+  ]
+}

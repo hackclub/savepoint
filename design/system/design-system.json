@@ -1,0 +1,436 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-22T16:37:01Z"
+  },
+  "title": "Save Point",
+  "namespace": "SavePoint",
+  "libraries": [],
+  "sections": {},
+  "groups": [
+    "Logos",
+    "Icons"
+  ],
+  "assetGroups": {
+    "Logos": {
+      "name": "Logos",
+      "tile": "l",
+      "order": [
+        "save-point-logo.png"
+      ],
+      "files": {
+        "save-point-logo.png": {
+          "name": "save-point-logo.png",
+          "blob": "865ed050cd603d0b142f4528b8c58914",
+          "size": 438522,
+          "type": "image/png"
+        }
+      }
+    },
+    "Icons": {
+      "name": "Icons",
+      "tile": "xs",
+      "order": [
+        "add-fill.svg",
+        "arrow-down-fill.svg",
+        "arrow-up-fill.svg",
+        "calendar-fill.svg",
+        "chart-bar-fill.svg",
+        "check-circle-fill.svg",
+        "check-fill.svg",
+        "close-circle-fill.svg",
+        "close-fill.svg",
+        "coin-fill.svg",
+        "down-fill.svg",
+        "edit-2-fill.svg",
+        "external-link-fill.svg",
+        "fire-fill.svg",
+        "flag-1-fill.svg",
+        "game-2-fill.svg",
+        "gift-fill.svg",
+        "git-commit-fill.svg",
+        "github-fill.svg",
+        "heart-fill.svg",
+        "home-4-fill.svg",
+        "information-fill.svg",
+        "keyboard-fill.svg",
+        "left-fill.svg",
+        "lightning-fill.svg",
+        "link-fill.svg",
+        "loading-fill.svg",
+        "lock-fill.svg",
+        "medal-fill.svg",
+        "more-1-fill.svg",
+        "mouse-fill.svg",
+        "notification-fill.svg",
+        "palette-fill.svg",
+        "pause-fill.svg",
+        "pic-fill.svg",
+        "play-fill.svg",
+        "question-fill.svg",
+        "refresh-2-fill.svg",
+        "right-fill.svg",
+        "rocket-fill.svg",
+        "save-2-fill.svg",
+        "search-fill.svg",
+        "send-plane-fill.svg",
+        "settings-3-fill.svg",
+        "shopping-bag-1-fill.svg",
+        "sparkles-fill.svg",
+        "star-fill.svg",
+        "steam-fill.svg",
+        "time-fill.svg",
+        "trophy-fill.svg",
+        "truck-fill.svg",
+        "up-fill.svg",
+        "upload-2-fill.svg",
+        "user-3-fill.svg",
+        "warning-fill.svg"
+      ],
+      "files": {
+        "add-fill.svg": {
+          "name": "add-fill.svg",
+          "blob": "7d51778745af6ff3746c3b3409281952",
+          "size": 288,
+          "type": "image/svg+xml"
+        },
+        "arrow-down-fill.svg": {
+          "name": "arrow-down-fill.svg",
+          "blob": "e72b4633a0c2375772bccb18dc82bf58",
+          "size": 232,
+          "type": "image/svg+xml"
+        },
+        "arrow-up-fill.svg": {
+          "name": "arrow-up-fill.svg",
+          "blob": "7d14e7ef31065345ea760030afb2a138",
+          "size": 231,
+          "type": "image/svg+xml"
+        },
+        "calendar-fill.svg": {
+          "name": "calendar-fill.svg",
+          "blob": "ed75f1afb71e7a9cc208e0c4886b7476",
+          "size": 255,
+          "type": "image/svg+xml"
+        },
+        "chart-bar-fill.svg": {
+          "name": "chart-bar-fill.svg",
+          "blob": "a13dc49ca4893ef293bef961f271e072",
+          "size": 239,
+          "type": "image/svg+xml"
+        },
+        "check-circle-fill.svg": {
+          "name": "check-circle-fill.svg",
+          "blob": "e064f00dd41c639afb68dfd10fa97834",
+          "size": 323,
+          "type": "image/svg+xml"
+        },
+        "check-fill.svg": {
+          "name": "check-fill.svg",
+          "blob": "5a8dc9a364f1d549873a883563a377f4",
+          "size": 313,
+          "type": "image/svg+xml"
+        },
+        "close-circle-fill.svg": {
+          "name": "close-circle-fill.svg",
+          "blob": "6fa781df9789fd7db4f197843f5c04d0",
+          "size": 388,
+          "type": "image/svg+xml"
+        },
+        "close-fill.svg": {
+          "name": "close-fill.svg",
+          "blob": "8a82a28bb3cf3b12769463b746692275",
+          "size": 377,
+          "type": "image/svg+xml"
+        },
+        "coin-fill.svg": {
+          "name": "coin-fill.svg",
+          "blob": "25e9b0c20e85dfe1c27fecc59a11a109",
+          "size": 777,
+          "type": "image/svg+xml"
+        },
+        "down-fill.svg": {
+          "name": "down-fill.svg",
+          "blob": "c1ea8d2f088b4d6b1bbc6a6e32627c5f",
+          "size": 226,
+          "type": "image/svg+xml"
+        },
+        "edit-2-fill.svg": {
+          "name": "edit-2-fill.svg",
+          "blob": "56a14874352fbe09e4b2c3d23a08d8ae",
+          "size": 323,
+          "type": "image/svg+xml"
+        },
+        "external-link-fill.svg": {
+          "name": "external-link-fill.svg",
+          "blob": "f4fd96006a74ef2812d169fb61f6d9f8",
+          "size": 369,
+          "type": "image/svg+xml"
+        },
+        "fire-fill.svg": {
+          "name": "fire-fill.svg",
+          "blob": "b22d17122efdec297f3ec34d8a0b05b2",
+          "size": 753,
+          "type": "image/svg+xml"
+        },
+        "flag-1-fill.svg": {
+          "name": "flag-1-fill.svg",
+          "blob": "d43ffa585095f5959ef4adbb2c5f8a9e",
+          "size": 257,
+          "type": "image/svg+xml"
+        },
+        "game-2-fill.svg": {
+          "name": "game-2-fill.svg",
+          "blob": "2987fef1d6bed2a03cf73f5cd7d5068b",
+          "size": 810,
+          "type": "image/svg+xml"
+        },
+        "gift-fill.svg": {
+          "name": "gift-fill.svg",
+          "blob": "d8a833e7bb553fa92d258e259302bd26",
+          "size": 457,
+          "type": "image/svg+xml"
+        },
+        "git-commit-fill.svg": {
+          "name": "git-commit-fill.svg",
+          "blob": "36bc687a999433cf4fc8364083a70762",
+          "size": 234,
+          "type": "image/svg+xml"
+        },
+        "github-fill.svg": {
+          "name": "github-fill.svg",
+          "blob": "9d51c7798fe54963caa79d6a0659786a",
+          "size": 961,
+          "type": "image/svg+xml"
+        },
+        "heart-fill.svg": {
+          "name": "heart-fill.svg",
+          "blob": "a6735e7b1f12f755ec197444d1c23fbb",
+          "size": 312,
+          "type": "image/svg+xml"
+        },
+        "home-4-fill.svg": {
+          "name": "home-4-fill.svg",
+          "blob": "5ba629eb25c1660a0109f64b78588ade",
+          "size": 292,
+          "type": "image/svg+xml"
+        },
+        "information-fill.svg": {
+          "name": "information-fill.svg",
+          "blob": "df5f803a256eb9cacdc4c5c3d2bc1a4e",
+          "size": 301,
+          "type": "image/svg+xml"
+        },
+        "keyboard-fill.svg": {
+          "name": "keyboard-fill.svg",
+          "blob": "43f7b4268d9cac6d380f23f3dd07ac7c",
+          "size": 444,
+          "type": "image/svg+xml"
+        },
+        "left-fill.svg": {
+          "name": "left-fill.svg",
+          "blob": "41909a60c78d986d1f66c5057ecbad89",
+          "size": 226,
+          "type": "image/svg+xml"
+        },
+        "lightning-fill.svg": {
+          "name": "lightning-fill.svg",
+          "blob": "b946cddc629d83daf0a6031076129100",
+          "size": 350,
+          "type": "image/svg+xml"
+        },
+        "link-fill.svg": {
+          "name": "link-fill.svg",
+          "blob": "2a40bf625cf5673b4660fd0a0b367312",
+          "size": 620,
+          "type": "image/svg+xml"
+        },
+        "loading-fill.svg": {
+          "name": "loading-fill.svg",
+          "blob": "9e08ed6db6e498ac9e01274fcbfad929",
+          "size": 1453,
+          "type": "image/svg+xml"
+        },
+        "lock-fill.svg": {
+          "name": "lock-fill.svg",
+          "blob": "73205b3e76947dbc1d46b3095dbe500b",
+          "size": 363,
+          "type": "image/svg+xml"
+        },
+        "medal-fill.svg": {
+          "name": "medal-fill.svg",
+          "blob": "1d5e0b38502670c051057d258658c746",
+          "size": 407,
+          "type": "image/svg+xml"
+        },
+        "more-1-fill.svg": {
+          "name": "more-1-fill.svg",
+          "blob": "38049fc96059aeb206ed635b6608e35f",
+          "size": 217,
+          "type": "image/svg+xml"
+        },
+        "mouse-fill.svg": {
+          "name": "mouse-fill.svg",
+          "blob": "1af6eaef4e390b2dfd98880280ade7a4",
+          "size": 235,
+          "type": "image/svg+xml"
+        },
+        "notification-fill.svg": {
+          "name": "notification-fill.svg",
+          "blob": "725aa337711872291211403ba349780f",
+          "size": 320,
+          "type": "image/svg+xml"
+        },
+        "palette-fill.svg": {
+          "name": "palette-fill.svg",
+          "blob": "69912ca1720a2feb6ccbc6391dbb40d8",
+          "size": 506,
+          "type": "image/svg+xml"
+        },
+        "pause-fill.svg": {
+          "name": "pause-fill.svg",
+          "blob": "55b999974aeeeee619f1c605eb67c7bc",
+          "size": 255,
+          "type": "image/svg+xml"
+        },
+        "pic-fill.svg": {
+          "name": "pic-fill.svg",
+          "blob": "ec08ff0e1f77f50091faa71168d7679a",
+          "size": 364,
+          "type": "image/svg+xml"
+        },
+        "play-fill.svg": {
+          "name": "play-fill.svg",
+          "blob": "d5e28c8ca036fd898f0a2de3b3257e9d",
+          "size": 450,
+          "type": "image/svg+xml"
+        },
+        "question-fill.svg": {
+          "name": "question-fill.svg",
+          "blob": "919352320a59258c3ee18e715893605e",
+          "size": 425,
+          "type": "image/svg+xml"
+        },
+        "refresh-2-fill.svg": {
+          "name": "refresh-2-fill.svg",
+          "blob": "31fb6e489c66f089dd709b42fbfba525",
+          "size": 580,
+          "type": "image/svg+xml"
+        },
+        "right-fill.svg": {
+          "name": "right-fill.svg",
+          "blob": "71cacaa9589ec00a76e7af4d592b4363",
+          "size": 226,
+          "type": "image/svg+xml"
+        },
+        "rocket-fill.svg": {
+          "name": "rocket-fill.svg",
+          "blob": "26b29fdcefdc0c584cd979214ad404ad",
+          "size": 999,
+          "type": "image/svg+xml"
+        },
+        "save-2-fill.svg": {
+          "name": "save-2-fill.svg",
+          "blob": "80cf847484f41c396d001f862d7c32f7",
+          "size": 337,
+          "type": "image/svg+xml"
+        },
+        "search-fill.svg": {
+          "name": "search-fill.svg",
+          "blob": "3df2f8508f1718ef75bd23137c669c20",
+          "size": 355,
+          "type": "image/svg+xml"
+        },
+        "send-plane-fill.svg": {
+          "name": "send-plane-fill.svg",
+          "blob": "4703fe405237a187eb8a94b4c9b1640b",
+          "size": 296,
+          "type": "image/svg+xml"
+        },
+        "settings-3-fill.svg": {
+          "name": "settings-3-fill.svg",
+          "blob": "970886c24448e3fb64e148b42218d2a8",
+          "size": 988,
+          "type": "image/svg+xml"
+        },
+        "shopping-bag-1-fill.svg": {
+          "name": "shopping-bag-1-fill.svg",
+          "blob": "bab7f0e2c38bb032eb9ad1c4312b0de1",
+          "size": 336,
+          "type": "image/svg+xml"
+        },
+        "sparkles-fill.svg": {
+          "name": "sparkles-fill.svg",
+          "blob": "4221eceedc8d541e981a85e963a96670",
+          "size": 695,
+          "type": "image/svg+xml"
+        },
+        "star-fill.svg": {
+          "name": "star-fill.svg",
+          "blob": "15211f0025132173b0132159fc5cdd1c",
+          "size": 358,
+          "type": "image/svg+xml"
+        },
+        "steam-fill.svg": {
+          "name": "steam-fill.svg",
+          "blob": "22b665d2e38fe46b449244b4bb1c464d",
+          "size": 480,
+          "type": "image/svg+xml"
+        },
+        "time-fill.svg": {
+          "name": "time-fill.svg",
+          "blob": "e404b4036c6ed142220b873281900721",
+          "size": 279,
+          "type": "image/svg+xml"
+        },
+        "trophy-fill.svg": {
+          "name": "trophy-fill.svg",
+          "blob": "bddb3c02384c3daa9badc668367eef5f",
+          "size": 652,
+          "type": "image/svg+xml"
+        },
+        "truck-fill.svg": {
+          "name": "truck-fill.svg",
+          "blob": "9af00c48b8ec624f3e77e5df135fbfbc",
+          "size": 364,
+          "type": "image/svg+xml"
+        },
+        "up-fill.svg": {
+          "name": "up-fill.svg",
+          "blob": "9187728e674980d291907ece3962692c",
+          "size": 225,
+          "type": "image/svg+xml"
+        },
+        "upload-2-fill.svg": {
+          "name": "upload-2-fill.svg",
+          "blob": "fd4b0f286d273c343006453ca730276d",
+          "size": 277,
+          "type": "image/svg+xml"
+        },
+        "user-3-fill.svg": {
+          "name": "user-3-fill.svg",
+          "blob": "f6bba7173c979126cdb80f09434f2a14",
+          "size": 502,
+          "type": "image/svg+xml"
+        },
+        "warning-fill.svg": {
+          "name": "warning-fill.svg",
+          "blob": "60bc51f56ac011146dfc98ab97cb6838",
+          "size": 277,
+          "type": "image/svg+xml"
+        }
+      }
+    }
+  },
+  "blobs": {},
+  "docs": {
+    "sections": []
+  },
+  "lastChange": {
+    "by": "Armand",
+    "at": "2026-10-22T17:10:00Z",
+    "via": "Claude Code",
+    "note": "New logo with \"hack club\" above the halo."
+  }
+}

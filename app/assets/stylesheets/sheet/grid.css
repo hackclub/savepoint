@@ -1,0 +1,229 @@
+/* Sticky column/row headers around a fixed 26 × 40 grid of 100 × 30 cells. */
+@layer sheet {
+  .sheet-viewport {
+    flex: 1;
+    min-block-size: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheet {
+    --selection-range: rgb(14 101 235 / 10%);
+    --selection-header-full-bg: var(--blue-700);
+
+    inline-size: calc(var(--row-header-width) + var(--column-count) * var(--cell-width));
+  }
+
+  .sheet__column-headers {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: var(--row-header-width) repeat(var(--column-count), var(--cell-width));
+    block-size: var(--column-header-height);
+    background: var(--surface-header);
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  /* The frozen corner gets the thick "freeze pane" borders. */
+  .sheet__corner {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 7;
+    background: var(--surface-header);
+    border-inline-end: 4px solid var(--border-header);
+    border-block-end: 4px solid var(--border-header);
+  }
+
+  .sheet__column-header {
+    display: grid;
+    place-items: center;
+    border-inline-end: 1px solid var(--border-header);
+    border-block-end: 1px solid var(--border-header);
+  }
+
+  .sheet__body {
+    display: flex;
+  }
+
+  .sheet__row-headers {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 5;
+    flex: none;
+    inline-size: var(--row-header-width);
+    display: grid;
+    grid-auto-rows: var(--cell-height);
+    border-inline-end: 1px solid var(--border-header);
+    background: var(--surface-header);
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .sheet__row-header {
+    line-height: var(--cell-height);
+    border-block-end: 1px solid var(--border-header);
+  }
+
+  .sheet__row-header--selected,
+  .sheet__column-header--selected {
+    background: var(--selection-header-bg);
+    color: var(--selection-header-fg);
+    font-weight: 700;
+  }
+
+  .sheet__column-headers,
+  .sheet__row-headers {
+    cursor: default;
+    user-select: none;
+  }
+
+  /* The cell grid. Column lines are named after their letters, so a cell at B2
+     spanning four columns is `grid-column: B / span 4; grid-row: 2`. Rows are
+     implicit: the grid stretches to the height of the row headers beside it. */
+  .sheet__cells {
+    position: relative;
+    flex: none;
+    display: grid;
+    grid-template-columns:
+      [A] var(--cell-width) [B] var(--cell-width) [C] var(--cell-width) [D] var(--cell-width)
+      [E] var(--cell-width) [F] var(--cell-width) [G] var(--cell-width) [H] var(--cell-width)
+      [I] var(--cell-width) [J] var(--cell-width) [K] var(--cell-width) [L] var(--cell-width)
+      [M] var(--cell-width) [N] var(--cell-width) [O] var(--cell-width) [P] var(--cell-width)
+      [Q] var(--cell-width) [R] var(--cell-width) [S] var(--cell-width) [T] var(--cell-width)
+      [U] var(--cell-width) [V] var(--cell-width) [W] var(--cell-width) [X] var(--cell-width)
+      [Y] var(--cell-width) [Z] var(--cell-width);
+    grid-auto-rows: var(--cell-height);
+    align-content: start;
+    outline: none;
+    user-select: none;
+    background-image:
+      linear-gradient(var(--border-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-grid) 1px, transparent 1px);
+    background-size: var(--cell-width) var(--cell-height);
+    background-position: 0 -1px, -1px 0;
+  }
+
+  /* One section per sheet tab, sharing the grid's lines. Content lives in the first 80 rows. */
+  .sheet__section {
+    grid-column: 1 / -1;
+    grid-row: 1 / span 80;
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    /* Opening /#faq scrolls to the section; this keeps it clear of the sticky headers. */
+    scroll-margin: var(--column-header-height) 0 0 var(--row-header-width);
+  }
+
+  /* A run of table rows that fills in row by row: its cells only pick their
+     columns (by letter, since the lines carry through), never their rows. */
+  .sheet__rows {
+    grid-column: 1 / -1;
+    align-self: start;
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-auto-rows: var(--cell-height);
+    /* It spans the full width, so let clicks through to whatever sits beside it. */
+    pointer-events: none;
+
+    > * {
+      pointer-events: auto;
+    }
+  }
+
+  /* Whole columns and rows (header clicks, select all) get the darker header. */
+  .sheet__row-header--full,
+  .sheet__column-header--full {
+    background: var(--selection-header-full-bg);
+    color: var(--white);
+  }
+
+  /* View > Show > Gridlines, unticked. */
+  .sheet__cells--no-gridlines {
+    background-image: none;
+  }
+
+  /* The active cell and the range are placed by the cell-selection controller through
+     --column, --row, --width and --height. They overhang by a pixel so they cover the
+     gridlines around them. */
+  .sheet__selection,
+  .sheet__range {
+    position: relative;
+    z-index: 4;
+    grid-column: var(--column) / span var(--width);
+    grid-row: var(--row) / span var(--height);
+    margin: -1px 0 0 -1px;
+    pointer-events: none;
+  }
+
+  .sheet__selection {
+    border: 2px solid var(--selection);
+    scroll-margin: var(--column-header-height) 0 0 var(--row-header-width);
+  }
+
+  /* Inside a range the active cell is marked by the gap in the range's tint instead. */
+  .sheet__selection--in-range {
+    border-color: transparent;
+  }
+
+  /* A tinted range with a thin outline, leaving a hole over the active cell
+     (--hole-column/--hole-row/--hole-width/--hole-height, in cells from the range's corner). */
+  .sheet__range {
+    --hole-left: calc(var(--hole-column) * var(--cell-width));
+    --hole-top: calc(var(--hole-row) * var(--cell-height));
+    --hole-right: calc(var(--hole-left) + var(--hole-width) * var(--cell-width) - 1px);
+    --hole-bottom: calc(var(--hole-top) + var(--hole-height) * var(--cell-height) - 1px);
+
+    border: 1px solid var(--selection);
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--selection-range);
+      clip-path: polygon(evenodd,
+        0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+        var(--hole-left) var(--hole-top), var(--hole-right) var(--hole-top),
+        var(--hole-right) var(--hole-bottom), var(--hole-left) var(--hole-bottom), var(--hole-left) var(--hole-top));
+    }
+
+    /* Fill handle, at the range's corner */
+    &::after {
+      content: "";
+      position: absolute;
+      z-index: 1;
+      inset-inline-end: -5px;
+      inset-block-end: -5px;
+      inline-size: 8px;
+      block-size: 8px;
+      border: 1px solid var(--white);
+      border-radius: 50%;
+      background: var(--selection);
+    }
+  }
+
+  .sheet__cells:has(.sheet__editor:not([hidden])) .sheet__range::after {
+    display: none;
+  }
+
+  /* One cell: the active cell's border does the drawing, so only the handle shows. */
+  .sheet__range--single {
+    z-index: 5;
+    border-color: transparent;
+
+    &::before {
+      display: none;
+    }
+  }
+}
+
+@layer sheet {
+  @media (width <= 600px) {
+    .sheet__corner {
+      border-inline-end-width: 3px;
+      border-block-end-width: 3px;
+    }
+  }
+}

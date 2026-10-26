@@ -1,0 +1,16 @@
+<%# locals: (name:, label:, command: nil, value: nil, menu: nil, hint: nil, pressed: nil, disabled: false, class: nil) %>
+<%# A toolbar button either runs a command (with an optional value) or opens one of the toolbar's menus. %>
+<%= tag.button type: "button", id: ("toolbar-#{name}" if menu),
+      class: [ "toolbar__button", { "toolbar__button--dropdown": menu }, local_assigns[:class] ],
+      aria: { label:, pressed:, disabled: (true if disabled), haspopup: (true if menu), expanded: (false if menu), controls: ("toolbar-menu-#{menu}" if menu) },
+      data: {
+        action: ("toolbar#toggle" if menu) || ("toolbar#run" if command),
+        toolbar_command_param: command, toolbar_value_param: value, toolbar_hint: hint || label
+      }.compact do %>
+  <% if menu %>
+    <span class="toolbar__current"><%= inline_svg_tag "icons/toolbar/#{name}.svg", class: "icon", aria_hidden: true %></span>
+    <%= inline_svg_tag "icons/arrow-drop-down.svg", class: "icon", aria_hidden: true %>
+  <% else %>
+    <%= inline_svg_tag "icons/toolbar/#{name}.svg", class: "icon", aria_hidden: true %>
+  <% end %>
+<% end %>

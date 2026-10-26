@@ -1,0 +1,26 @@
+<%# locals: (command:, label:) %>
+<%# Sheets' color picker: Reset, the standard palette, and a custom color. %>
+<%= tag.div id: "toolbar-menu-#{command}", class: "toolbar-menu toolbar-menu--palette", role: "menu", aria: { label: },
+      hidden: true, data: { toolbar_target: "menu", reflect: command } do %>
+  <button type="button" role="menuitem" class="toolbar-menu__reset" data-action="toolbar#run"
+          data-toolbar-command-param="<%= command %>" data-toolbar-value-param="null">
+    <%= inline_svg_tag "icons/toolbar/format-color-reset.svg", class: "icon", aria_hidden: true %>Reset
+  </button>
+
+  <div class="toolbar-palette">
+    <% ToolbarHelper::PALETTE.each do |name, color| %>
+      <%= tag.button type: "button", role: "menuitemradio", class: "toolbar-palette__swatch", style: "--swatch: #{color}",
+            aria: { label: name, checked: false },
+            data: { action: "toolbar#run", toolbar_command_param: command, toolbar_value_param: color, toolbar_hint: name } %>
+    <% end %>
+  </div>
+
+  <div class="toolbar-palette__custom">
+    <span>Custom</span>
+    <label class="toolbar-palette__add" data-toolbar-hint="Custom color">
+      <%= inline_svg_tag "icons/toolbar/add.svg", class: "icon", aria_hidden: true %>
+      <input type="color" aria-label="Custom <%= label.downcase %>" data-action="change->toolbar#pick"
+             data-toolbar-command-param="<%= command %>">
+    </label>
+  </div>
+<% end %>

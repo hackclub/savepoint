@@ -1,0 +1,7 @@
+<%# A decorative label strip along a zone's edge, like a tech collage's margin text. Hidden from readers: it repeats
+    words already on the page and neutral glyphs. An empty item draws a checker block. %>
+<p class="strip strip--<%= local_assigns.fetch(:position, "top") %>" aria-hidden="true">
+  <% items.each do |item| %>
+    <% if item.empty? %><span class="strip__check"></span><% else %><span><%= item %></span><% end %>
+  <% end %>
+</p>

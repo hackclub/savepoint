@@ -1,0 +1,63 @@
+<% content_for :title, "Numbers · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-metrics" %>
+<% latest = @days.last %>
+<% show = ->(value, _cumulative = nil) { value.nil? ? "—" : value.to_f.round(1).to_s.sub(/\.0$/, "") } %>
+
+<%# Save Point's numbers day by day (Metric): a row per number, a column per day, so a change shows in what came
+    after it. Cumulative ones carry the day's change beside them. Styled in admin-metrics.css. %>
+<div class="sp-page pg-admin-metrics">
+  <main class="am">
+    <header class="am__head">
+      <div class="am__title">
+        <h1 id="am-title">Save Point's numbers, day by day</h1>
+        <span class="sp-stat am__days"><span class="sp-stat__key"><%= sp_icon "calendar-fill" %></span><%= @days.size %> <span class="sp-stat__unit">days</span></span>
+      </div>
+      <p class="am__note">
+        Each day's taken as of the end of it (UTC); today's is rewritten hourly. Totals show the day's change beside them.
+        A dash is a day before the snapshots started, for the numbers nothing dates.
+      </p>
+    </header>
+
+    <% if @days.empty? %>
+      <div class="am__empty">
+        <span class="am__empty-icon"><%= sp_icon "chart-bar-fill" %></span>
+        <p>No snapshots yet. The hourly job takes the first, or <code>bin/rails metrics:backfill</code> rebuilds every day so far.</p>
+      </div>
+    <% else %>
+      <div class="am__panel">
+        <div class="am__scroll" tabindex="0" role="region" aria-labelledby="am-title" data-controller="admin-metrics-page">
+          <table class="am__table">
+            <thead>
+              <tr>
+                <th scope="col">Number</th>
+                <% @days.each do |day| %>
+                  <th class="am__num" scope="col" <%= "data-latest" if day == latest %>><%= day.strftime("%b %-d") %></th>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% Metric::DEFINITIONS.each do |definition| %>
+                <% values = @values.fetch(definition.key, {}) %>
+                <tr>
+                  <th scope="row"><%= definition.label %></th>
+                  <% @days.each_with_index do |day, index| %>
+                    <% value = values[day] %>
+                    <% before = index.positive? ? values[@days[index - 1]] : nil %>
+                    <td class="am__num" <%= "data-latest" if day == latest %> <%= "data-none" if value.nil? %>>
+                      <%= show.(value, definition.cumulative) %>
+                      <% if definition.cumulative && value && before && value != before %>
+                        <small class="am__change" data-up="<%= value > before %>"><%= value > before ? "+" : "" %><%= show.(value - before, true) %></small>
+                      <% end %>
+                    </td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+    <%= render "admin/metrics/utm", utm: @utm %>
+    <%= render "admin/metrics/nps", nps: @nps %>
+  </main>
+</div>

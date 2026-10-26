@@ -1,0 +1,28 @@
+<%# locals: (project:, asking: false) %>
+<%# Beside the Due cell: asking for more days (Extension), then that it's with us, or how it went. ?edit=extension
+    opens the ask, like ?edit=pace does the pace. %>
+<% extension = project.extension %>
+<% if extension&.pending? %>
+  <p class="project__event-note project__extension" data-state="pending">Asked for <%= Program::EXTENSION_DAYS %> more days. We'll let you know.</p>
+<% elsif extension&.approved? %>
+  <p class="project__event-note project__extension" data-state="approved">Extended by <%= Program::EXTENSION_DAYS %> days.</p>
+<% elsif extension&.denied? %>
+  <p class="project__event-note project__extension" data-state="denied">No extra days this time. Whatever it is by then, ship it.</p>
+<% elsif project.extension_requestable? %>
+  <% if asking %>
+    <%= form_with model: Extension.new, url: project_extension_path, class: "project__extension-form" do |form| %>
+      <%= form.label :reason, "Why do you need more time?", class: "project__event-note" %>
+      <%= form.text_area :reason, rows: 3, required: true, maxlength: Extension::REASON_MAX, placeholder: "A line or two is plenty.",
+            class: "sp-input project__step-input project__extension-reason", aria: { invalid: flash[:extension_alert].present? } %>
+      <% if flash[:extension_alert] %>
+        <p class="project__step-error" role="alert"><%= flash[:extension_alert] %></p>
+      <% end %>
+      <div class="project__extension-actions">
+        <%= form.button "Ask for #{Program::EXTENSION_DAYS} more days", class: "sp-btn sp-btn--gold sp-btn--sm project__extension-button" %>
+        <%= link_to "Never mind", project_path, class: "sp-btn sp-btn--sm sp-btn--ghost" %>
+      </div>
+    <% end %>
+  <% else %>
+    <%= link_to "Need more time?", project_path(edit: "extension"), class: "sp-btn sp-btn--sm project__event-button", aria: { expanded: false } %>
+  <% end %>
+<% end %>

@@ -1,0 +1,28 @@
+<% content_for :title, "Start building · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/hackatime_picker save_point/pages/onboarding" %>
+
+<%# Onboarding: four questions, one panel each, down the page. The open one is a big panel; answered ones fold into
+    slim bars you can reopen. The onboarding controller
+    drives it all. %>
+<div class="pg-onboarding sp-page onboarding"
+     data-controller="onboarding"
+    
+     data-onboarding-prizes-value="<%= onboarding_prizes.map { |prize| { id: prize.key, name: prize.name, hours: prize.hours } }.to_json %>"
+     data-onboarding-default-prize-value="<%= Prize::DEFAULT_GOAL.key %>"
+     data-onboarding-signed-in-value="<%= signed_in? %>"
+     data-onboarding-project-url-value="<%= project_path %>"
+     data-onboarding-progress-url-value="<%= onboarding_progress_path %>"
+     data-onboarding-hackatime-url-value="<%= onboarding_hackatime_path %>"
+     data-onboarding-has-project-value="<%= current_user&.project.present? %>">
+  <%# The top bar, like the shop's. My project is locked until there's a project. %>
+  <%= render "shared/top_bar", current: :onboarding, day: false, project_data: { onboarding_target: "projectTab" } %>
+
+  <main class="onboarding__main">
+    <h1 class="onboarding__title">Start building</h1>
+    <div class="onboarding__rows">
+      <% onboarding_steps.each.with_index(1) do |step, number| %>
+        <%= render "onboarding/row", step:, number: %>
+      <% end %>
+    </div>
+  </main>
+</div>

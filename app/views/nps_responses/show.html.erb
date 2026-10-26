@@ -1,0 +1,24 @@
+<% content_for :title, "How's Save Point going? · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/nps" %>
+<%# The NPS form on a page of its own. From the ship page (@for_ship) it is the step before shipping, and sending it
+    goes back to the ship page. %>
+<div class="pg-nps sp-page">
+  <%= render "shared/top_bar" %>
+  <main class="nps sp-container">
+    <section class="nps__card sp-panel">
+      <p class="sp-ribbon"><span><%= sp_icon "heart-fill" %>Feedback</span></p>
+      <h1 class="nps__title"><%= @for_ship ? "Before you ship" : "How's Save Point going?" %></h1>
+      <p class="nps__lead">Be honest. We read every answer.</p>
+      <% if flash[:notice] %><p class="sp-toast sp-toast--gold" role="status"><span class="sp-toast__icon"><%= sp_icon "check-fill" %></span><span><%= flash[:notice] %></span></p><% end %>
+      <%= form_with scope: :nps_response, url: nps_path, class: "nps__form" do %>
+        <% if @for_ship %><%= hidden_field_tag :ship, 1, id: nil %><% end %>
+        <% if @nps.errors.any? %><p class="sp-toast sp-toast--coral" role="alert"><span class="sp-toast__icon"><%= sp_icon "warning-fill" %></span><span>Pick a number and fill in the * ones first.</span></p><% end %>
+        <%= render "nps_responses/questions", nps: @nps %>
+        <div class="nps__actions">
+          <button type="submit" class="sp-btn sp-btn--gold sp-btn--lg"><%= sp_icon "heart-fill" %>Send</button>
+          <%= link_to "Back", (@for_ship ? project_ship_path : project_path), class: "sp-btn sp-btn--ghost" %>
+        </div>
+      <% end %>
+    </section>
+  </main>
+</div>

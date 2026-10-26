@@ -1,0 +1,22 @@
+<%# One split-bar card: its name, a one-line takeaway, the bar, and a table of each part with its value and share. %>
+<%# locals: name, icon, parts ([ { id:, name:, about:, value:, text: } ]), takeaway, head (the value column's heading) %>
+<% total = parts.sum { |part| part[:value] }.to_f %>
+<div class="admin-chart admin-chart--split">
+  <span class="admin__readout-name"><%= sp_icon icon %><%= name %></span>
+  <p class="admin-chart__takeaway"><%= takeaway %></p>
+  <div class="admin-chart__bar"><%= admin_split_bar(parts) %></div>
+  <table class="admin-chart__legend">
+    <thead>
+      <tr><th scope="col">Stage</th><th scope="col"><%= head %></th><th scope="col">Share</th></tr>
+    </thead>
+    <tbody>
+      <% parts.each do |part| %>
+        <tr>
+          <th scope="row"><span class="admin-chart__key admin-chart__key--<%= part[:id] %>" aria-hidden="true"></span><%= part[:name] %> <small><%= part[:about] %></small></th>
+          <td><%= part[:text] %></td>
+          <td><%= admin_share(total.zero? ? 0.0 : part[:value] / total) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

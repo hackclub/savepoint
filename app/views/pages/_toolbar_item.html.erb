@@ -1,0 +1,14 @@
+<%# locals: (label:, command:, value: nil, icon: nil, sample: nil, style: nil, shortcut: nil) %>
+<%# One choice in a toolbar menu. Icon-only choices (the align menus) keep their label for screen readers and the tooltip. %>
+<%= tag.button type: "button", role: "menuitemradio", class: [ "toolbar-menu__item", { "toolbar-menu__item--icon": icon && !sample } ],
+      style:, aria: { label: (label if icon && !sample), checked: false },
+      data: { action: "toolbar#run", toolbar_command_param: command, toolbar_value_param: value, toolbar_hint: (label if icon && !sample) }.compact do %>
+  <% if icon && !sample %>
+    <%= inline_svg_tag "icons/toolbar/#{icon}.svg", class: "icon", aria_hidden: true %>
+  <% else %>
+    <%= inline_svg_tag "icons/toolbar/check.svg", class: "icon toolbar-menu__check", aria_hidden: true %>
+    <% if icon %><%= inline_svg_tag "icons/toolbar/#{icon}.svg", class: "icon", aria_hidden: true %><% end %>
+    <span class="toolbar-menu__label"><%= label %></span>
+    <% if sample || shortcut %><span class="toolbar-menu__sample"><%= sample || shortcut %></span><% end %>
+  <% end %>
+<% end %>

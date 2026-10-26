@@ -1,0 +1,76 @@
+<%# locals: (prize:, left:, free: false, closes: false) %>
+<%# The claim step of a prize's dialog (the shop's sheet and the project page's goal popup): the name for the parcel, then confirm.
+    One request does both. Wired to prize_sheet_controller.js (targets claim, name, confirm). %>
+<%= form_with url: shop_order_path, class: "order-sheet__bottom", hidden: true, data: { turbo: false, prize_sheet_target: "claim", action: "submit->prize-sheet#submitted" } do %>
+  <%= hidden_field_tag "order[prize_key]", prize.key, id: nil %>
+  <%# A free prize (the stickers, D-051) costs no hours, so it says so instead of showing a price. %>
+  <% unless free %>
+    <div class="order-sheet__price">
+      <%= hours_coin %>
+      <div class="order-sheet__cost">
+        <p class="order-sheet__hours"><b><%= prize_hours(prize.hours) %></b> hrs</p>
+        <p class="order-sheet__pace"><%= project_hours(left) %> hrs left after claiming</p>
+      </div>
+    </div>
+  <% end %>
+  <%= render "shop/unavailable_note", klass: "order-sheet__note" unless free %>
+  <%# Their Hack Club address, if they shared one, fills the fields; every one is theirs to change (D-024). Problems come back
+      from OrdersController as JSON and are written under the field (prize_sheet_controller.js, #problems). %>
+  <% shipping = ShippingAddress.for(current_user) %>
+  <div class="sp-field order-sheet__field" data-field="preferred_name">
+    <%= label_tag "parcel-name-#{prize.key}", "Name for the parcel", class: "sp-label" %>
+    <%= text_field_tag :preferred_name, current_user.preferred_name.presence || current_user.name, id: "parcel-name-#{prize.key}", class: "sp-input order-sheet__input",
+          maxlength: 120, autocomplete: "off", data: { prize_sheet_target: "name" } %>
+    <p class="sp-help order-sheet__problem" data-problem hidden></p>
+  </div>
+  <fieldset class="sp-fieldset order-sheet__field order-sheet__address">
+    <legend class="sp-label order-sheet__legend">Where to send it</legend>
+    <% [ [ "street_address", "Street address", "address-line1" ],
+         [ "street_address_2", "Apartment, suite, etc. (optional)", "address-line2" ] ].each do |key, label, autocomplete| %>
+      <div class="sp-field order-sheet__field" data-field="<%= key %>">
+        <%= label_tag "claim-#{key}-#{prize.key}", label, class: "sp-label" %>
+        <%= text_field_tag "address[#{key}]", shipping.public_send(key), id: "claim-#{key}-#{prize.key}", class: "sp-input order-sheet__input", maxlength: 120, autocomplete: "shipping #{autocomplete}" %>
+        <p class="sp-help order-sheet__problem" data-problem hidden></p>
+      </div>
+    <% end %>
+    <div class="order-sheet__pair">
+      <% [ [ "locality", "City or town", "address-level2" ], [ "region", "State or region", "address-level1" ] ].each do |key, label, autocomplete| %>
+        <div class="sp-field order-sheet__field" data-field="<%= key %>">
+          <%= label_tag "claim-#{key}-#{prize.key}", label, class: "sp-label" %>
+          <%= text_field_tag "address[#{key}]", shipping.public_send(key), id: "claim-#{key}-#{prize.key}", class: "sp-input order-sheet__input", maxlength: 120, autocomplete: "shipping #{autocomplete}" %>
+          <p class="sp-help order-sheet__problem" data-problem hidden></p>
+        </div>
+      <% end %>
+    </div>
+    <div class="order-sheet__pair">
+      <% [ [ "postal_code", "Postal code", "postal-code" ], [ "country", "Country", "country-name" ] ].each do |key, label, autocomplete| %>
+        <div class="sp-field order-sheet__field" data-field="<%= key %>">
+          <%= label_tag "claim-#{key}-#{prize.key}", label, class: "sp-label" %>
+          <%= text_field_tag "address[#{key}]", shipping.public_send(key), id: "claim-#{key}-#{prize.key}", class: "sp-input order-sheet__input", maxlength: 120, autocomplete: "shipping #{autocomplete}" %>
+          <p class="sp-help order-sheet__problem" data-problem hidden></p>
+        </div>
+      <% end %>
+    </div>
+    <div class="sp-field order-sheet__field" data-field="phone_number">
+      <%= label_tag "claim-phone_number-#{prize.key}", "Phone (optional)", class: "sp-label" %>
+      <%= telephone_field_tag "address[phone_number]", shipping.phone_number, id: "claim-phone_number-#{prize.key}", class: "sp-input order-sheet__input", maxlength: 30, autocomplete: "shipping tel" %>
+      <p class="sp-help order-sheet__problem" data-problem hidden></p>
+    </div>
+    <p class="sp-help"><%= sp_icon "information-fill" %>We only use your name and address to post your prize.</p>
+  </fieldset>
+  <p class="order-sheet__error" role="alert" data-prize-sheet-target="claimError" hidden></p>
+  <div class="order-sheet__actions">
+    <%# Where the sheet has no preview step to go back to (the free stickers), this button closes it, and looks like it. %>
+    <button type="button" class="order-sheet__x" aria-label="<%= closes ? "Close" : "Back" %>" data-action="prize-sheet#back"><%= sp_icon(closes ? "close-fill" : "left-fill") %></button>
+    <button type="submit" class="order-sheet__go order-sheet__go--gold" data-prize-sheet-target="confirm"><span>Claim it</span></button>
+  </div>
+<% end %>
+<%# The same step once the claim went through by fetch (prize_sheet_controller.js, #claimed): "Claimed!" for a moment, then the shop. %>
+<div class="order-sheet__bottom order-sheet__done" role="status" hidden data-prize-sheet-target="done">
+  <span class="order-sheet__done-badge" aria-hidden="true" data-prize-sheet-target="badge"><%= sp_icon "check-fill" %></span>
+  <p class="order-sheet__done-title">Claimed!</p>
+  <p class="order-sheet__done-text">The <%= prize.name %> is yours. We'll order it soon.</p>
+  <div class="order-sheet__actions">
+    <a class="order-sheet__go order-sheet__go--gold" href="<%= shop_path %>" data-prize-sheet-target="go"><span>See it in the shop</span></a>
+  </div>
+</div>

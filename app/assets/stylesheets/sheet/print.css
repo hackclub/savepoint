@@ -1,0 +1,53 @@
+/* Printing (the toolbar's print button, Ctrl+P): just the grid, like Sheets' print
+   preview. The chrome goes, the grid stops scrolling, and it's scaled to fit landscape pages. */
+@layer sheet {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
+  @media print {
+    .app-bar,
+    .toolbar-shelf,
+    .toolbar-menu,
+    .formula-bar,
+    .sheet-tabs,
+    .sheet__selection,
+    .sheet__editor {
+      display: none !important;
+    }
+
+    .spreadsheet {
+      block-size: auto;
+      background: none;
+    }
+
+    .sheet-viewport {
+      overflow: visible;
+    }
+
+    /* Sixteen columns across a landscape page, whatever the screen zoom is. */
+    .sheet {
+      zoom: 0.62 !important;
+      inline-size: calc(var(--row-header-width) + 16 * var(--cell-width));
+      overflow: hidden;
+    }
+
+    .sheet__column-headers,
+    .sheet__corner,
+    .sheet__row-headers {
+      position: static;
+    }
+
+    .sheet__column-header--selected,
+    .sheet__row-header--selected {
+      background: none;
+      color: inherit;
+      font-weight: inherit;
+    }
+
+    * {
+      print-color-adjust: exact;
+    }
+  }
+}

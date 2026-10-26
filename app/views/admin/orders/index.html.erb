@@ -1,0 +1,91 @@
+<% content_for :title, "Orders · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-orders" %>
+
+<%# Every prize claimed with approved hours: the ones to order, oldest first, then the ones ordered and who did.
+    Real names and emails are here, so nothing on this page is recorded. %>
+<div class="sp-page pg-admin-orders">
+  <div class="pg-admin-orders__wrap">
+    <main class="pg-admin-orders__main">
+      <header class="pg-admin-orders__head">
+        <div class="pg-admin-orders__intro">
+          <h1>What's been claimed</h1>
+          <p>
+            Each is a prize someone claimed with the hours their ship got approved. Order it, to the address under it (as
+            it was when they claimed), then mark it ordered: they get a DM on Slack. An old order from before Save Point
+            has a link to order it from.
+          </p>
+        </div>
+        <p class="sp-stat pg-admin-orders__count">
+          <span class="sp-stat__key"><%= sp_icon "truck-fill" %></span><%= @waiting.size %> <span class="sp-stat__unit">to order</span>
+        </p>
+      </header>
+
+      <% if flash[:alert] %>
+        <p class="sp-toast sp-toast--coral pg-admin-orders__alert" role="alert">
+          <span class="sp-toast__icon"><%= sp_icon "warning-fill" %></span><%= flash[:alert] %>
+        </p>
+      <% end %>
+
+      <% if flash[:notice] %>
+        <p class="sp-toast sp-toast--gold pg-admin-orders__alert" role="status">
+          <span class="sp-toast__icon"><%= sp_icon "check-fill" %></span><%= flash[:notice] %>
+        </p>
+      <% end %>
+
+      <%# The free stickers go through Theseus (D-067), one button each or all at once. %>
+      <% sticker_count = @waiting.count(&:stickers?) %>
+      <% if sticker_count.positive? %>
+        <%= button_to send_stickers_admin_orders_path, class: "sp-btn sp-btn--gold sp-btn--sm", form: { data: { turbo: false } } do %>
+          <%= sp_icon "truck-fill" %>Ship all waiting stickers (<%= sticker_count %>)
+        <% end %>
+      <% end %>
+
+      <% { "To order" => [ "admin-orders-waiting", @waiting, "Nothing to order.", "gift-fill" ],
+           "Ordered" => [ "admin-orders-ordered", @ordered, "None yet.", "check-circle-fill" ] }.each do |heading, (id, orders, empty, icon)| %>
+        <section class="sp-panel pg-admin-orders__panel pg-admin-orders__panel--<%= orders.equal?(@waiting) ? "waiting" : "ordered" %>" aria-labelledby="<%= id %>">
+          <h2 class="sp-ribbon <%= "sp-ribbon--gold" if orders.equal?(@waiting) %>" id="<%= id %>">
+            <span><%= sp_icon icon %><%= heading %></span>
+          </h2>
+          <span class="sp-badge pg-admin-orders__tally" aria-hidden="true"><%= orders.size %></span>
+          <% if orders.empty? %>
+            <p class="pg-admin-orders__empty"><%= sp_icon "sparkles-fill" %><%= empty %></p>
+          <% else %>
+            <div class="pg-admin-orders__scroll">
+              <table class="pg-admin-orders__table">
+                <thead>
+                  <tr>
+                    <th scope="col">Who</th>
+                    <th scope="col">What</th>
+                    <th scope="col">From</th>
+                    <th scope="col">Hours</th>
+                    <th scope="col">Claimed</th>
+                    <th scope="col"><%= orders.equal?(@waiting) ? tag.span("Order", class: "pg-admin-orders__hidden") : "Ordered" %></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% orders.each do |order| %>
+                    <%= render "admin/orders/row", order: do %>
+                      <% if order.waiting? %>
+                        <td class="pg-admin-orders__action">
+                          <%= button_to admin_order_path(order), method: :patch, class: "sp-btn sp-btn--gold sp-btn--sm", form: { data: { turbo: false } } do %>
+                            <% if order.stickers? %><%= sp_icon "truck-fill" %>Ship<% else %><%= sp_icon "check-fill" %>Mark ordered<% end %>
+                          <% end %>
+                        </td>
+                      <% else %>
+                        <td class="pg-admin-orders__done" data-decision="approved" data-label="Ordered">
+                          <span class="sp-badge sp-badge--mint"><%= sp_icon "check-circle-fill" %><%= order.ordered_by&.first_name.presence || "someone" %></span>
+                          <small><%= order.ordered_at.strftime("%b %-d") %></small>
+                          <% if order.stickers? %><small class="pg-admin-orders__letter"><code><%= order.theseus_letter_id.presence || "no letter ID" %></code></small><% end %>
+                        </td>
+                      <% end %>
+                    <% end %>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </section>
+      <% end %>
+    </main>
+  </div>
+</div>

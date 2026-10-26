@@ -1,0 +1,2 @@
+section text, markdown: true
+actions [ button(link[0], "open", url: link[1]) ] if link

@@ -1,0 +1,58 @@
+<!-- @dsCard height=300 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Save Point</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--sky); color: var(--ink); font-family: var(--font-body); overflow: hidden; }
+  .cover { position: relative; height: 300px; overflow: hidden; }
+  .art { position: absolute; top: 0; left: 480px; width: 480px; height: 300px; overflow: hidden; }
+  .art svg { display: block; width: 480px; height: 300px; }
+  .royal { fill: var(--royal); }
+  .gold { fill: var(--gold); }
+  .tint { fill: var(--royal-soft); }
+  .glass { fill: var(--logo-fill); }
+  .halo { fill: none; stroke: var(--copper); stroke-width: 16; stroke-linecap: round; }
+  .spark { fill: var(--gold-hi); }
+  .spark.on-light { fill: var(--gold); }
+  .words { position: absolute; left: 32px; right: 32px; bottom: 32px; max-width: 440px; }
+  .name { margin: 0; font-family: var(--font-display); font-style: italic; font-weight: 900; font-size: 112px; line-height: .92; letter-spacing: -0.01em; color: var(--ink); }
+  .tag { margin: 12px 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 700; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 300" width="480" height="300">
+<!--
+  blocks      royal 136x264 bled off the top (the letters) · gold 112 disc (the star) · logo-fill 168x232 bled off the right (the glass fill) · royal-soft 112x56 (relief) — about 40% of 960x300
+  arrangement one tall royal slab with satellites; bottoms on one line space-8 above the edge; space-4 gutters
+  pattern     the logo's four-point star: ten sparkles in gold-hi and gold, plus the copper halo arc from the logo crossing slab, disc and glass — "the star and the halo are the brand"
+  scales      sides in space-4 and space-8 multiples; corners radius-lg (24) on blocks, radius-md (16) on the tint; the disc's rx is half its side
+-->
+<rect class="royal" x="16" y="-24" width="136" height="292" rx="24"/>
+<rect class="tint" x="168" y="24" width="112" height="56" rx="16"/>
+<rect class="gold" x="168" y="156" width="112" height="112" rx="56"/>
+<rect class="glass" x="296" y="36" width="200" height="232" rx="24"/>
+<path class="halo" d="M 40 150 C 120 70, 360 60, 460 132"/>
+<path class="spark" d="M84 96 Q84 112 100 112 Q84 112 84 128 Q84 112 68 112 Q84 112 84 96 Z"/>
+<path class="spark" d="M60 176 Q60 184 68 184 Q60 184 60 192 Q60 184 52 184 Q60 184 60 176 Z"/>
+<path class="spark" d="M116 212 Q116 222 126 222 Q116 222 116 232 Q116 222 106 222 Q116 222 116 212 Z"/>
+<path class="spark" d="M224 176 Q224 212 260 212 Q224 212 224 248 Q224 212 188 212 Q224 212 224 176 Z"/>
+<path class="spark on-light" d="M352 92 Q352 116 376 116 Q352 116 352 140 Q352 116 328 116 Q352 116 352 92 Z"/>
+<path class="spark on-light" d="M420 168 Q420 180 432 180 Q420 180 420 192 Q420 180 408 180 Q420 180 420 168 Z"/>
+<path class="spark on-light" d="M388 220 Q388 228 396 228 Q388 228 388 236 Q388 228 380 228 Q388 228 388 220 Z"/>
+<path class="spark on-light" d="M448 64 Q448 72 456 72 Q448 72 448 80 Q448 72 440 72 Q448 72 448 64 Z"/>
+<path class="spark on-light" d="M224 40 Q224 52 236 52 Q224 52 224 64 Q224 52 212 52 Q224 52 224 40 Z"/>
+<path class="spark" d="M132 40 Q132 48 140 48 Q132 48 132 56 Q132 48 124 48 Q132 48 132 40 Z"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Save<br>Point</h1>
+<p class="tag">Continue a game you stopped working on. Get a prize.</p>
+</div>
+</div>
+</body>
+</html>

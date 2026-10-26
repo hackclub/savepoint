@@ -1,0 +1,21 @@
+<!-- @dsCard group="Content" height=470 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ShipChecklist — preview</title></head>
+<body>
+<div class="sp-demo sp-demo--col">
+  <section class="sp-checklist" aria-labelledby="ship-h">
+    <div class="sp-checklist__head"><h3 id="ship-h">Ready to ship?</h3><span class="sp-badge"><i data-icon="check-fill"></i>4 of 7</span></div>
+    <ol>
+      <li class="sp-item is-ok"><span class="sp-item__mark"><i data-icon="check-fill"></i></span><span class="sp-item__title">Hackatime is linked</span></li>
+      <li class="sp-item is-ok"><span class="sp-item__mark"><i data-icon="check-fill"></i></span><span class="sp-item__title">New hours since the start: 6.5</span></li>
+      <li class="sp-item is-fail"><span class="sp-item__mark"><i data-icon="close-fill"></i></span><span class="sp-item__title">Your repo is public</span><p class="sp-item__tip">A public link where anyone can read your game's code. On GitHub, the repository needs to be public.</p>
+        <label class="sp-field"><span class="sp-label">Repo link</span><input class="sp-input" id="ck1" value="https://github.com/moth/lantern"></label></li>
+      <li class="sp-item is-warn"><span class="sp-item__mark"><i data-icon="warning-fill"></i></span><span class="sp-item__title">Playable on itch.io</span><p class="sp-item__tip">This doesn't stop you shipping. itch.io is where people find games, so it's best.</p></li>
+      <li class="sp-item is-wait"><span class="sp-item__mark"><i data-icon="lock-fill"></i></span><span class="sp-item__title">README says how to play</span><p class="sp-item__tip">Waits for your repo link.</p></li>
+    </ol>
+  </section>
+</div>
+<script>window.SavePoint && SavePoint.mountIcons();</script>
+</body>
+</html>

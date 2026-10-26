@@ -1,0 +1,229 @@
+<% content_for :title, "Ship · #{@project.title} · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/hackatime_picker save_point/pages/ship" %>
+
+<%# Shipping your project: the form, with the ship checker beside it ticking off what it still needs, then once it's
+    in, that it's in review. Past the deadline (and its quiet grace, which this never mentions), that it's closed. %>
+<div class="pg-ship sp-page">
+  <%= render "shared/top_bar" %>
+  <div class="ship sp-container">
+    <header class="ship__bar">
+      <%= link_to project_path, class: "sp-btn sp-iconbtn ship__back", aria: { label: "Back to project" } do %>
+        <%= sp_icon "left-fill" %>
+      <% end %>
+      <div class="ship__titles">
+        <span class="ship__project"><%= sp_icon "game-2-fill" %><%= @project.title %></span>
+        <h1 class="ship__heading">Ship your project</h1>
+      </div>
+    </header>
+
+    <% if @rejected %>
+      <%# D-063: an admin rejected the newest ship for good. They see why, and can't ship again. %>
+      <%= render "ships/result", state: "rejected", badge: "Rejected", icon: "close-circle-fill", tone: "coral",
+            title: "This ship was rejected.", ship: @rejected, project: @project do %>
+        <p class="ship__done-text"><%= @rejected.title %> can't be shipped again.</p>
+        <% if @rejected.review_feedback.present? %>
+          <blockquote class="ship__reviewer-note"><%= @rejected.review_feedback %></blockquote>
+        <% end %>
+        <div class="ship__done-actions">
+          <%= link_to project_path, class: "sp-btn sp-btn--royal sp-btn--lg ship__button" do %>
+            <%= sp_icon "left-fill" %>Back to project
+          <% end %>
+        </div>
+      <% end %>
+    <% elsif @closed %>
+      <%= render "ships/result", state: "closed", badge: "Closed", icon: "lock-fill", tone: "coral",
+            title: "Shipping's closed.", project: @project do %>
+        <p class="ship__done-text">The deadline for <%= @project.title %> was <%= project_date(@project.deadline) %>.</p>
+        <div class="ship__done-actions">
+          <%= link_to project_path, class: "sp-btn sp-btn--royal sp-btn--lg ship__button" do %>
+            <%= sp_icon "left-fill" %>Back to project
+          <% end %>
+        </div>
+      <% end %>
+    <% elsif @needs_nps %>
+      <%# A ship needs an answer to the NPS questions from a participant who is due (NpsResponse.due?). The form is its own page and comes back here. %>
+      <%= render "ships/result", state: "nps", badge: "Before you ship", icon: "heart-fill", tone: "violet",
+            title: "First, a few questions.", project: @project do %>
+        <p class="ship__done-text">Tell us how Save Point is going. It takes a minute, and then you can ship.</p>
+        <div class="ship__done-actions">
+          <%= link_to nps_path(ship: 1), class: "sp-btn sp-btn--gold sp-btn--lg ship__button" do %>
+            <%= sp_icon "heart-fill" %>Answer the questions
+          <% end %>
+        </div>
+      <% end %>
+    <% elsif @ship.persisted? %>
+      <%= render "ships/result", state: "shipped", badge: "In review", icon: "time-fill", tone: "gold",
+            title: "Shipped.", ship: @ship, project: @project do %>
+        <p class="ship__done-text"><%= @ship.title %> is in review.</p> <%# also while it waits for its fraud check (D-063) %>
+        <div class="ship__done-actions">
+          <%= link_to project_path, class: "sp-btn sp-btn--gold sp-btn--lg ship__button" do %>
+            <%= sp_icon "left-fill" %>Back to project
+          <% end %>
+        </div>
+      <% end %>
+    <% elsif current_user.needs_address? %>
+      <%# A ship's submission needs where to post the prize: their address, shared through Hack Club Auth. %>
+      <%= render "ships/result", state: "address", badge: "Needs your address", icon: "truck-fill", tone: "violet",
+            title: "First, your address.", project: @project do %>
+        <p class="ship__done-text">
+          Shipping sends your address with your project, so your prize can be posted to you. Share it through Hack Club:
+          it's kept encrypted, and only used to send you things.
+        </p>
+        <%= render "shared/address_notice", return_url: project_ship_url %>
+        <% unless impersonating? %>
+          <div class="ship__done-actions">
+            <%= render "shared/address_button", return_to: project_ship_path, button_class: "sp-btn sp-btn--gold sp-btn--lg ship__button" %>
+          </div>
+        <% end %>
+      <% end %>
+    <% else %>
+      <% errors = @ship.errors %>
+      <%# D-016: the box starts empty. After a failed submit it keeps the screenshot just sent (stored, carried by its signed id),
+          unless the screenshot itself was the problem. %>
+      <% carried = @ship.screenshot.blob if @ship.screenshot.attached? && @ship.screenshot.blob.persisted? && errors[:screenshot].none? %>
+      <% if @changes_needed %>
+        <p class="sp-toast sp-toast--gold ship__changes-needed" role="status">
+          <span class="sp-toast__icon"><%= sp_icon "refresh-2-fill" %></span>
+          <span>Changes needed on your last ship. Fix them, say what you changed, and ship again. Your hours stay.</span>
+        </p>
+        <% if @changes_needed.review_feedback.present? %>
+          <blockquote class="ship__reviewer-note"><%= @changes_needed.review_feedback %></blockquote>
+        <% end %>
+      <% end %>
+      <%= form_with model: @ship, url: project_ship_path, method: :post, multipart: true, class: "ship__form",
+            data: { controller: "ship", ship_description_min_value: Ship::DESCRIPTION_MIN, ship_carried_value: carried.present?,
+                    ship_checks_url_value: project_ship_path(format: :json),
+                    action: "input->ship#check change->ship#check focus@window->ship#recheck hackatime-picker:saved->ship#hackatimeSaved" } do |form| %>
+        <div class="ship__body">
+          <div class="ship__main">
+            <section class="ship__panel sp-panel" aria-labelledby="ship-game-heading">
+              <h2 class="sp-ribbon" id="ship-game-heading"><span><%= sp_icon "game-2-fill" %>Your game</span></h2>
+              <%= render "ships/field", form:, ship: @ship, attribute: :title, label: "Title" do %>
+                <%= form.text_field :title, maxlength: 80, required: true, class: "ship__input ship__input--title sp-input",
+                      data: { ship_target: "title" }, aria: { invalid: errors[:title].any? } %>
+              <% end %>
+              <%= render "ships/field", form:, ship: @ship, attribute: :description, label: "Description",
+                    count: true do %>
+                <%= form.text_area :description, required: true, rows: 6, class: "ship__input ship__textarea sp-input",
+                      placeholder: "What is it, and how do you play it?",
+                      data: { ship_target: "description" }, aria: { invalid: errors[:description].any? } %>
+              <% end %>
+              <%= render "ships/field", form:, ship: @ship, attribute: :changes_made, label: "What did you change since last time?" do %>
+                <%= form.text_area :changes_made, required: true, rows: 4, class: "ship__input ship__textarea ship__textarea--short sp-input",
+                      placeholder: "New levels, a fixed bug, a new look. The reviewer reads this next to your commits.",
+                      data: { ship_target: "changes" }, aria: { invalid: errors[:changes_made].any? } %>
+              <% end %>
+              <div class="ship__pair">
+                <%= render "ships/field", form:, ship: @ship, attribute: :repo_url, label: "Repo URL" do %>
+                  <%= form.text_field :repo_url, required: true, placeholder: "github.com/you/your-project", spellcheck: false,
+                        class: "ship__input ship__input--mono sp-input", data: { ship_target: "repo", action: "input->ship#links" }, aria: { invalid: errors[:repo_url].any? } %>
+                <% end %>
+                <%= render "ships/field", form:, ship: @ship, attribute: :demo_url, label: "Playable link" do %>
+                  <%= form.text_field :demo_url, required: true, placeholder: "Link anyone can open and play", spellcheck: false,
+                        class: "ship__input ship__input--mono sp-input", data: { ship_target: "demo", action: "input->ship#links" }, aria: { invalid: errors[:demo_url].any? } %>
+                <% end %>
+              </div>
+              <div class="ship__field sp-field" id="ship_hackatime">
+                <span class="ship__label sp-label">Hackatime projects</span>
+                <%# Ticks save at once (no button) and the page follows: hours and the checklist update without a reload. %>
+                <%= render "shared/hackatime_picker", project: @project, url: hackatime_project_ship_path, mode: "json" %>
+              </div>
+            </section>
+
+            <section class="ship__panel ship__side sp-panel" aria-labelledby="ship-screenshot-label">
+              <h2 class="sp-ribbon" id="ship-screenshot-label"><span><%= sp_icon "pic-fill" %>Screenshot</span></h2>
+              <%# D-016: a new screenshot on every ship, so the box starts empty, whatever the project or an earlier ship had. %>
+              <label class="ship__shot<%= " ship__shot--error" if errors[:screenshot].any? %>" aria-labelledby="ship-screenshot-label">
+                <img class="ship__shot-image" alt="" data-ship-target="preview" <%= "hidden" unless carried %>
+                     <% if carried %>src="<%= url_for(carried) %>"<% end %>>
+                <span class="ship__shot-placeholder" data-ship-target="placeholder" <%= "hidden" if carried %>>
+                  <span class="ship__shot-icon"><%= sp_icon "upload-2-fill" %></span>
+                  <span>Drop a new screenshot of it running</span>
+                </span>
+                <span class="ship__shot-replace" aria-hidden="true"><%= sp_icon "upload-2-fill" %></span>
+                <% if carried %><%= hidden_field_tag "ship[screenshot_signed_id]", carried.signed_id, id: nil %><% end %>
+                <%= form.file_field :screenshot, accept: Project::SCREENSHOT_TYPES.join(","), class: "visually-hidden",
+                      data: { ship_target: "file", action: "ship#preview" } %>
+              </label>
+              <% if errors[:screenshot].any? %>
+                <span class="ship__error" role="alert"><%= sp_icon "warning-fill" %><%= errors.messages_for(:screenshot).first %></span>
+              <% end %>
+              <label class="ship__confirm sp-choice<%= " ship__confirm--error" if errors[:screenshot_shows_game].any? %>">
+                <%= form.check_box :screenshot_shows_game, { class: "ship__confirm-box sp-check", data: { ship_target: "confirm" } }, "1", "0" %>
+                <span>It shows the game running, not a mockup.</span>
+              </label>
+              <% if errors[:screenshot_shows_game].any? %>
+                <span class="ship__error" role="alert"><%= sp_icon "warning-fill" %><%= errors.messages_for(:screenshot_shows_game).first %></span>
+              <% end %>
+            </section>
+          </div>
+
+          <aside class="ship__checker sp-panel" aria-labelledby="ship-checker-heading">
+            <p class="sp-ribbon sp-ribbon--gold"><span><%= sp_icon "rocket-fill" %>Ship checker</span></p>
+            <div class="ship__checker-head">
+              <h2 id="ship-checker-heading">Ready to ship?</h2>
+              <span class="sp-badge ship__progress" data-ship-target="progress"></span>
+            </div>
+            <%# What goes to the reviewer, as it will look: it follows the title and the screenshot as they're filled in. %>
+            <div class="ship__preview" aria-label="Your ship, as the reviewer sees it">
+              <span class="ship__preview-shot">
+                <img alt="" data-ship-target="thumb" <%= "hidden" unless carried %> <% if carried %>src="<%= url_for(carried) %>"<% end %>>
+                <span class="ship__preview-empty" data-ship-target="thumbEmpty" <%= "hidden" if carried %>><%= sp_icon "pic-fill" %></span>
+              </span>
+              <span class="ship__preview-text">
+                <strong class="ship__preview-title" data-ship-target="previewTitle"><%= @ship.title %></strong>
+                <span class="ship__preview-hours"><span data-ship-target="hours"><%= project_hours(@project.hours_logged) %></span> hrs on it</span>
+              </span>
+            </div>
+            <%# A met item shows its green check for a moment and then leaves the list; the ones already met when the page opens
+                are never shown (ship_controller.js does the leaving, the server just starts them hidden). %>
+            <% met = { "title" => @ship.title.to_s.strip.present?,
+                       "description" => @ship.description.to_s.strip.present?,
+                       "descmin" => @ship.description.to_s.strip.length >= Ship::DESCRIPTION_MIN,
+                       "changes" => @ship.changes_made.to_s.strip.present?,
+                       "repolink" => @ship.repo_url.to_s.strip.present?,
+                       "demolink" => @ship.demo_url.to_s.strip.present?,
+                       "screenshot" => carried.present?,
+                       "confirm" => @ship.screenshot_shows_game == true,
+                       "hackatime" => true } %>
+            <%# Each label is the action that fixes it (D-021). Organised by severity (ship_controller.js keeps it so as things change): failed
+                checks, then blockers not met yet, then warnings. A check that looks at a link or at an earlier check isn't listed until
+                that is there, and "Make sure your playable link loads" only if it fails (D-020). %>
+            <% checks = [ [ "title", :title, "Set the title", "ship_title", true, true ],
+                          [ "description", :description, "Write a description", "ship_description", true, true ],
+                          [ "descmin", nil, "Make the description #{Ship::DESCRIPTION_MIN}+ characters", "ship_description", true, @ship.description.to_s.strip.present? ],
+                          [ "changes", :changes_made, "Say what you changed since last time", "ship_changes_made", true, true ],
+                          [ "repolink", :repo_url, "Add a repository link", "ship_repo_url", true, true ],
+                          [ "demolink", :demo_url, "Add a playable link", "ship_demo_url", true, true ],
+                          [ "screenshot", :screenshot, "Set a new screenshot", "ship_screenshot", true, true ],
+                          [ "confirm", :screenshot_shows_game, "Confirm the screenshot shows your game", "ship_screenshot_shows_game", true, true ],
+                          [ "hackatime", nil, "Link a Hackatime project", "ship_hackatime", true, true ],
+                          [ "repo", :repo_url, "Make the repository public", "ship_repo_url", true, false, true ],
+                          [ "readme", nil, "Add a README to the repository", "ship_repo_url", true, false, true ],
+                          [ "readme_demo", nil, "Put your playable link in the README", "ship_demo_url", true, false, true ],
+                          [ "demo", :demo_url, "Make sure your playable link loads", "ship_demo_url", true, false, true ],
+                          [ "commits", nil, "Commit since Save Point began", nil, false, false, true ] ] %>
+            <% ranked = checks.each_with_index.sort_by { |(check, attribute, _label, _target, blocker, _listed, _network), index| [ (attribute && errors[attribute].any? && !met[check] ? 0 : (blocker ? 1 : 2)), index ] } %>
+            <ol class="ship__checks">
+              <% ranked.each do |(check, attribute, label, target, blocker, listed, network), index| %>
+                <%= tag.li class: "sp-item ship__check", data: { ship_target: "check", check:, index:, blocker:, network: (true if network), state: ("wait" if network),
+                                                                  error: (true if attribute && errors[attribute].any?),
+                                                                  done: (true if met[check]), gone: (true if met[check]), hidden: (true unless listed) } do %>
+                  <span class="sp-item__mark"><%= sp_icon "check-fill", "ship__mark-done" %><%= sp_icon "close-fill", "ship__mark-error" %><% if network %><%= sp_icon "warning-fill", "ship__mark-warn" %><% end %></span>
+                  <span class="sp-item__title"><%= label %></span>
+                  <% if target %><a class="ship__fix" href="#<%= target %>" data-action="ship#fix">Fix</a><% end %>
+                  <% if network %><small class="ship__check-detail" data-detail hidden></small><% end %>
+                <% end %>
+              <% end %>
+            </ol>
+            <p class="ship__allset" data-ship-target="allset" hidden><%= sp_icon "check-circle-fill" %>All set.</p>
+            <%= form.button class: "sp-btn sp-btn--gold sp-btn--lg ship__submit", data: { ship_target: "submit" } do %>
+              <%= sp_icon "rocket-fill" %>Ship it
+            <% end %>
+            <%= link_to "Keep building", project_path, class: "sp-btn sp-btn--ghost ship__text-button" %>
+          </aside>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

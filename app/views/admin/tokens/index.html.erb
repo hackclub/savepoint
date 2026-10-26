@@ -1,0 +1,76 @@
+<% content_for :title, "Tokens · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-tokens" %>
+
+<%# Your tokens for the admin MCP server (D-046): with one, Claude does what the admin pages do and reads the analytics, as
+    you. A new token is shown once, in the command that adds the server. Only its SHA-256 is kept. %>
+<div class="pg-admin-tokens sp-page">
+  <div class="pg-admin-tokens__wrap">
+    <main class="pg-admin-tokens__main">
+      <header class="pg-admin-tokens__head">
+        <h1 class="pg-admin-tokens__title">Your tokens for Claude</h1>
+        <p class="pg-admin-tokens__note">
+          A token lets Claude use the admin MCP server as you: read everyone's details, read the analytics, and approve ships, mark orders ordered
+          and decide extensions. Every call is logged under your name. Keep it secret, make one per computer, and revoke one you don't need. It stops
+          working if you're no longer an admin.
+        </p>
+      </header>
+
+      <% if @new_token %>
+        <section class="sp-panel pg-admin-tokens__panel pg-admin-tokens__new" aria-labelledby="admin-tokens-new" data-new-token>
+          <h2 class="sp-ribbon sp-ribbon--gold" id="admin-tokens-new"><span><%= sp_icon "lock-fill" %>Copy it now</span></h2>
+          <p class="pg-admin-tokens__note">This is the only time the token is shown. Run this once, in a terminal, to add the server to Claude Code:</p>
+          <pre class="pg-admin-tokens__command" tabindex="0"><code>claude mcp add --transport http savepoint <%= admin_mcp_url %> --header "Authorization: Bearer <%= @new_token %>"</code></pre>
+          <p class="pg-admin-tokens__note">Or the token on its own, for another client: <code class="pg-admin-tokens__token"><%= @new_token %></code></p>
+        </section>
+      <% end %>
+
+      <section class="sp-panel pg-admin-tokens__panel" aria-labelledby="admin-tokens-make">
+        <h2 class="sp-ribbon" id="admin-tokens-make"><span><%= sp_icon "add-fill" %>Make a token</span></h2>
+        <%= form_with url: admin_tokens_path, class: "pg-admin-tokens__form", data: { turbo: false } do |form| %>
+          <%= form.label :name, "What it's for", class: "sp-label" %>
+          <%= form.text_field :name, maxlength: AdminToken::NAME_MAX, required: true, placeholder: "Claude Code on my laptop", autocomplete: "off", class: "sp-input" %>
+          <% if @error %><p class="pg-admin-tokens__error" role="alert"><%= sp_icon "warning-fill" %>Name <%= @error.delete_prefix("Name ") %></p><% end %>
+          <%= form.button "Make a token", type: "submit", class: "sp-btn sp-btn--royal" %>
+        <% end %>
+      </section>
+
+      <section class="sp-panel pg-admin-tokens__panel" aria-labelledby="admin-tokens-yours">
+        <h2 class="sp-ribbon" id="admin-tokens-yours"><span><%= sp_icon "lock-fill" %>Yours</span></h2>
+        <% if @tokens.empty? %>
+          <p class="pg-admin-tokens__empty"><%= sp_icon "information-fill" %><span>None yet.</span></p>
+        <% else %>
+          <div class="pg-admin-tokens__scroll">
+            <table class="pg-admin-tokens__table">
+              <thead>
+                <tr>
+                  <th scope="col">For</th>
+                  <th scope="col">Made</th>
+                  <th scope="col">Last used</th>
+                  <th scope="col"><span class="pg-admin-tokens__hidden">Revoke</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @tokens.each do |token| %>
+                  <tr id="<%= dom_id(token) %>" data-revoked="<%= token.revoked? %>">
+                    <td data-label="For"><%= token.name %></td>
+                    <td data-label="Made"><%= token.created_at.strftime("%b %-d") %></td>
+                    <td data-label="Last used"><%= token.last_used_at ? "#{time_ago_in_words(token.last_used_at)} ago" : "never" %></td>
+                    <td class="pg-admin-tokens__actions">
+                      <% if token.revoked? %>
+                        <span class="sp-badge sp-badge--coral">Revoked <%= token.revoked_at.strftime("%b %-d") %></span>
+                      <% else %>
+                        <%= button_to admin_token_path(token), method: :delete, class: "sp-btn sp-btn--sm", form: { data: { turbo: false } } do %>
+                          <%= sp_icon "close-fill" %>Revoke
+                        <% end %>
+                      <% end %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </section>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,48 @@
+{
+  "text": "Save Point: Finish that game you started!",
+  "blocks": [
+    {
+      "type": "image",
+      "image_url": "https://savepoint.hackclub.com/announcements/launch-logo.png",
+      "alt_text": "Save Point"
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": ":savepoint-star: Save Point: Finish that game you started! :savepoint-star:" }
+    },
+    { "type": "divider" },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*What is this?*\n:ms-arrow-right: Ever started a game for a game jam and wanted continue it? Save point is here for that exact reason" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*How much time do I need?*\n:ms-empty-star: Prizes start be redeemed at *30 minutes a day!*" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*When does this end?*\n:ms-4-00: 10 days!! November 2,  4:00 PM EST" }
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*How do I start????*\n:redarrows: <https://savepoint.hackclub.com|savepoint.hackclub.com>\n:redarrows: <https://savepoint.hackclub.com|savepoint.hackclub.com>\n:redarrows: <https://savepoint.hackclub.com|savepoint.hackclub.com>" }
+    },
+    {
+      "type": "image",
+      "image_url": "https://savepoint.hackclub.com/announcements/launch-explainer.png",
+      "alt_text": "Finish that game you started. Get a $25 Steam card, an 8BitDo 2C or a Keychron K2."
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Join", "emoji": true },
+          "style": "primary",
+          "url": "https://savepoint.hackclub.com"
+        }
+      ]
+    }
+  ]
+}

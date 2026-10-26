@@ -1,0 +1,126 @@
+/* The Buddy page (buddies/show): either the two of you (this week's hours, your pair
+   weeks and your buddy) or how pairing works and your invite link. Loads after
+   save_point/tokens and save_point/components. Every rule sits under .pg-buddies. */
+
+.pg-buddies {
+  min-height: 100vh;
+  padding-bottom: var(--space-16);
+  color: var(--ink);
+  overflow-x: clip;
+}
+.pg-buddies h1, .pg-buddies h2, .pg-buddies p { margin: 0; }
+.pg-buddies h1, .pg-buddies h2 { text-wrap: balance; }
+.pg-buddies a { color: var(--royal-ink); }
+.pg-buddies a:focus-visible, .pg-buddies button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-buddies .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* An animal on its colour (avatar_tag). */
+.pg-buddies .avatar {
+  --avatar-color: var(--royal);
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--avatar-color); color: var(--on-royal);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--line);
+}
+.pg-buddies .avatar svg { width: 64%; height: 64%; }
+
+/* ---------- Hero: your faces, side by side, and the title ---------- */
+.pg-buddies__hero { display: grid; justify-items: center; gap: var(--space-3); padding-block: var(--space-6) var(--space-10); text-align: center; }
+.pg-buddies__duo { display: inline-flex; align-items: center; margin-bottom: var(--space-2); }
+.pg-buddies__duo .pg-buddies__face {
+  width: 88px; height: 88px;
+  box-shadow: 0 0 0 5px var(--surface), 0 0 0 7px var(--line-strong), 0 10px 0 1px var(--line-lip);
+}
+.pg-buddies__duo .pg-buddies__face:first-child { transform: rotate(-6deg); }
+.pg-buddies__duo .pg-buddies__face:last-child { transform: rotate(6deg); }
+.pg-buddies__face--empty {
+  display: grid; place-items: center; border-radius: 50%; font-size: 40px; color: var(--ink-faint);
+  background: repeating-linear-gradient(-45deg, var(--surface-sunken) 0 8px, var(--surface) 8px 16px);
+}
+.pg-buddies__link {
+  position: relative; z-index: 1; display: grid; place-items: center; width: 52px; height: 52px; margin-inline: -10px;
+  border-radius: 50%; font-size: 28px; color: var(--on-gold);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line);
+  /* The lip is inside the coin (no gloss), so the white ring is the same 4px on every side. */
+  box-shadow: inset 0 -3px 0 var(--gold-lip), 0 0 0 4px var(--surface);
+}
+.pg-buddies__title { max-width: 22ch; font: 900 italic clamp(34px, 5vw, 52px)/1.05 var(--font-display); letter-spacing: -0.01em; color: var(--ink); overflow-wrap: anywhere; }
+.pg-buddies__lead { max-width: 56ch; font: 700 clamp(16px, 1.5vw, 18px)/1.55 var(--font-body); color: var(--ink-muted); text-wrap: balance; }
+
+/* ---------- Paired ---------- */
+.pg-buddies__pair { display: grid; gap: var(--space-10) var(--space-6); align-items: start; }
+.pg-buddies__col { display: grid; gap: var(--space-10); align-content: start; min-width: 0; }
+@media (min-width: 900px) {
+  .pg-buddies__pair { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+}
+
+/* Pair weeks: a big gold counter, a star for each program week. */
+.pg-buddies__streak {
+  display: grid; justify-items: center; gap: var(--space-1); padding: var(--space-5) var(--space-6) var(--space-6); text-align: center;
+  background: linear-gradient(180deg, var(--cream), var(--gold-soft)); border: 2px solid var(--gold-line); border-radius: var(--radius-xl);
+  box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), var(--shadow-soft); color: var(--copper-ink);
+}
+.pg-buddies__streak-label { display: inline-flex; align-items: center; gap: 6px; font: 800 13px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; }
+.pg-buddies__streak-label .sp-icon { font-size: 18px; color: var(--copper); }
+.pg-buddies__streak-value { font: 900 italic 28px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.pg-buddies__streak-value b { font-size: 72px; line-height: 1; color: var(--gold-ink); text-shadow: 0 3px 0 var(--gold-soft); }
+.pg-buddies__streak-stars { font-size: 34px; gap: var(--space-1); margin-block: var(--space-1); }
+.pg-buddies__streak-note { font: 800 14px/20px var(--font-body); }
+
+/* This week: a meter each, against the weekly goal. */
+.pg-buddies__week { padding-top: var(--space-10); }
+.pg-buddies .buddy-hours { display: grid; gap: var(--space-5); margin: 0; padding: 0; list-style: none; }
+.pg-buddies .buddy-hours__row { display: grid; gap: var(--space-2); min-width: 0; }
+.pg-buddies .buddy-hours__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
+.pg-buddies .buddy-hours__name { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; font: 800 16px/22px var(--font-body); overflow-wrap: anywhere; }
+.pg-buddies .buddy-hours__name .avatar { width: 30px; height: 30px; }
+.pg-buddies .buddy-hours__value { display: inline-flex; align-items: center; gap: 6px; flex: none; font: 800 italic 18px/22px var(--font-display); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.pg-buddies .buddy-hours__value .sp-icon { font-size: 20px; }
+.pg-buddies .buddy-hours__row[data-done] .buddy-hours__value { color: var(--mint-ink); }
+.pg-buddies .buddy-hours__bar { display: block; margin-block-end: 3px; background: var(--line); box-shadow: 0 3px 0 var(--line-lip); }
+.pg-buddies .buddy-hours__bar .sp-meter__track { background: var(--surface-sunken); box-shadow: inset 0 3px 0 var(--shade); }
+.pg-buddies .buddy-hours__bar > span, .pg-buddies .buddy-hours__bar .sp-meter__fill { display: block; }
+.pg-buddies .buddy-hours__row:not([data-done]) .sp-meter__fill { background: linear-gradient(90deg, var(--royal), var(--royal-hi)); }
+
+/* Your buddy: their player plate, then their game. */
+.pg-buddies__buddy { padding: var(--space-5); }
+.pg-buddies__plate { width: auto; margin-inline: var(--space-2); }
+.pg-buddies__plate .sp-plate__avatar { box-shadow: inset 0 0 0 3px var(--frame-track); }
+.pg-buddies__plate .avatar { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+.pg-buddies__plate .sp-plate__name { font-size: 22px; line-height: 28px; }
+.pg-buddies__plate .sp-plate__nums { overflow-wrap: anywhere; }
+.pg-buddies__shot { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border-radius: var(--radius-md); background: var(--surface-sunken); border: 2px solid var(--line); }
+
+/* ---------- Not paired yet ---------- */
+/* How to get a buddy: your invite link, in a single card. */
+.pg-buddies__ways { display: grid; gap: var(--space-6); width: 100%; max-width: 560px; margin-inline: auto; }
+.pg-buddies__way { align-content: start; gap: var(--space-3); padding: var(--space-6); }
+.pg-buddies__way-icon {
+  display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: var(--space-1); border-radius: var(--radius-lg);
+  font-size: 30px; color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal));
+  border: 2px solid var(--royal-line); box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--royal-lip);
+}
+.pg-buddies__way-title { font: 800 italic 26px/32px var(--font-display); }
+.pg-buddies__way-text { color: var(--ink-muted); }
+
+/* The invite link and its copy button (the shared buddies/_invite_link partial). */
+.pg-buddies .buddy-link { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-3); margin: var(--space-2) 0 0; }
+.pg-buddies .buddy-link__input {
+  flex: 1 1 220px; min-width: 0; min-height: var(--control-md); padding: 10px 14px; margin: 0;
+  font: 700 16px/24px var(--font-body); color: var(--ink); text-overflow: ellipsis;
+  background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 0 var(--shade); transition: border-color 120ms, box-shadow 120ms, background 120ms;
+}
+.pg-buddies .buddy-link__input:focus { outline: none; background: var(--surface); border-color: var(--royal); box-shadow: 0 0 0 4px var(--royal-glow), var(--focus-ring); }
+.pg-buddies .buddy-link button {
+  appearance: none; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--control-md); padding: 0 var(--space-5); margin: 0 0 var(--lip-depth);
+  font: 800 16px/1 var(--font-body); letter-spacing: 0.01em; white-space: nowrap; color: var(--on-gold);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--gold-lip);
+  cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out, filter 150ms;
+}
+.pg-buddies .buddy-link button:hover { filter: brightness(1.05) saturate(1.05); }
+.pg-buddies .buddy-link button:active { transform: translateY(var(--press-depth)); box-shadow: inset 0 2px 0 var(--gloss), 0 1px 0 var(--gold-lip); }
+.pg-buddies .buddy-link button:focus-visible { box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--gold-lip), var(--focus-ring); }
+.pg-buddies .buddy-link button .icon { width: 22px; height: 22px; fill: currentColor; }
+@media (max-width: 419px) { .pg-buddies .buddy-link button { flex: 1 1 100%; } }

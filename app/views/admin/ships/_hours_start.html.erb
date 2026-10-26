@@ -1,0 +1,29 @@
+<%# D-065, D-066: the moment this project's Hackatime time starts counting, where it came from, and the reviewer's override. The
+    override rebuilds the participant's days from the new moment. Nobody moves the start of their own ship. Styled in admin-ship.css. %>
+<% project = ship.project %>
+<% source = { override: "set by a reviewer", sign_up: "sign-up", launch: "launch",
+              jame_gam: "jame gam submission (#{project.jame_gam_review_status.presence || "no status yet"}, #{project.jame_gam_submitted_at&.utc&.strftime("%b %-d")})" }.fetch(project.hours_start_source) %>
+<section class="sp-panel ash__panel ash__hours-start" aria-labelledby="admin-ship-hours-start">
+  <h2 class="sp-ribbon ash__ribbon" id="admin-ship-hours-start"><span><%= sp_icon "time-fill" %>Hours start</span></h2>
+  <p class="ash__hours-start-line" id="hours-start">
+    Hours count from <strong><%= project.hours_start.utc.strftime("%b %-d, %H:%M") %> UTC</strong> (<%= source %>).
+  </p>
+  <% if ship.by?(current_user) %>
+    <p class="admin__muted">Someone else moves the start of your own ship.</p>
+  <% else %>
+    <%= form_with url: hours_start_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", data: { turbo: false } do |form| %>
+      <div class="sp-field">
+        <%= form.label :hours_start_override, "Start counting from (UTC)", class: "sp-label" %>
+        <%= form.datetime_local_field :hours_start_override, class: "sp-input", value: project.hours_start_override&.utc&.strftime("%Y-%m-%dT%H:%M"),
+                                      min: Program::STARTS_AT.utc.strftime("%Y-%m-%dT%H:%M"), max: Time.current.utc.strftime("%Y-%m-%dT%H:%M") %>
+      </div>
+      <div class="ash__hours-start-actions">
+        <%= form.button type: "submit", class: "sp-btn sp-btn--royal sp-btn--sm" do %><%= sp_icon "save-2-fill" %>Set start<% end %>
+        <% if project.hours_start_override %>
+          <%= form.button type: "submit", name: "clear", value: "1", class: "sp-btn sp-btn--sm", formnovalidate: true do %>Clear override<% end %>
+        <% end %>
+      </div>
+    <% end %>
+    <p class="admin__muted ash__hours-start-note">Not before Save Point began. Their days rebuild from it within a minute or so.</p>
+  <% end %>
+</section>

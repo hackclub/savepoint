@@ -1,0 +1,30 @@
+/* The Hackatime project picker (shared/_hackatime_picker, shared/_hackatime_rows): used on the project page, the ship page and
+   onboarding. Concentric: a row is a pill with a 2px border and 6px inside it on the near sides (9px at the bottom: the 3px
+   lip of the coin and the hours pill count as their height). The 36px coin and the 36px hours pill are pills in it, and the
+   28px gold coin in the hours pill is 4px in from its edges. */
+.hkp { display: grid; gap: var(--space-3); min-width: 0; }
+.hkp__list { display: grid; gap: var(--space-2); }
+.hkp__row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); padding: 6px 6px 9px; border-radius: var(--radius-full); background: var(--surface); border: 2px solid var(--line); cursor: pointer; transition: background 140ms, border-color 140ms; }
+.hkp__row:hover { border-color: var(--royal); }
+.hkp__row:has(:checked) { background: var(--mint-soft); border-color: transparent; }
+.hkp__row:has(:focus-visible) { box-shadow: var(--focus-ring); }
+.hkp__input { position: absolute; opacity: 0; pointer-events: none; }
+.hkp__coin { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-size: 22px; color: transparent; background: var(--surface-sunken); box-shadow: inset 0 0 0 2px var(--line), 0 3px 0 var(--line); transition: background 140ms, box-shadow 140ms; }
+.hkp__row:has(:checked) .hkp__coin { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--mint-lip); }
+@media (prefers-reduced-motion: no-preference) {
+  .hkp__row:has(:checked) .hkp__coin { animation: hkp-tick 260ms cubic-bezier(.3, 1.6, .5, 1); }
+}
+.hkp__label { display: grid; align-content: start; min-width: 0; }
+.hkp__name { display: flex; align-items: center; min-height: 36px; min-width: 0; font: 800 16px/22px var(--font-body); color: var(--ink); overflow-wrap: anywhere; }
+.hkp__row:has(:checked) .hkp__name { color: var(--mint-ink); }
+.hkp__hours { height: 36px; padding: 0 14px 0 4px; font-size: 18px; }
+.hkp__hours .sp-stat__key { width: 28px; height: 28px; font-size: 16px; }
+.hkp__warning { display: flex; align-items: flex-start; gap: 6px; margin-top: -8px; padding-bottom: 2px; font: 700 13px/18px var(--font-body); color: var(--coral-ink); }
+.hkp__warning .sp-icon { flex: none; font-size: var(--icon-sm); margin-top: 1px; }
+.hkp__note { display: flex; align-items: center; min-height: 36px; padding-right: var(--space-3); font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
+.hkp__text { margin: 0; font: 600 15px/22px var(--font-body); color: var(--ink-muted); }
+.hkp__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
+.hkp__status { margin: 0; }
+.hkp__status[data-state="saved"] { color: var(--mint-ink); font-weight: 800; }
+.hkp__status[data-state="error"] { color: var(--coral-ink); font-weight: 800; }
+@keyframes hkp-tick { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }

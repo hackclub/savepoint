@@ -1,0 +1,4 @@
+<%# locals: (user:, hackatime:) %>
+<%= render "shared/hackatime_rows", type: "radio", name: "onboarding-hackatime", label: "Your Hackatime projects",
+      input_data: { onboarding_target: "hackatime", action: "onboarding#pickHackatime" },
+      choices: onboarding_hackatime_choices(user, hackatime) %>

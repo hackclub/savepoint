@@ -1,0 +1,17 @@
+aseprite | aseprite.png | 566 228 yes (WxH alpha) | PNG image  | https://www.aseprite.org/ (assets/images/header-logo.png)
+steam-card | steam-card.png | 558 575 yes (WxH alpha) | PNG image  | https://store.steampowered.com/digitalgiftcards (public/images/gift/steamcards_physical.png)
+8bitdo-micro | 8bitdo-micro.jpg | 800 800 no (WxH alpha) | JPEG image | https://shop.8bitdo.com/products/8bitdo-micro-bluetooth-gamepad
+8bitdo-pro-2 | 8bitdo-pro-2.jpg | 800 800 no (WxH alpha) | JPEG image | https://shop.8bitdo.com/products/8bitdo-pro-2-bluetooth-controller (Hall Effect Joystick)
+8bitdo-ultimate-2 | 8bitdo-ultimate-2.jpg | 800 800 no (WxH alpha) | JPEG image | https://shop.8bitdo.com/products/8bitdo-ultimate-2
+8bitdo-ultimate-2c | 8bitdo-ultimate-2c.jpg | 800 800 no (WxH alpha) | JPEG image | https://shop.8bitdo.com/products/8bitdo-ultimate-2c-wireless-controller
+redragon-k617 | redragon-k617.png | 900 900 yes (WxH alpha) | PNG image  | https://redragonshop.com/products/small-mechanical-keyboard (official Redragon US store, White & Grey)
+logitech-g203 | logitech-g203.png | 900 777 yes (WxH alpha) | PNG image  | https://www.logitechg.com/en-us/shop/p/g203-lightsync-rgb-gaming-mouse (black)
+attack-shark-x3 | attack-shark-x3.jpg | 900 900 no (WxH alpha) | JPEG image | https://attackshark.com/products/attack-shark-x3-wireless-gaming-mouse-paw3395
+keychron-k2 | keychron-k2.jpg | 900 900 no (WxH alpha) | JPEG image | https://www.keychron.com/products/keychron-k2-wireless-mechanical-keyboard (Version 2)
+aula-f75 | aula-f75.png | 900 900 yes (WxH alpha) | PNG image  | https://epomaker.com/products/aula-f75-wired (Epomaker x Aula F75, aulastore.com blocks curl with 403)
+roblox25 | roblox25.png | 720 453 yes (WxH alpha) | PNG image | https://www.amazon.com/dp/B07RX6FBFR (hiRes 61M8pM14EqL, opaque JPEG; white corners keyed out)
+roblox50 | roblox50.png | 720 453 yes (WxH alpha) | PNG image | https://www.amazon.com/dp/B07RZ75JW3 (hiRes 61wYy8fkl0L, opaque JPEG; white corners keyed out)
+roblox75 | roblox75.png | 720 453 yes (WxH alpha) | PNG image | https://www.amazon.com/dp/B0BCDDPBCK (hiRes 61+bm3Sqm8L, opaque JPEG; white corners keyed out)
+roblox100 | roblox100.png | 720 453 yes (WxH alpha) | PNG image | https://www.amazon.com/dp/B08R5N6W6B (hiRes 61vuyAUj0rL, opaque JPEG; white corners keyed out)
+playstation-card | playstation-card.png | 560 559 yes (WxH alpha) | PNG image | https://www.amazon.com/dp/B00K59HKIQ (image 51JLY4kBluL, opaque JPEG, square card art; white corners keyed out)
+xbox-card | xbox-card.png | 560 560 yes (WxH alpha) | PNG image | https://www.amazon.com/dp/B00F4CFHFC (image 61vCgvxF67L, opaque JPEG, square card art; white corners keyed out)

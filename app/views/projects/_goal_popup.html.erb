@@ -1,0 +1,52 @@
+<%# locals: (project:) %>
+<%# The "you've earned it" popup: your approved hours to spend first cover your goal prize, so it opens once (goal_popup_controller.js
+    marks it seen for this goal: Project#goal_reached_popup?). It is the shop's prize sheet (shop/_prize_sheet, prize_sheet_controller.js)
+    with a celebration on top. "Claim it" goes into the same claim step (shop/_claim_step). Under it, one card for the next prize up
+    (Project#upsell_prize), whose "Keep going" makes it the goal. Nothing renders unless the popup is due. %>
+<% prize = project.chosen_prize %>
+<% if prize && project.set_up? && project.goal_reached_popup? %>
+  <% content_for :stylesheets, " save_point/pages/shop save_point/pages/goal" %>
+  <% upsell = project.upsell_prize %>
+  <% left = (project.hours_to_spend - prize.hours).round(2) %>
+  <div class="goal-popup" data-controller="prize-sheet goal-popup"
+       data-prize-sheet-open-sound-value="<%= audio_path("save_point/claim.mp3") %>"
+       data-prize-sheet-confirm-sound-value="<%= audio_path("save_point/confirm.mp3") %>"
+       data-goal-popup-seen-url-value="<%= project_goal_seen_path %>">
+    <dialog class="order-sheet order-sheet--goal" aria-labelledby="goal-popup-title" data-prize-sheet-target="dialog" data-action="click->prize-sheet#closeOutside close->prize-sheet#reset">
+      <div class="order-sheet__card shop-card--<%= prize_tier(prize) %>">
+        <div class="order-sheet__top">
+          <div class="order-sheet__head">
+            <h2 class="order-sheet__name" id="goal-popup-title">You've earned the <%= prize.name %>!</h2>
+            <p class="order-sheet__kind"><%= prize.kind %></p>
+          </div>
+          <div class="order-sheet__art"><span class="order-sheet__rays" aria-hidden="true"></span><%= render "pages/landing/prize_art", prize: %></div>
+          <svg class="order-sheet__wave" viewBox="0 0 400 48" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 30 C 70 6, 130 4, 200 22 S 330 48, 400 14 V 48 H 0 Z"/></svg>
+        </div>
+
+        <div class="order-sheet__bottom" data-prize-sheet-target="details">
+          <div class="order-sheet__actions">
+            <button type="button" class="order-sheet__go order-sheet__go--gold" data-action="prize-sheet#claim"><span>Claim it</span></button>
+          </div>
+
+          <% if upsell %>
+            <div class="goal-popup__upsell">
+              <div class="goal-popup__upsell-body">
+                <span class="goal-popup__upsell-art"><%= render "pages/landing/prize_art", prize: upsell %></span>
+                <p class="goal-popup__upsell-text">
+                  <span>Or keep going for the <%= upsell.name %></span>
+                  <b><%= project_hours((upsell.hours - project.hours_to_spend).round(1)) %> more hrs</b>
+                </p>
+              </div>
+              <%= button_to project_path, method: :patch, params: { project: { prize_key: upsell.key } }, class: "goal-popup__upsell-go",
+                    form: { class: "goal-popup__upsell-form", data: { turbo: false, action: "submit->prize-sheet#confirmed" } } do %><%= sp_icon "flag-1-fill" %>Keep going<% end %>
+            </div>
+          <% end %>
+
+          <button type="button" class="goal-popup__later" data-action="prize-sheet#close">Not now</button>
+        </div>
+
+        <%= render "shop/claim_step", prize:, left: %>
+      </div>
+    </dialog>
+  </div>
+<% end %>

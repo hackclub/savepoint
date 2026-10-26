@@ -1,0 +1,142 @@
+/* The admin page for one project (admin/projects/show): the nav, who and where they've got to, four tiles, the
+   pledge and the days built side by side, then the ships and the screenshot. A tool, so dense and plain, in the
+   style sheet's colours and lips. Loads after save_point/tokens and save_point/components. The admin nav styles itself (admin-nav.css).
+   Every rule here is scoped. */
+
+.pg-admin-project { min-height: 100vh; padding-block: var(--space-2) var(--space-16); }
+.pg-admin-project a { color: var(--royal-ink); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.pg-admin-project a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.pg-admin-project p { margin: 0; }
+.pg-admin-project .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pg-admin-project .admin__muted { color: var(--ink-muted); font-weight: 600; }
+.pg-admin-project .ap { display: grid; gap: var(--space-6); }
+.pg-admin-project .ap__main { display: grid; gap: var(--space-10); min-width: 0; }
+
+/* Head: back link, the title, who it's by, and the view-as button. */
+.pg-admin-project .ap__head { display: grid; gap: var(--space-3); justify-items: start; }
+.pg-admin-project .ap__back a { display: inline-flex; align-items: center; gap: 4px; font: 800 14px/20px var(--font-body); text-decoration: none; }
+.pg-admin-project .ap__back a:hover { text-decoration: underline; }
+.pg-admin-project .ap__back .sp-icon { font-size: 18px; }
+.pg-admin-project .ap__title {
+  margin: 0; max-width: 28ch; font: 900 italic clamp(30px, 4.4vw, 46px)/1.08 var(--font-display); color: var(--ink);
+  letter-spacing: -0.01em; text-wrap: balance; overflow-wrap: anywhere;
+}
+.pg-admin-project .ap__byline { max-width: 80ch; font: 600 15px/24px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
+.pg-admin-project .ap__actions { margin-top: var(--space-1); }
+.pg-admin-project .ap__actions form { margin: 0; }
+
+/* Avatars: the animal on the person's colour. */
+.pg-admin-project .avatar {
+  display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--avatar-color, var(--royal)); color: var(--on-royal); vertical-align: -6px; box-shadow: 0 0 0 2px var(--surface);
+}
+.pg-admin-project .avatar svg { width: 64%; height: 64%; }
+.pg-admin-project .ap__byline .avatar { margin: 0 6px 0 4px; }
+
+/* Tiles: four stat cards, two across on a phone. */
+.pg-admin-project .ap__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+@media (min-width: 800px) { .pg-admin-project .ap__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); } }
+.pg-admin-project .ap__tile {
+  --t-hi: var(--royal-hi); --t-lo: var(--royal); --t-on: var(--on-royal);
+  display: grid; align-content: start; gap: 2px; min-width: 0; padding: var(--space-3) var(--space-4) var(--space-4) var(--space-3);
+  background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-admin-project .ap__tile--gold { --t-hi: var(--gold-hi); --t-lo: var(--gold); --t-on: var(--on-gold); }
+.pg-admin-project .ap__tile--coral { --t-hi: var(--coral); --t-lo: var(--coral-ink); --t-on: var(--on-royal); }
+.pg-admin-project .ap__tile--violet { --t-hi: var(--violet); --t-lo: var(--violet-ink); --t-on: var(--on-violet); }
+.pg-admin-project .ap__tile > span {
+  display: inline-flex; align-items: flex-start; gap: var(--space-2); font: 800 12px/28px var(--font-body);
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+}
+.pg-admin-project .ap__tile > span [data-icon] {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 16px; color: var(--t-on);
+  background: linear-gradient(180deg, var(--t-hi), var(--t-lo)); box-shadow: inset 0 2px 0 var(--gloss);
+}
+.pg-admin-project .ap__tile strong {
+  margin-top: var(--space-1); font: 900 italic clamp(26px, 3vw, 34px)/1.1 var(--font-display); color: var(--ink);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.pg-admin-project .ap__tile strong a { color: var(--royal-ink); }
+.pg-admin-project .ap__tile strong[data-decision="approved"] { color: var(--mint-ink); }
+.pg-admin-project .ap__tile strong[data-decision="rejected"] { color: var(--coral-ink); }
+.pg-admin-project .ap__tile strong[data-decision="changes_needed"] { color: var(--coral-ink); }
+.pg-admin-project .ap__tile small { font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
+
+/* Panels: the style sheet's panel with a ribbon for its heading, a little tighter for a tool. */
+.pg-admin-project .ap__split { display: grid; gap: var(--space-10); align-items: start; }
+@media (min-width: 960px) { .pg-admin-project .ap__split { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-6); } }
+.pg-admin-project .ap__panel { gap: var(--space-3); padding: var(--space-8) var(--space-4) var(--space-4); border-radius: var(--radius-lg); }
+@media (min-width: 600px) { .pg-admin-project .ap__panel { padding: var(--space-8) var(--space-5) var(--space-5); } }
+.pg-admin-project .ap__ribbon .sp-icon { font-size: 20px; }
+.pg-admin-project .ap__empty { padding: var(--space-4); border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--surface-sunken); color: var(--ink-muted); font-weight: 700; text-align: center; }
+
+/* The pledge: label and value in two columns, a dashed line between rows. */
+.pg-admin-project .ap__details { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); margin: 0; font-size: 15px; line-height: 22px; }
+.pg-admin-project .ap__details dt, .pg-admin-project .ap__details dd { padding: 9px 0; border-top: 2px dashed var(--line); }
+.pg-admin-project .ap__details dt:first-of-type, .pg-admin-project .ap__details dt:first-of-type + dd { border-top: 0; }
+.pg-admin-project .ap__details dt { padding-right: var(--space-4); font: 800 12px/22px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-admin-project .ap__details dd { margin: 0; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+
+/* Tables: a sunken header row, rows split by a line, wide ones scroll in their own box. */
+.pg-admin-project .ap__scroll { overflow-x: auto; margin-inline: calc(var(--space-2) * -1); padding-inline: var(--space-2); }
+.pg-admin-project .ap__table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px; line-height: 20px; }
+.pg-admin-project .ap__table thead th {
+  padding: 8px 10px; background: var(--surface-sunken); font: 800 12px/16px var(--font-body); letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-muted); text-align: left; white-space: nowrap;
+}
+.pg-admin-project .ap__table thead th:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.pg-admin-project .ap__table thead th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.pg-admin-project .ap__table tbody th, .pg-admin-project .ap__table tbody td { padding: 10px; text-align: left; vertical-align: top; border-bottom: 2px solid var(--line); font-weight: 700; }
+.pg-admin-project .ap__table tbody tr:last-child > * { border-bottom: 0; }
+.pg-admin-project .ap__table tbody tr:hover > * { background: var(--royal-soft); }
+.pg-admin-project .ap__table small { display: block; margin-top: 2px; font-size: 13px; line-height: 18px; }
+.pg-admin-project .ap__num, .pg-admin-project .ap__table .leaderboard__number { text-align: right !important; font-variant-numeric: tabular-nums; }
+.pg-admin-project .ap__table td.leaderboard__number, .pg-admin-project .ap__table td.ap__num { font: 800 italic 17px/20px var(--font-display); }
+
+/* Days built: counted days get a fire in copper. */
+.pg-admin-project .admin__table--days tbody th { white-space: nowrap; }
+.pg-admin-project .ap__count { display: inline-flex !important; align-items: center; gap: 6px; margin: 0 !important; }
+.pg-admin-project .ap__count .sp-icon { font-size: 16px; }
+.pg-admin-project .is-counted .ap__count { color: var(--copper-ink); font-weight: 800; }
+
+/* Ships (admin/ships/_row, shared): who with their avatar, the ship, and its status as a coloured pill. */
+.pg-admin-project .admin__table--ships { min-width: 640px; }
+.pg-admin-project .admin__table--ships tbody th { position: relative; padding-left: 44px; }
+.pg-admin-project .admin__table--ships tbody th .avatar { position: absolute; left: 10px; top: 10px; width: 26px; height: 26px; }
+.pg-admin-project .admin__table--ships td[data-decision] { white-space: nowrap; font-weight: 800; }
+.pg-admin-project .admin__table--ships td[data-decision]::before {
+  content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: 0;
+  background: var(--gold); box-shadow: 0 2px 0 var(--gold-lip);
+}
+.pg-admin-project td[data-decision="in_review"] { color: var(--gold-ink); }
+.pg-admin-project td[data-decision="awaiting_fraud"] { color: var(--gold-ink); }
+.pg-admin-project td[data-decision="approved"] { color: var(--mint-ink); }
+.pg-admin-project .admin__table--ships td[data-decision="approved"]::before { background: var(--mint); box-shadow: 0 2px 0 var(--mint-lip); }
+.pg-admin-project td[data-decision="rejected"] { color: var(--coral-ink); }
+.pg-admin-project td[data-decision="changes_needed"] { color: var(--coral-ink); }
+.pg-admin-project .admin__table--ships td[data-decision="rejected"]::before { background: var(--coral); box-shadow: 0 2px 0 var(--coral-ink); }
+.pg-admin-project .admin__table--ships td[data-decision="changes_needed"]::before { background: var(--coral); box-shadow: 0 2px 0 var(--coral-ink); }
+
+/* On a phone each ship stacks into a card: who, the ship, then hours, date and status on one line. */
+@media (max-width: 699px) {
+  .pg-admin-project .admin__table--ships { display: block; min-width: 0; }
+  .pg-admin-project .admin__table--ships thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .pg-admin-project .admin__table--ships tbody { display: grid; }
+  .pg-admin-project .admin__table--ships tbody tr { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px var(--space-4); padding: var(--space-3) 0; border-bottom: 2px solid var(--line); }
+  .pg-admin-project .admin__table--ships tbody tr:last-child { border-bottom: 0; }
+  .pg-admin-project .admin__table--ships tbody tr > * { display: block; padding: 0; border: 0; background: none !important; }
+  .pg-admin-project .admin__table--ships tbody th { grid-column: 1 / -1; padding-left: 36px; min-height: 26px; }
+  .pg-admin-project .admin__table--ships tbody th .avatar { left: 0; top: 0; }
+  .pg-admin-project .admin__table--ships tbody td:nth-child(2) { grid-column: 1 / -1; }
+  .pg-admin-project .admin__table--ships tbody td.leaderboard__number { text-align: left !important; }
+  .pg-admin-project .admin__table--ships tbody td.leaderboard__number::after { content: " hrs"; font: 800 12px/1 var(--font-body); font-style: normal; color: var(--ink-muted); }
+  .pg-admin-project .admin__table--ships td[data-decision] { white-space: normal; }
+}
+
+/* Screenshot: framed, and opens full size. */
+.pg-admin-project .ap__shot { margin: 0; }
+.pg-admin-project .ap__shot a { display: block; width: fit-content; max-width: 100%; border-radius: var(--radius-md); }
+.pg-admin-project .ap__shot img {
+  display: block; max-width: 100%; max-height: 560px; height: auto; border-radius: var(--radius-md);
+  border: 2px solid var(--line-strong); box-shadow: 0 var(--lip-depth) 0 var(--line-lip); background: var(--surface-sunken);
+}

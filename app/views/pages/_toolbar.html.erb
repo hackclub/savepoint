@@ -1,0 +1,183 @@
+<%# The formatting toolbar. Buttons send toolbar:command to the sheet; menus open as popovers below the shelf,
+    outside the toolbar's overflow clip. The toolbar follows the active cell's format (sheet-editor:format). %>
+<div class="toolbar-shelf" data-controller="toolbar"
+     data-action="mousedown->toolbar#hold keydown->toolbar#navigate mouseover->toolbar#hint mouseout->toolbar#unhint
+                  sheet-editor:format@window->toolbar#reflect cell-selection:select@window->toolbar#track
+                  menu-bar:command@window->toolbar#external sheet-tabs:change@window->toolbar#unfilter
+                  click@window->toolbar#dismiss keydown@window->toolbar#shortcut resize@window->toolbar#close">
+  <div class="toolbar" role="toolbar" aria-label="Formatting">
+    <div class="toolbar__tools">
+      <label class="toolbar__search" data-toolbar-hint="Search the menus (Alt+/)">
+        <%= inline_svg_tag "icons/toolbar/search.svg", class: "icon", aria_hidden: true %>
+        <input type="search" placeholder="Menus" aria-label="Search the menus" autocomplete="off" spellcheck="false"
+               aria-controls="toolbar-menu-search" aria-expanded="false"
+               data-toolbar-target="search" data-action="input->toolbar#search focus->toolbar#search keydown->toolbar#searchKey blur->toolbar#endSearch">
+      </label>
+
+      <%= render "pages/toolbar_button", name: "undo", label: "Undo", command: "undo", hint: "Undo (Ctrl+Z)" %>
+      <%= render "pages/toolbar_button", name: "redo", label: "Redo", command: "redo", hint: "Redo (Ctrl+Y)" %>
+      <%= render "pages/toolbar_button", name: "print", label: "Print", command: "print", hint: "Print (Ctrl+P)" %>
+      <%= render "pages/toolbar_button", name: "format-paint", label: "Paint format", command: "paintFormat", pressed: false %>
+      <button type="button" id="toolbar-zoom" class="toolbar__button toolbar__button--text" aria-label="Zoom" aria-haspopup="true"
+              aria-expanded="false" aria-controls="toolbar-menu-zoom" data-action="toolbar#toggle" data-toolbar-hint="Zoom">
+        <span data-toolbar-target="zoomLabel">100%</span><%= inline_svg_tag "icons/arrow-drop-down.svg", class: "icon", aria_hidden: true %>
+      </button>
+
+      <span class="toolbar__divider"></span>
+
+      <%= render "pages/toolbar_button", name: "attach-money", label: "Format as currency", command: "numberFormat", value: "currency" %>
+      <%= render "pages/toolbar_button", name: "percent", label: "Format as percent", command: "numberFormat", value: "percent" %>
+      <%= render "pages/toolbar_button", name: "decimal-decrease", label: "Decrease decimal places", command: "decimals", value: -1 %>
+      <%= render "pages/toolbar_button", name: "decimal-increase", label: "Increase decimal places", command: "decimals", value: 1 %>
+      <button type="button" id="toolbar-number-format" class="toolbar__button toolbar__button--number" aria-label="More formats"
+              aria-haspopup="true" aria-expanded="false" aria-controls="toolbar-menu-number-format" data-action="toolbar#toggle"
+              data-toolbar-hint="More formats">123</button>
+
+      <span class="toolbar__divider"></span>
+
+      <button type="button" id="toolbar-font-family" class="toolbar__button toolbar__button--font" aria-label="Font"
+              aria-haspopup="true" aria-expanded="false" aria-controls="toolbar-menu-font-family" data-action="toolbar#toggle"
+              data-toolbar-hint="Font">
+        <span class="toolbar__font-name" data-toolbar-target="fontFamily">Arial</span><%= inline_svg_tag "icons/arrow-drop-down.svg", class: "icon", aria_hidden: true %>
+      </button>
+
+      <span class="toolbar__divider"></span>
+
+      <%= render "pages/toolbar_button", name: "remove", label: "Decrease font size", command: "fontSizeStep", value: -1,
+            hint: "Decrease font size (Ctrl+Shift+comma)" %>
+      <input class="toolbar__font-size" id="toolbar-font-size" value="10" inputmode="numeric" autocomplete="off" aria-label="Font size"
+             aria-haspopup="true" aria-expanded="false" aria-controls="toolbar-menu-font-size" data-toolbar-hint="Font size"
+             data-toolbar-target="fontSize" data-action="focus->toolbar#editSize keydown->toolbar#sizeKey blur->toolbar#endSize">
+      <%= render "pages/toolbar_button", name: "add", label: "Increase font size", command: "fontSizeStep", value: 1,
+            hint: "Increase font size (Ctrl+Shift+period)" %>
+
+      <span class="toolbar__divider"></span>
+
+      <%= render "pages/toolbar_button", name: "format-bold", label: "Bold", command: "bold", pressed: false, hint: "Bold (Ctrl+B)" %>
+      <%= render "pages/toolbar_button", name: "format-italic", label: "Italic", command: "italic", pressed: false, hint: "Italic (Ctrl+I)" %>
+      <%= render "pages/toolbar_button", name: "strikethrough-s", label: "Strikethrough", command: "strikethrough", pressed: false,
+            hint: "Strikethrough (Ctrl+Shift+X)" %>
+      <%= render "pages/toolbar_button", name: "format-color-text", label: "Text color", menu: "textColor", class: "toolbar__button--color" %>
+
+      <span class="toolbar__divider"></span>
+
+      <%= render "pages/toolbar_button", name: "format-color-fill", label: "Fill color", menu: "fillColor", class: "toolbar__button--color" %>
+      <%= render "pages/toolbar_button", name: "border-all", label: "Borders", menu: "borders", class: "toolbar__button--plain" %>
+      <span class="toolbar__split">
+        <%= render "pages/toolbar_button", name: "cell-merge", label: "Merge cells", command: "merge", value: "all" %>
+        <button type="button" id="toolbar-merge" class="toolbar__button toolbar__button--caret" aria-label="Select merge type"
+                aria-haspopup="true" aria-expanded="false" aria-controls="toolbar-menu-merge" data-action="toolbar#toggle"
+                data-toolbar-hint="Select merge type"><%= inline_svg_tag "icons/arrow-drop-down.svg", class: "icon", aria_hidden: true %></button>
+      </span>
+
+      <span class="toolbar__divider"></span>
+
+      <%= render "pages/toolbar_button", name: "format-align-left", label: "Horizontal align", menu: "alignH" %>
+      <%= render "pages/toolbar_button", name: "vertical-align-bottom", label: "Vertical align", menu: "alignV" %>
+      <%= render "pages/toolbar_button", name: "format-text-overflow", label: "Text wrapping", menu: "wrap" %>
+      <%= render "pages/toolbar_button", name: "text-rotation-none", label: "Text rotation", menu: "rotate" %>
+
+      <span class="toolbar__divider"></span>
+
+      <%= render "pages/toolbar_button", name: "link", label: "Insert link", menu: "link", hint: "Insert link (Ctrl+K)", class: "toolbar__button--plain" %>
+      <%= render "pages/toolbar_button", name: "add-comment", label: "Add comment", menu: "comment", hint: "Add comment (Ctrl+Alt+M)",
+            class: "toolbar__button--plain" %>
+      <%= render "pages/toolbar_button", name: "insert-chart", label: "Insert chart", disabled: true,
+            hint: "Insert chart: charts aren't available in this sheet" %>
+      <%= render "pages/toolbar_button", name: "filter-alt", label: "Create a filter", command: "filter", pressed: false %>
+      <%= render "pages/toolbar_button", name: "functions", label: "Functions", menu: "functions", class: "toolbar__button--plain" %>
+    </div>
+
+    <%= render "pages/toolbar_button", name: "keyboard-arrow-up", label: "Hide the menus", command: "hideMenus", pressed: false,
+          hint: "Hide the menus (Ctrl+Shift+F)", class: "toolbar__collapse" %>
+  </div>
+
+  <%# Menus %>
+  <div id="toolbar-menu-search" class="toolbar-menu toolbar-menu--search" role="listbox" aria-label="Menu search results" hidden
+       data-toolbar-target="menu results"></div>
+
+  <div id="toolbar-menu-zoom" class="toolbar-menu" role="menu" aria-label="Zoom" hidden data-toolbar-target="menu" data-reflect="zoom">
+    <% ToolbarHelper::ZOOM_LEVELS.each do |level| %>
+      <%= render "pages/toolbar_item", label: "#{level}%", command: "zoom", value: level %>
+    <% end %>
+  </div>
+
+  <div id="toolbar-menu-number-format" class="toolbar-menu" role="menu" aria-label="More formats" hidden
+       data-toolbar-target="menu" data-reflect="numberFormat">
+    <% ToolbarHelper::NUMBER_FORMATS.each do |label, value, sample| %>
+      <% if label %>
+        <%= render "pages/toolbar_item", label:, command: "numberFormat", value:, sample: %>
+      <% else %>
+        <hr class="toolbar-menu__divider">
+      <% end %>
+    <% end %>
+  </div>
+
+  <div id="toolbar-menu-font-family" class="toolbar-menu toolbar-menu--fonts" role="menu" aria-label="Font" hidden
+       data-toolbar-target="menu" data-reflect="fontFamily">
+    <% ToolbarHelper::FONT_FAMILIES.each do |family| %>
+      <%= render "pages/toolbar_item", label: family, command: "fontFamily", value: family, style: "font-family: '#{family}'" %>
+    <% end %>
+  </div>
+
+  <div id="toolbar-menu-font-size" class="toolbar-menu toolbar-menu--sizes" role="menu" aria-label="Font size" hidden
+       data-toolbar-target="menu" data-reflect="fontSize">
+    <% ToolbarHelper::FONT_SIZES.each do |size| %>
+      <%= render "pages/toolbar_item", label: size, command: "fontSize", value: size %>
+    <% end %>
+  </div>
+
+  <%= render "pages/toolbar_palette", command: "textColor", label: "Text color" %>
+  <%= render "pages/toolbar_palette", command: "fillColor", label: "Fill color" %>
+
+  <div id="toolbar-menu-borders" class="toolbar-menu toolbar-menu--borders" role="menu" aria-label="Borders" hidden data-toolbar-target="menu">
+    <% ToolbarHelper::BORDERS.each do |value, label, icon| %>
+      <%= tag.button type: "button", role: "menuitem", class: "toolbar-menu__item toolbar-menu__item--icon", aria: { label:, disabled: (true unless value) },
+            data: { action: ("toolbar#run" if value), toolbar_command_param: ("borders" if value), toolbar_value_param: value,
+                    toolbar_hint: value ? label : "#{label} aren't available here" }.compact do %>
+        <%= inline_svg_tag "icons/toolbar/#{icon}.svg", class: "icon", aria_hidden: true %>
+      <% end %>
+    <% end %>
+  </div>
+
+  <div id="toolbar-menu-merge" class="toolbar-menu" role="menu" aria-label="Merge cells" hidden data-toolbar-target="menu">
+    <% ToolbarHelper::MERGES.each do |value, label| %>
+      <%= tag.button label, type: "button", role: "menuitem", class: "toolbar-menu__item toolbar-menu__item--plain",
+            data: { action: "toolbar#run", toolbar_command_param: "merge", toolbar_value_param: value } %>
+    <% end %>
+  </div>
+
+  <% ToolbarHelper::ALIGNMENTS.each do |command, choices| %>
+    <%= tag.div id: "toolbar-menu-#{command}", class: "toolbar-menu toolbar-menu--icons", role: "menu",
+          aria: { label: { "alignH" => "Horizontal align", "alignV" => "Vertical align", "wrap" => "Text wrapping", "rotate" => "Text rotation" }[command] },
+          hidden: true, data: { toolbar_target: "menu", reflect: command } do %>
+      <% choices.each do |value, label, icon| %>
+        <%= render "pages/toolbar_item", label:, command:, value:, icon: %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <div id="toolbar-menu-functions" class="toolbar-menu" role="menu" aria-label="Functions" hidden data-toolbar-target="menu">
+    <% ToolbarHelper::FUNCTIONS.each do |name| %>
+      <%= tag.button name, type: "button", role: "menuitem", class: "toolbar-menu__item toolbar-menu__item--plain",
+            data: { action: "toolbar#run", toolbar_command_param: "insertFunction", toolbar_value_param: name } %>
+    <% end %>
+  </div>
+
+  <form id="toolbar-menu-link" class="toolbar-menu toolbar-menu--form" role="dialog" aria-label="Insert link" hidden
+        data-toolbar-target="menu" data-action="submit->toolbar#submit" data-toolbar-command-param="insertLink">
+    <input type="url" name="value" placeholder="Search or paste a link" aria-label="Link" autocomplete="off" spellcheck="false" required>
+    <button type="submit" class="toolbar-menu__apply">Apply</button>
+  </form>
+
+  <form id="toolbar-menu-comment" class="toolbar-menu toolbar-menu--form toolbar-menu--comment" role="dialog" aria-label="Add comment" hidden
+        data-toolbar-target="menu" data-action="submit->toolbar#submit keydown->toolbar#commentKey" data-toolbar-command-param="comment">
+    <textarea name="value" rows="3" placeholder="Comment or add others with @" aria-label="Comment" required></textarea>
+    <div class="toolbar-menu__actions">
+      <button type="button" class="toolbar-menu__cancel" data-action="toolbar#close">Cancel</button>
+      <button type="submit" class="toolbar-menu__apply">Comment</button>
+    </div>
+  </form>
+
+  <div class="toolbar-tooltip" role="tooltip" hidden data-toolbar-target="tooltip"></div>
+</div>

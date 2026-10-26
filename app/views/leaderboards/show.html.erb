@@ -1,0 +1,118 @@
+<% content_for :title, "Leaderboard · Save Point" %>
+<%# No cached preview: Turbo would render the old page first and the podium would rise twice. %>
+<% content_for :head, tag.meta(name: "turbo-cache-control", content: "no-preview") %>
+<%# The podium rises once, on arriving from another page, and not when you switch between Today and Total. %>
+<% switching = URI(request.referer.to_s).path == leaderboard_path rescue false %>
+<% content_for :stylesheets, " save_point/pages/leaderboard" %>
+<% rows = leaderboard(@project, sort: @sort) %>
+<% you = rows.find { |row| row[:you] } %>
+<% podium = rows.reject { |row| row[:off] }.first(3) %>
+<% sorted_value = ->(row) { "#{row[:hours]} hrs" } %>
+<% hours_label = @sort == "today" ? "Hours today" : "Total hours" %>
+<% streak_mark = ->(row) { tag.span(sp_icon("fire-fill") + row[:streak].to_s, class: "leaderboard__streak", title: pluralize(row[:streak], "day") + " streak") if row[:streak].positive? } %>
+
+<%# Everyone building, ranked by hours today or in total (D-015): the top three on a podium, then everyone as rows, with
+    your own row lit up in gold. A streak shows beside the name. %>
+<div class="pg-leaderboard sp-page"<%= " data-switching" if switching %>>
+  <%= render "shared/top_bar", current: :leaderboard %>
+
+  <main class="sp-container pg-leaderboard__main">
+    <div class="leaderboard">
+      <header class="leaderboard__header">
+        <div class="leaderboard__heading">
+          <h1 class="leaderboard__title">Leaderboard</h1>
+        </div>
+        <div class="leaderboard__controls">
+          <nav class="leaderboard__sorts" aria-label="Sort by">
+            <%= link_to leaderboard_path(sort: "today"), class: "leaderboard__sort", aria: { current: ("page" if @sort == "today") } do %>
+              <%= tag.span(class: "leaderboard__pill", style: "view-transition-name: seg-pill", aria: { hidden: true }) if @sort == "today" %>
+              <span class="leaderboard__sort-label" style="view-transition-name: seg-today"><%= sp_icon "calendar-fill" %>Today</span>
+            <% end %>
+            <%= link_to leaderboard_path(sort: "total"), class: "leaderboard__sort", aria: { current: ("page" if @sort == "total") } do %>
+              <%= tag.span(class: "leaderboard__pill", style: "view-transition-name: seg-pill", aria: { hidden: true }) if @sort == "total" %>
+              <span class="leaderboard__sort-label" style="view-transition-name: seg-total"><%= sp_icon "time-fill" %>Total</span>
+            <% end %>
+          </nav>
+          <p class="sp-stat leaderboard__you">
+            <span class="sp-stat__key" aria-hidden="true">#</span>
+            <span class="sp-stat__unit">Your rank</span>
+            <span class="leaderboard__you-rank"><%= you[:off] ? "—" : "##{you[:rank]}" %></span>
+          </p>
+        </div>
+      </header>
+
+      <%# The top three again, as a podium (second, first, third). The table below has them too, so screen readers
+          skip this. %>
+      <% if podium.any? %>
+        <ol class="leaderboard__podium" aria-hidden="true" data-places="<%= podium.size %>">
+          <% (1..3).each do |place| %>
+            <% row = podium.find { |one| one[:rank] == place } %>
+            <% if row %>
+              <li class="leaderboard__step" data-place="<%= place %>" <%= "data-you" if row[:you] %>>
+                <span class="leaderboard__step-who">
+                  <%= avatar_tag(row[:user], "leaderboard__step-avatar", aria: { hidden: true }, role: nil) %>
+                </span>
+                <span class="leaderboard__step-name"><span class="visually-hidden"><%= place.ordinalize %>: </span><%= row[:you] ? row[:name] : name_with_slack(row[:user], name: row[:name], tabindex: -1) %></span>
+                <%= streak_mark.(row) %>
+                <span class="leaderboard__step-value"><%= sorted_value.(row) %></span>
+                <span class="leaderboard__step-block"><%= sp_icon({ 1 => "trophy-fill", 2 => "medal-fill", 3 => "star-fill" }[place]) %></span>
+              </li>
+            <% else %>
+              <%# Nobody here yet: the step keeps its space, so first place stays in the middle. %>
+              <li class="leaderboard__step leaderboard__step--empty" data-place="<%= place %>">
+                <span class="leaderboard__step-block"><%= sp_icon({ 1 => "trophy-fill", 2 => "medal-fill", 3 => "star-fill" }[place]) %></span>
+              </li>
+            <% end %>
+          <% end %>
+        </ol>
+      <% end %>
+
+      <section class="sp-panel leaderboard__panel" aria-labelledby="leaderboard-ribbon">
+        <p class="sp-ribbon sp-ribbon--gold" id="leaderboard-ribbon">
+          <span><%= sp_icon(@sort == "today" ? "calendar-fill" : "time-fill") %><%= hours_label %></span>
+        </p>
+        <table class="leaderboard__table">
+          <thead>
+            <tr>
+              <th class="leaderboard__rank" scope="col"><span class="visually-hidden">Rank</span></th>
+              <th class="leaderboard__who" scope="col">Builder</th>
+              <th class="leaderboard__building" scope="col">Building</th>
+              <th class="leaderboard__number" scope="col" data-sorted><%= hours_label %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.reject { |row| row[:hidden] }.each_with_index do |row, index| %>
+              <tr style="--row: <%= [index, 9].min %>"<%= " data-you" if row[:you] %>>
+                <td class="leaderboard__rank">
+                  <%= tag.span row[:rank], class: "leaderboard__coin", data: { medal: (row[:rank] if row[:rank] <= 3 && !row[:off]) } %>
+                  <% if row[:change]&.nonzero? %>
+                    <span class="leaderboard__change" data-direction="<%= row[:change].positive? ? "up" : "down" %>"
+                          title="<%= row[:change].positive? ? "Up" : "Down" %> <%= pluralize(row[:change].abs, "place") %> since yesterday">
+                      <%= row[:change].positive? ? "▲" : "▼" %><%= row[:change].abs %>
+                    </span>
+                  <% end %>
+                </td>
+                <td class="leaderboard__who">
+                  <span class="leaderboard__builder">
+                    <%= avatar_tag(row[:user], "leaderboard__avatar") %>
+                    <span class="leaderboard__name">
+                      <%= row[:you] ? row[:name] : name_with_slack(row[:user], name: row[:name]) %><% if row[:buddy] %> + <%= name_with_slack(row[:buddy].user) %><% end %>
+                    </span>
+                    <%= streak_mark.(row) %>
+                  </span>
+                </td>
+                <td class="leaderboard__building">
+                  <span class="leaderboard__builder">
+                    <% if row[:screenshot] %><%= image_tag url_for(row[:screenshot]), alt: "", class: "leaderboard__shot" %><% end %>
+                    <span class="leaderboard__name"><%= row[:building] %></span>
+                  </span>
+                </td>
+                <td class="leaderboard__number" data-sorted><%= row[:off] ? "—" : "#{row[:hours]} hrs" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+</div>

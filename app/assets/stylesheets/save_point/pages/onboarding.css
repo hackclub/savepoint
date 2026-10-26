@@ -1,0 +1,256 @@
+/* Onboarding (/start): four questions, one panel each, down the page. The open one is a big panel; answered ones
+   fold into slim bars that reopen it, and locked ones wait, dashed. Loads after save_point/tokens and components.
+   Every rule is scoped to .pg-onboarding. The onboarding controller sets the data-* states styled here. */
+
+.pg-onboarding {
+  min-height: 100vh;
+  padding-bottom: var(--space-16);
+  overflow-x: clip;
+}
+.pg-onboarding :is(p, h1, h2, h3, figure, blockquote) { margin: 0; }
+.pg-onboarding a { color: var(--royal-ink); }
+.pg-onboarding .sp-btn { color: var(--b-ink); }
+
+/* Only the saved or the unsaved icon shows: the lock on "My project" goes once there's a project. */
+.pg-onboarding[data-saved] .onboarding__unsaved-only { display: none; }
+
+.pg-onboarding .onboarding__title {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ---------- Rows ---------- */
+.pg-onboarding .onboarding__main {
+  width: 100%; max-width: var(--content-max); margin-inline: auto;
+  padding: var(--space-6) max(var(--space-4), env(safe-area-inset-right, 0px)) 0 max(var(--space-4), env(safe-area-inset-left, 0px));
+}
+.pg-onboarding .onboarding__rows { display: grid; gap: var(--space-4); }
+
+.pg-onboarding .onboarding-row {
+  position: relative; min-width: 0;
+  display: grid; grid-template-columns: var(--row-in) minmax(0, 1fr); align-items: center; gap: var(--space-3);
+  background: var(--surface); border: 2px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+  /* A folded or waiting row is a full pill, 56px tall. What sits in it is inset 4px from the border on the top, bottom,
+     left (the coin) and right (the Change button), and is 44px (56 - 2 x 2 border - 2 x 4 inset) high, so each end shares its
+     centre with the pill's end: the pill's inner radius is 26px and the coin's and button's is 22px. */
+  --row-h: 56px; --row-inset: 4px; --row-in: calc(var(--row-h) - 2 * 2px - 2 * var(--row-inset));
+  box-sizing: border-box; height: var(--row-h); padding: var(--row-inset); border-radius: calc(var(--row-h) / 2);
+}
+.pg-onboarding .onboarding-row[data-state="locked"] {
+  background: color-mix(in srgb, var(--surface) 55%, transparent); border-style: dashed; border-color: var(--line-strong); box-shadow: none;
+}
+.pg-onboarding .onboarding-row[data-state="done"]:has(.onboarding-row__summary:hover:enabled) { border-color: var(--line-strong); }
+.pg-onboarding .onboarding-row[data-state="active"] {
+  grid-template-columns: 48px minmax(0, 1fr); align-items: start; gap: var(--space-2) var(--space-4);
+  height: auto; padding: var(--space-6); border-radius: var(--radius-xl);
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-onboarding .onboarding-row:not([data-state="active"]) :is(.onboarding-row__question, .onboarding-row__stage),
+.pg-onboarding .onboarding-row[data-state="active"] .onboarding-row__summary,
+.pg-onboarding .onboarding-row[data-state="locked"] .onboarding-row__answer { display: none; }
+
+/* The step's coin: grey while locked, gold while open, mint with a tick once answered. */
+.pg-onboarding .onboarding-row__header {
+  display: grid; place-items: center; width: var(--row-in); height: var(--row-in); box-sizing: border-box; border-radius: 50%;
+  font: 900 italic 18px/1 var(--font-display); color: var(--ink-faint);
+  background: var(--surface-sunken); border: 2px solid var(--line-strong);
+}
+.pg-onboarding .onboarding-row__tick { display: none; font-size: 22px; }
+.pg-onboarding [data-state="done"] > .onboarding-row__header {
+  color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); border-color: var(--mint-line);
+  /* The lip is inside the coin, so the coin keeps its 4px gap on every side of the folded row. */
+  box-shadow: inset 0 2px 0 var(--gloss), inset 0 -3px 0 var(--mint-lip);
+}
+.pg-onboarding [data-state="done"] > .onboarding-row__header .onboarding-row__number { display: none; }
+.pg-onboarding [data-state="done"] > .onboarding-row__header .onboarding-row__tick { display: inline-flex; }
+.pg-onboarding [data-state="active"] > .onboarding-row__header {
+  width: 48px; height: 48px; font-size: 22px; color: var(--on-gold);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold-line);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip), 0 0 0 6px var(--gold-soft);
+}
+
+/* An answered row: what you picked, and a way back in. */
+.pg-onboarding .onboarding-row__summary {
+  appearance: none; display: flex; align-items: center; gap: var(--space-4); width: 100%; min-width: 0;
+  height: var(--row-in); margin: 0; padding: 0 0 0 var(--space-2); border: 0; border-radius: calc(var(--row-in) / 2); background: none;
+  font: inherit; color: var(--ink); text-align: start; cursor: pointer;
+}
+.pg-onboarding .onboarding-row__summary:disabled { cursor: default; color: var(--ink-faint); }
+/* The row after the open step is a button that goes on like Next: a pointer, a hover and a focus ring round the whole pill.
+   The button's ::before covers the whole row, the coin included. Rows further ahead stay inert. */
+.pg-onboarding .onboarding-row[data-next] .onboarding-row__summary { cursor: pointer; color: var(--ink-muted); }
+.pg-onboarding .onboarding-row[data-next] .onboarding-row__summary::before { content: ""; position: absolute; inset: 0; border-radius: inherit; border-radius: calc(var(--row-h) / 2); }
+.pg-onboarding .onboarding-row[data-next]:has(.onboarding-row__summary:hover) { background: var(--surface); border-color: var(--royal-ink); }
+.pg-onboarding .onboarding-row[data-next]:has(.onboarding-row__summary:hover) .onboarding-row__name { color: var(--royal-ink); }
+.pg-onboarding .onboarding-row[data-next]:has(.onboarding-row__summary:focus-visible) { box-shadow: var(--focus-ring); }
+.pg-onboarding .onboarding-row[data-next] .onboarding-row__summary:focus-visible { box-shadow: none; }
+.pg-onboarding .onboarding-row__summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-onboarding .onboarding-row__name {
+  flex: none; width: 92px; font: 800 14px/18px var(--font-body); color: var(--ink-muted);
+}
+.pg-onboarding .onboarding-row__summary:disabled .onboarding-row__name { color: var(--ink-faint); }
+.pg-onboarding .onboarding-row__answer { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); }
+.pg-onboarding .onboarding-row__value {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 800 italic 19px/24px var(--font-display); color: var(--ink);
+}
+.pg-onboarding .onboarding-row__value--later { color: var(--gold-ink); }
+.pg-onboarding .onboarding-row__change {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-left: auto; box-sizing: border-box; height: var(--row-in); padding: 0 var(--space-4);
+  border-radius: var(--radius-full); background: var(--royal-soft); font: 800 14px/1 var(--font-body); color: var(--royal-ink);
+}
+.pg-onboarding .onboarding-row__change .sp-icon { font-size: 16px; }
+.pg-onboarding .onboarding-row__summary:hover:enabled .onboarding-row__change { color: var(--on-royal); background: var(--royal); }
+
+/* The open row: its question beside the coin, and the answers under both. */
+.pg-onboarding .onboarding-row__question { display: grid; gap: var(--space-2); min-width: 0; padding-top: 2px; }
+.pg-onboarding .onboarding-row__title {
+  font: 900 italic clamp(28px, 4vw, 40px)/1.08 var(--font-display); color: var(--ink); letter-spacing: -0.01em; text-wrap: balance; outline: none;
+}
+.pg-onboarding .onboarding-row__stage { grid-column: 1 / -1; min-width: 0; margin-top: var(--space-4); }
+
+@media (max-width: 599px) {
+  .pg-onboarding .onboarding-row { gap: var(--space-2); }
+  .pg-onboarding .onboarding-row[data-state="active"] { grid-template-columns: 40px minmax(0, 1fr); padding: var(--space-5) var(--space-4); gap: var(--space-2) var(--space-3); }
+  .pg-onboarding [data-state="active"] > .onboarding-row__header { width: 40px; height: 40px; font-size: 18px; box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip), 0 0 0 4px var(--gold-soft); }
+  .pg-onboarding .onboarding-row__question { padding-top: 0; }
+  .pg-onboarding .onboarding-row__title { font-size: 26px; }
+    .pg-onboarding .onboarding-row__summary { gap: var(--space-2); }
+  .pg-onboarding .onboarding-row__name { width: 64px; font-size: 13px; }
+  .pg-onboarding .onboarding-row__value { font-size: 16px; }
+  .pg-onboarding .onboarding-row__change { width: var(--row-in); padding: 0; }
+  .pg-onboarding .onboarding-row__change-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* ---------- Step 1: your game ---------- */
+.pg-onboarding .onboarding-game { display: grid; gap: var(--space-5); max-width: 560px; }
+.pg-onboarding .onboarding-field { display: grid; gap: var(--space-2); }
+.pg-onboarding .onboarding-field__label { font: 800 italic 18px/24px var(--font-display); color: var(--ink); }
+.pg-onboarding .onboarding-field__optional { margin-left: var(--space-2); font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-onboarding .onboarding-field__input { width: 100%; }
+.pg-onboarding .onboarding-field__hint { font: 700 14px/20px var(--font-body); color: var(--coral-ink); }
+.pg-onboarding .onboarding-field__hint[hidden] { display: none; }
+.pg-onboarding .onboarding-check { display: flex; align-items: center; gap: var(--space-3); font: 700 16px/24px var(--font-body); cursor: pointer; }
+.pg-onboarding .onboarding-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+
+/* ---------- Step 2: Hackatime ---------- */
+.pg-onboarding .onboarding-hackatime { display: grid; gap: var(--space-4); justify-items: start; }
+.pg-onboarding .onboarding-hackatime__text { max-width: 56ch; font: 700 16px/1.5 var(--font-body); color: var(--ink-muted); }
+.pg-onboarding .onboarding-hackatime__form { display: contents; }
+
+/* Chips: pills until picked, then gold with a tick. The radio underneath is for keyboards and screen readers. */
+.pg-onboarding .onboarding-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pg-onboarding .onboarding-chip {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 18px; cursor: pointer;
+  background: var(--surface); border: 2px solid var(--line-strong); border-radius: var(--radius-full); box-shadow: 0 3px 0 var(--line-strong);
+  font: 800 16px/20px var(--font-body); color: var(--ink);
+}
+.pg-onboarding .onboarding-chip:hover { border-color: var(--royal-ink); }
+.pg-onboarding .onboarding-chip:has(:checked) {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip); color: var(--on-gold);
+}
+.pg-onboarding .onboarding-chip:has(:focus-visible) { box-shadow: 0 3px 0 var(--line-strong), var(--focus-ring); }
+.pg-onboarding .onboarding-chip__input { position: absolute; opacity: 0; pointer-events: none; }
+.pg-onboarding .onboarding-chip:not(:has(:checked)) .onboarding-chip__check { display: none; }
+.pg-onboarding .onboarding-chip__check { font-size: 18px; }
+.pg-onboarding .onboarding-chip__note { font: 700 13px/16px var(--font-body); color: var(--ink-muted); }
+.pg-onboarding .onboarding-chip:has(:checked) .onboarding-chip__note { color: inherit; opacity: .8; }
+
+/* ---------- Step 3: the prize cards ---------- */
+.pg-onboarding .onboarding-prizes { display: grid; gap: var(--space-6); }
+.pg-onboarding .onboarding-prizes__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+@media (min-width: 700px) { .pg-onboarding .onboarding-prizes__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); } }
+@media (min-width: 1000px) { .pg-onboarding .onboarding-prizes__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* A card: its art on a panel in the tier's colour (as on the landing page: up to 5 hours, up to 10, then more),
+   then its name, kind and what it costs in hours and a day. Picked, it's gold. */
+.pg-onboarding .onboarding-prize {
+  --rc-panel: color-mix(in srgb, var(--mint) 82%, #ffffff); --rc-line: var(--mint-line); --rc-light: color-mix(in srgb, var(--mint-hi) 45%, #ffffff);
+  appearance: none; display: grid; align-content: start; gap: 2px; min-width: 0; margin: 0 0 var(--lip-depth); padding: 8px 8px 12px; text-align: center;
+  background: var(--surface); border: 2px solid var(--line-strong); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--line-lip), inset 0 2px 0 var(--gloss);
+  font: inherit; color: var(--ink); cursor: pointer;
+}
+.pg-onboarding .onboarding-prize--rare { --rc-panel: var(--royal-hi); --rc-line: var(--royal); --rc-light: color-mix(in srgb, var(--logo-fill) 70%, #ffffff); }
+.pg-onboarding .onboarding-prize--epic { --rc-panel: color-mix(in srgb, var(--violet) 85%, #ffffff); --rc-line: color-mix(in srgb, var(--violet) 55%, var(--violet-ink)); --rc-light: color-mix(in srgb, var(--violet) 30%, #ffffff); }
+.pg-onboarding .onboarding-prize:focus-visible { outline: none; box-shadow: 0 var(--lip-depth) 0 var(--line-lip), var(--focus-ring); }
+.pg-onboarding .onboarding-prize[data-picked] {
+  border-color: var(--gold-line); background: var(--gold-soft); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 5px var(--gold-soft);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pg-onboarding .onboarding-prize { transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1); }
+  .pg-onboarding .onboarding-prize:hover { transform: translateY(-3px); }
+}
+.pg-onboarding .onboarding-prize__art {
+  position: relative; display: grid; place-items: center; height: 124px; margin-bottom: 6px; overflow: hidden; isolation: isolate;
+  border: 3px solid var(--rc-line); border-radius: calc(var(--radius-lg) - 2px - 8px); font-size: 48px; color: var(--on-royal);
+  background: linear-gradient(180deg, var(--rc-light) 0%, var(--rc-panel) 48%); box-shadow: inset 0 7px 8px -5px rgba(10, 16, 56, .35);
+}
+.pg-onboarding .onboarding-prize__art img { max-width: 88%; max-height: 100px; filter: drop-shadow(0 3px 3px rgba(10, 16, 56, .35)); }
+.pg-onboarding .onboarding-prize__tick {
+  position: absolute; top: 6px; right: 6px; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
+  color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip);
+}
+.pg-onboarding [data-picked] .onboarding-prize__tick { display: grid; }
+.pg-onboarding .onboarding-prize__name { padding-inline: 4px; font: 800 16px/20px var(--font-body); overflow-wrap: anywhere; }
+.pg-onboarding .onboarding-prize__kind { padding-inline: 4px; font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
+.pg-onboarding .onboarding-prize__price { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 6px; }
+.pg-onboarding .onboarding-prize__price .hours-coin { flex: none; width: auto; height: 34px; filter: drop-shadow(0 1px 0 rgba(10, 16, 56, .15)); }
+.pg-onboarding .onboarding-prize__cost { display: grid; justify-items: start; gap: 3px; min-width: 0; text-align: left; }
+.pg-onboarding .onboarding-prize__pace { font: 900 italic 19px/1 var(--font-display); white-space: nowrap; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pg-onboarding .onboarding-prize__pace small { font-size: .64em; font-weight: 900; }
+.pg-onboarding .onboarding-prize__total { font: 800 italic 12px/1 var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 599px) {
+  .pg-onboarding .onboarding-prize__art { height: 104px; }
+  .pg-onboarding .onboarding-prize__art img { max-height: 84px; }
+  .pg-onboarding .onboarding-prize__pace { font-size: 16px; }
+  .pg-onboarding .onboarding-prize__price .hours-coin { height: 28px; }
+}
+
+/* ---------- Step 4: when you'll build ---------- */
+.pg-onboarding .onboarding-when { display: grid; gap: var(--space-6); }
+.pg-onboarding .onboarding-when__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+@media (min-width: 700px) { .pg-onboarding .onboarding-when__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); } }
+
+/* A tile, like a prize card: an icon coin, the time, and when the nudge comes. The radio underneath is for keyboards and
+   screen readers. Picked, it's gold with a tick. */
+.pg-onboarding .onboarding-time {
+  position: relative; display: grid; justify-items: center; align-content: start; gap: 2px; min-width: 0; margin: 0 0 var(--lip-depth); padding: 16px 8px 14px; text-align: center; cursor: pointer;
+  background: var(--surface); border: 2px solid var(--line-strong); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--line-lip), inset 0 2px 0 var(--gloss);
+  color: var(--ink);
+}
+.pg-onboarding .onboarding-time:hover { border-color: var(--royal-ink); }
+.pg-onboarding .onboarding-time:has(:focus-visible) { box-shadow: 0 var(--lip-depth) 0 var(--line-lip), var(--focus-ring); }
+.pg-onboarding .onboarding-time:has(:checked) {
+  border-color: var(--gold-line); background: var(--gold-soft); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 5px var(--gold-soft);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pg-onboarding .onboarding-time { transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1); }
+  .pg-onboarding .onboarding-time:hover { transform: translateY(-3px); }
+}
+.pg-onboarding .onboarding-time__input { position: absolute; opacity: 0; pointer-events: none; }
+.pg-onboarding .onboarding-time__art {
+  display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 8px; box-sizing: border-box; border-radius: 50%; font-size: 30px;
+  color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); border: 3px solid var(--royal-ink);
+  box-shadow: inset 0 2px 0 var(--gloss);
+}
+.pg-onboarding .onboarding-time:has(:checked) .onboarding-time__art {
+  color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip);
+}
+.pg-onboarding .onboarding-time__name { font: 900 italic 20px/24px var(--font-display); letter-spacing: -0.01em; }
+.pg-onboarding .onboarding-time__hint { padding-inline: 4px; font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
+.pg-onboarding .onboarding-time__tick {
+  position: absolute; top: 6px; right: 6px; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
+  color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip);
+}
+.pg-onboarding .onboarding-time:has(:checked) .onboarding-time__tick { display: grid; }
+@media (max-width: 599px) {
+  .pg-onboarding .onboarding-time { padding: 14px 6px 12px; }
+  .pg-onboarding .onboarding-time__art { width: 52px; height: 52px; font-size: 26px; }
+  .pg-onboarding .onboarding-time__name { font-size: 18px; }
+}
+
+.pg-onboarding .onboarding-start { display: grid; justify-items: start; gap: var(--space-3); }
+.pg-onboarding .onboarding-start__error { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 700 14px/20px var(--font-body); color: var(--coral-ink); }
+.pg-onboarding .onboarding-start__error[hidden] { display: none; }

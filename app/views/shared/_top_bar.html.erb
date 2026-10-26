@@ -1,0 +1,87 @@
+<%# locals: (current: nil, nav: true, day: true, project_data: {}) %>
+<%# The participant top bar, shared by every participant page: the logo, an optional slot for page-specific bits (no page passes
+    one today) given as the block of render layout:, the pages nav (at the top on wide
+    screens, fixed at the bottom on phones), "Day N of M", and your account, or Sign in and Start building when signed out.
+      current:      which page this is, for aria-current: :project, :buddy, :leaderboard, :shop or :onboarding
+      nav:          false leaves the nav out
+      day:          false leaves the "Day N of M" badge out
+      project_data: extra data attributes for the My project link (onboarding's controller drives it) %>
+<% content_for :stylesheets, " save_point/pages/top-bar" %>
+<% project = current_user&.project %>
+<% page = ->(name) { { current: ("page" if current == name) }.compact } %>
+<%# Each tab has its own transition name, so its label stays in front of the gold highlight and changes colour as it
+    arrives (transitions.css). The gold highlight behind the current tab. It is its own element so it can glide to the next tab (top-bar.css). %>
+<% pill = ->(name) { tag.span(class: "top-bar__pill", aria: { hidden: true }) if current == name } %>
+<header class="top-bar">
+  <div class="top-bar__inner">
+    <%# The same three places on every page: logo and slot on the left, the nav in the middle, your account on the right. %>
+    <div class="top-bar__left">
+      <%= link_to root_path, class: "top-bar__logo" do %>
+        <%= image_tag "save_point/logo.png", alt: "Save Point", width: 1000, height: 410 %>
+      <% end %>
+
+      <% slot = yield %>
+      <% if slot.present? %><div class="top-bar__slot"><%= slot %></div><% end %>
+    </div>
+
+    <% if nav %>
+      <%# Your project, your buddy, the leaderboard and the shop. Without a project: onboarding, and "My project" locked
+          until there is one. Not prefetched: with no project, that would only fetch a redirect. %>
+      <nav class="sp-nav top-bar__nav" aria-label="Pages">
+        <% unless project %>
+          <%= link_to onboarding_path, aria: page.(:onboarding), style: "view-transition-name: tab-onboarding" do %>
+            <%= pill.(:onboarding) %><%= sp_icon "rocket-fill" %><span>Onboarding</span>
+          <% end %>
+        <% end %>
+        <%= link_to project_path, class: "top-bar__project", style: "view-transition-name: tab-project", aria: page.(:project).merge(project ? {} : { disabled: true }),
+              data: { turbo_prefetch: false, locked_tip: "Unlocks when you start your project", **project_data } do %>
+          <%= pill.(:project) %><%= sp_icon "game-2-fill", "top-bar__open" %><%= sp_icon "lock-fill", "top-bar__lock" %><span>My project</span>
+        <% end %>
+        <% if project %>
+          <%= link_to buddy_path, aria: page.(:buddy), style: "view-transition-name: tab-buddy" do %>
+            <%= pill.(:buddy) %><%= sp_icon "user-3-fill" %><span>Buddy</span>
+            <% if project.buddy %><span class="sp-dot" aria-label="1 buddy">1</span><% end %>
+          <% end %>
+          <%= link_to leaderboard_path, aria: page.(:leaderboard), style: "view-transition-name: tab-leaderboard" do %>
+            <%= pill.(:leaderboard) %><%= sp_icon "trophy-fill" %><span>Leaderboard</span>
+          <% end %>
+        <% end %>
+        <%= link_to shop_path, aria: page.(:shop), style: "view-transition-name: tab-shop" do %>
+          <%= pill.(:shop) %><%= sp_icon "shopping-bag-1-fill" %><span>Shop</span>
+        <% end %>
+      </nav>
+    <% end %>
+
+    <div class="top-bar__me">
+      <% if day && project %>
+        <span class="sp-badge sp-badge--gold top-bar__day"><%= sp_icon "calendar-fill" %><span class="top-bar__progress"><%= Program.day_label %></span></span>
+      <% end %>
+      <% if signed_in? %>
+        <%# Your account: who you're signed in as, the admin pages for an admin, and logging out. %>
+        <button type="button" class="top-bar__avatar" popovertarget="top-bar-account" aria-label="Account: <%= current_user.public_name %>">
+          <%= avatar_tag(current_user, aria: { hidden: true }, role: nil) %>
+        </button>
+        <div class="top-bar__popover top-bar__account" id="top-bar-account" popover>
+          <p class="top-bar__account-name"><%= current_user.public_name %></p>
+          <% if current_user.email.present? %><p class="top-bar__account-email"><%= current_user.email %></p><% end %>
+          <%# current_user, not true_user: while an admin views as someone else the admin pages 404 (Admin::BaseController). %>
+          <% if current_user.admin? %>
+            <%= link_to admin_root_path, class: "sp-btn sp-btn--sm top-bar__admin" do %>
+              <%= sp_icon "settings-3-fill" %><span>Admin</span>
+            <% end %>
+          <% end %>
+          <%= button_to "Log out", logout_path, method: :delete, class: "sp-btn sp-btn--sm top-bar__logout" %>
+        </div>
+      <% else %>
+        <%# Coming back: Hack Club Auth, then back to this page. %>
+        <%= button_to "Sign in", "/auth/hackclub", params: { origin: request.path }, class: "sp-btn sp-btn--sm",
+              form: { class: "top-bar__sign-in", data: { turbo: false } } %>
+        <% unless current == :onboarding %>
+          <%= link_to onboarding_path, class: "sp-btn sp-btn--gold sp-btn--sm top-bar__start" do %>
+            <%= sp_icon "play-fill" %><span>Start<span class="top-bar__start-rest"> building</span></span>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</header>

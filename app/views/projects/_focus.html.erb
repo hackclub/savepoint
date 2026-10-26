@@ -1,0 +1,86 @@
+<%# locals: (project:) %>
+<%# A pomodoro, over the whole page once you start one: as long as you picked, with the round and its clock, the prize
+    you're working towards, the lofi radio along the bottom, and your Hackatime hours along
+    the top (checked every few minutes, or when you hit refresh). %>
+<div class="focus-session" data-controller="focus"
+     data-focus-title-value="<%= project.title %>"
+     data-focus-hours-url-value="<%= hours_project_path %>"
+     <% if (buddy = project.buddy) %>
+       data-focus-buddy-url-value="<%= buddy_pomodoro_path %>" data-focus-buddy-name-value="<%= buddy_name(buddy) %>"
+     <% end %>
+     data-focus-tracks-value="<%= Focus::TRACK_FILES.index_with { |file| asset_path("lofi/#{file}.mp3") }.to_json %>"
+     data-action="keydown@window->focus#key">
+  <%# Your buddy started a pomodoro: join it. Kept up to date while you're on the page. %>
+  <% live = project.pair&.live_pomodoro %>
+  <% waiting = live && !live.in?(project) %>
+  <div class="project__buddy-live" data-focus-target="buddyLive" <%= "hidden" unless waiting %>>
+    <% if project.buddy %><%= avatar_tag(project.buddy.user, "buddy-face") %><% end %>
+    <p class="project__buddy-live-text" data-focus-target="buddyLiveText">
+      <% if waiting %><%= buddy_name(project.buddy) %> started a <%= live.minutes %>-min pomodoro. Join in.<% end %>
+    </p>
+    <button type="button" class="sp-btn sp-btn--gold sp-btn--sm project__buddy-join" data-action="focus#joinBuddy">Join</button>
+  </div>
+  <%= yield %>
+
+  <div class="focus" role="dialog" aria-modal="true" aria-label="Pomodoro" data-focus-target="overlay" hidden>
+    <header class="focus__bar">
+      <span class="focus__dot" aria-hidden="true" <%= "data-off" unless project.tracking? %>></span>
+      <span class="focus__tracking"><%= project.tracking? ? "Hackatime" : "Hackatime isn't linked" %></span>
+      <span class="focus__tracked" data-focus-target="tracked"><%= project_hours_label(project) %></span>
+      <button type="button" class="focus__sync" data-focus-target="sync" data-action="focus#syncHours" aria-label="Refresh hours from Hackatime">
+        <%= sp_icon "refresh-2-fill" %>
+      </button>
+      <span class="focus__synced" data-focus-target="synced" aria-live="polite">just now</span>
+      <span class="focus__together" data-focus-target="together" hidden></span>
+      <button type="button" class="sp-btn sp-btn--sm focus__exit" data-action="focus#exit">
+        <%= sp_icon "close-fill" %>
+        Exit
+      </button>
+    </header>
+
+    <div class="focus__center">
+      <span class="focus__label" data-focus-target="label" aria-live="polite"></span>
+      <h2 class="focus__title" data-focus-target="title"></h2>
+      <% if (prize = project.chosen_prize) %>
+        <p class="focus__prize">
+          <span class="focus__prize-art" aria-hidden="true"><%= render "pages/landing/prize_art", prize: %></span>
+          <span class="focus__prize-name"><%= prize.name %></span>
+          <span class="focus__prize-left">
+            <% if project.hours_to_go.positive? %><strong><%= project_hours(project.hours_to_go) %> hrs</strong> to go<% else %>You've earned it<% end %>
+          </span>
+        </p>
+      <% end %>
+      <%= render "projects/focus_stickers" %>
+      <span class="focus__clock" data-focus-target="clock" role="timer"></span>
+      <div class="focus__progress"><div class="focus__progress-fill" data-focus-target="bar"></div></div>
+      <p class="focus__note-text" data-focus-target="note"></p>
+      <div class="focus__actions" data-focus-target="live">
+        <button type="button" class="sp-btn sp-btn--gold sp-btn--lg focus__primary" data-focus-target="toggle" data-action="focus#toggle">
+          <span data-focus-target="toggleLabel">Pause</span>
+        </button>
+        <button type="button" class="sp-btn sp-btn--ghost focus__text-button" data-focus-target="end" data-action="focus#end">End pomodoro</button>
+      </div>
+      <div class="focus__actions" data-focus-target="done" hidden>
+        <button type="button" class="sp-btn sp-btn--gold sp-btn--lg focus__primary" data-action="focus#again">Another round</button>
+        <button type="button" class="sp-btn sp-btn--lg focus__outlined" data-action="focus#takeBreak">Take a 5 min break</button>
+        <button type="button" class="sp-btn sp-btn--ghost focus__text-button" data-action="focus#exit">Back to project</button>
+      </div>
+    </div>
+
+    <footer class="focus__radio">
+      <span class="focus__track-tag" data-focus-target="trackTag"></span>
+      <span class="focus__track">
+        <span class="focus__track-name" data-focus-target="trackName"></span>
+        <span class="focus__track-number">HoliznaCC0 · <span data-focus-target="trackNumber"></span></span>
+      </span>
+      <span class="focus__equalizer" data-focus-target="equalizer" aria-hidden="true"></span>
+      <button type="button" class="focus__play" data-focus-target="music" data-action="focus#music">
+        <%= sp_icon "play-fill", "focus__play-icon" %>
+        <%= sp_icon "pause-fill", "focus__pause-icon" %>
+      </button>
+      <button type="button" class="focus__next" aria-label="Next track" data-action="focus#nextTrack">
+        <%= sp_icon "right-fill" %>
+      </button>
+    </footer>
+  </div>
+</div>

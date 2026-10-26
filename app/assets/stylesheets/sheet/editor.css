@@ -1,0 +1,122 @@
+/* Typing into the sheet (the sheet-editor controller): entries are cells placed at
+   their address, and the editor opens over the selected cell, growing with its text.
+   Formats are inline styles set by the controller; this is what's left: markers,
+   the note tooltip and the link chip. */
+@layer sheet {
+  /* The entries sit in the grid itself, not a section, so they can go past row 80. */
+  .sheet__entries {
+    display: contents;
+  }
+
+  .sheet-entry--number {
+    justify-content: flex-end;
+  }
+
+  .sheet-entry--boolean {
+    justify-content: center;
+  }
+
+  /* Errors get the red corner Sheets marks them with. */
+  .sheet-entry--error {
+    position: relative;
+    justify-content: center;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-end: 0;
+      border-block-start: 6px solid var(--red);
+      border-inline-start: 6px solid transparent;
+    }
+  }
+
+  /* Covers the selection box, overhanging the cell the same pixel. */
+  .sheet__editor {
+    position: relative;
+    z-index: 4;
+    grid-column: var(--column) / span var(--width, 1);
+    grid-row: var(--row) / span var(--height, 1);
+    justify-self: start;
+    align-self: start;
+    min-inline-size: calc(100% + 1px);
+    block-size: calc(100% + 1px);
+    max-block-size: calc(var(--cell-height) * 3);
+    field-sizing: content;
+    margin: -1px 0 0 -1px;
+    padding-inline: 5px;
+    border: 2px solid var(--selection);
+    outline: none;
+    background: var(--surface-grid);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+    font: 14px var(--font-cell);
+    color: var(--text-primary);
+    user-select: text;
+  }
+
+  /* Sheets hides the fill handle while a cell is being edited. */
+  .sheet__cells:has(.sheet__editor:not([hidden])) .sheet__selection::after {
+    display: none;
+  }
+
+  /* Links, as Sheets draws them. */
+  .sheet-entry--link {
+    color: #1155cc;
+    text-decoration: underline;
+  }
+
+  /* Rotated text turns inside its cell; the cell's fill and borders stay put. */
+  .sheet-text {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .sheet-text--vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    line-height: 1;
+  }
+
+  /* A note: the black corner over its cell, and the note itself on hover. */
+  .sheet-note-marker {
+    z-index: 3;
+    justify-self: end;
+    align-self: start;
+    margin-inline-end: 1px;
+    border-block-start: 6px solid var(--text-primary);
+    border-inline-start: 6px solid transparent;
+    pointer-events: none;
+  }
+
+  .sheet-note,
+  .sheet-link-chip {
+    position: absolute;
+    z-index: 8;
+    max-inline-size: 260px;
+    padding: 8px 10px;
+    border-radius: 2px;
+    background: var(--surface-grid);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 8px rgb(0 0 0 / 0.15);
+    font: 13px/1.4 var(--font-chrome);
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    user-select: text;
+  }
+
+  .sheet-note {
+    background: #fff;
+    border: 1px solid var(--grey-400);
+  }
+
+  .sheet-link-chip {
+    padding: 10px 14px;
+    border-radius: 8px;
+    pointer-events: auto;
+
+    a {
+      color: #1155cc;
+    }
+  }
+}

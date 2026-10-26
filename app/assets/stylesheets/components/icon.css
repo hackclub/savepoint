@@ -1,0 +1,9 @@
+/* Inline SVG icons (inline_svg_tag with class: "icon"). Size with --icon-size on any ancestor. */
+@layer components {
+  .icon {
+    flex: none;
+    inline-size: var(--icon-size, 20px);
+    block-size: var(--icon-size, 20px);
+    fill: currentColor;
+  }
+}

@@ -1,0 +1,140 @@
+# The GIFs for each participant DM, shown only while SLACK_GIFS=1 (see SlackGifs). Admin DMs have none. A key with no entry sends no image.
+# Keys: nudge.<arm>, reward.<key>, extension.<status>, order.ordered. Each key holds a pool: production picks one at random per message,
+# the demo rotates through it. A nudge arm's pool has about one GIF per variant.
+# Every GIF is a GIPHY file, at most 3 MB (giphy-downsized where the original was bigger). Slack fetches the url itself, so it must stay public.
+# `celebration` is shared by every celebratory message, through the alias below.
+celebration: &celebration
+  - url: https://media.giphy.com/media/rXQ5Aex4FZiej6sKTZ/giphy.gif
+    alt: "Cartoon white blob character with big black eyes as confetti falls over it"
+  - url: https://media.giphy.com/media/XP7vXcpGLLeRMjQHax/giphy.gif
+    alt: "Black and white cat in a propeller cap holding a lollipop while confetti falls"
+  - url: https://media.giphy.com/media/avc09zuOkpWQ5QG4XL/giphy.gif
+    alt: "Tiny pixel art yellow emoji with raised arms cheering"
+  - url: https://media.giphy.com/media/lMnz7yJueBEBpmLcKh/giphy.gif
+    alt: "A hand grabbing a pixel art yellow emoji with wide eyes and an open mouth"
+  - url: https://media.giphy.com/media/Dkya9KdPOSKAVsLfX8/giphy.gif
+    alt: "Roblox character with a smiling face cheering with both arms raised"
+  - url: https://media.giphy.com/media/KnK7ZMiTmgcxnod3nA/giphy.gif
+    alt: "Grey kitten jumping up at a glass door"
+  - url: https://media.giphy.com/media/TP1pUJu9nusz7b1oXq/giphy.gif
+    alt: "Yellow emoji with a party hat celebrating over a cake as confetti falls"
+  - url: https://media.giphy.com/media/196tRfkjSurbH0dHsF/giphy.gif
+    alt: "Yellow emoji with big eyes spinning and shouting with its mouth open"
+  - url: https://media.giphy.com/media/dF55QwRkLWYIANQnMf/giphy.gif
+    alt: "A cortisol level gauge with its needle sitting in the low green zone"
+order.ordered:
+  - url: https://media.giphy.com/media/rXQ5Aex4FZiej6sKTZ/giphy.gif
+    alt: "Cartoon white blob character with big black eyes as confetti falls over it"
+extension.approved:
+  - url: https://media.giphy.com/media/OBnwDJW77acLK/giphy.gif
+    alt: "Cartoon white rabbit in a blue jacket standing on a lawn"
+extension.denied:
+  - url: https://media.giphy.com/media/XYZ9OXuxBNvPA8APXs/giphy.gif
+    alt: "A white rabbit checking a pocket watch"
+reward.gold_star:
+  - url: https://media.giphy.com/media/ED3i9ai72XqizxAPtE/giphy.gif
+    alt: "Yellow star sticker reading great job as confetti falls"
+reward.streak_shoutout:
+  - url: https://media.giphy.com/media/XP7vXcpGLLeRMjQHax/giphy.gif
+    alt: "Black and white cat in a propeller cap holding a lollipop while confetti falls"
+nudge.progress:
+  - url: https://media.giphy.com/media/sBzoj5NNd5XDF35KMV/giphy.gif
+    alt: "A hand reaching out of an old computer monitor to pet a cat"
+  - url: https://media.giphy.com/media/mpYvggzWopmwTPQoSN/giphy-downsized.gif
+    alt: "Green glowing cat head with antennae floating in space"
+  - url: https://media.giphy.com/media/qxOQttETM27BJqrv03/giphy.gif
+    alt: "Cat in a banana costume with pink hearts floating around it"
+  - url: https://media.giphy.com/media/w7xPMPaNwxST6l7ZKP/giphy.gif
+    alt: "Black and white cat in a pink crocheted collar as confetti falls"
+nudge.streak:
+  - url: https://media.giphy.com/media/mxjWakleoMZSJVgkgy/giphy.gif
+    alt: "Calico cat in a green alien antenna headband that ends in an explosion of fire"
+  - url: https://media.giphy.com/media/ght6X82PR1yvaUO2aH/giphy.gif
+    alt: "Small white dog in a bowler hat sitting on a dark red throne"
+  - url: https://media.giphy.com/media/PelC9p6LCiI0IZM7Tb/giphy.gif
+    alt: "Cat with butterfly wings on a pink Good Morning, Have a Beautiful Day graphic"
+  - url: https://media.giphy.com/media/i7GnbNt02RMrNePzsu/giphy.gif
+    alt: "Calico cat in a flower meadow under a rainbow"
+  - url: https://media.giphy.com/media/d3HYPm71fvJzufK4DP/giphy.gif
+    alt: "Cat with its arms up under a speech bubble reading I feel so sigma, with confetti"
+  - url: https://media.giphy.com/media/3UkqVq3F50bVCi9URl/giphy.gif
+    alt: "Orange and white kitten dancing on its hind legs, captioned WOOHOO"
+  - url: https://media.giphy.com/media/avc09zuOkpWQ5QG4XL/giphy.gif
+    alt: "Tiny pixel art yellow emoji with raised arms cheering"
+nudge.pledge:
+  - url: https://media.giphy.com/media/nDxDqcN1qyO00QyWoN/giphy.gif
+    alt: "Small cat beside a speech bubble reading time to lock in"
+  - url: https://media.giphy.com/media/0Jha9fTUCPfFXFKCUq/giphy.gif
+    alt: "Sketch of a man turning in an office chair to hold a game controller"
+  - url: https://media.giphy.com/media/IoZMUxSS8bLmWOUKhW/giphy-downsized.gif
+    alt: "Grey cat in a collar and pink tie sitting on pavement"
+  - url: https://media.giphy.com/media/dPQA1xLL3WMNsVK6b1/giphy-downsized.gif
+    alt: "Golden retriever wearing a headset in front of a laptop"
+  - url: https://media.giphy.com/media/EYLpQqZ14Nl7q3twr2/giphy-downsized.gif
+    alt: "White rabbit holding up a pocket watch"
+  - url: https://media.giphy.com/media/k5zj8r0UcA4L1dcSTX/giphy.gif
+    alt: "Blurry grey Roblox face with spiky hair"
+  - url: https://media.giphy.com/media/4AaiHSWhEqLKVzB3AC/giphy.gif
+    alt: "White cat standing on its hind legs and dancing"
+nudge.tiny_step:
+  - url: https://media.giphy.com/media/qGvmdlfJ0FtBSwxqA3/giphy.gif
+    alt: "Stick figure waving next to the word hi"
+  - url: https://media.giphy.com/media/9biQXc6uWp2wMMMgK2/giphy.gif
+    alt: "Kitten waving a yellow hand"
+nudge.pledge_setup:
+  - url: https://media.giphy.com/media/qGvmdlfJ0FtBSwxqA3/giphy.gif
+    alt: "Stick figure waving next to the word hi"
+  - url: https://media.giphy.com/media/9biQXc6uWp2wMMMgK2/giphy.gif
+    alt: "Kitten waving a yellow hand"
+nudge.social:
+  - url: https://media.giphy.com/media/e6fSGJYY3EsbrFEPhH/giphy.gif
+    alt: "Two men water skiing behind a boat, with the word twin"
+  - url: https://media.giphy.com/media/w54zWMXGtVijrnxk0w/giphy.gif
+    alt: "Grey cat in white sneakers captioned waddup twin"
+nudge.overtake:
+  - url: https://media.giphy.com/media/lxsEaiZGNOMZCrlRaR/giphy-downsized.gif
+    alt: "Mickey Mouse, Homer Simpson and a pumpkin character walking, captioned YO THERE'S FREE DUMBLINGS"
+  - url: https://media.giphy.com/media/Lb43TxwOVQrpBawD9z/giphy-downsized.gif
+    alt: "Garfield sprinting across a desert, captioned when there's lasagna at the function"
+  - url: https://media.giphy.com/media/ftvphb1LgYP9SgoNGn/giphy-downsized.gif
+    alt: "A man cycling past a pack of racing cyclists"
+  - url: https://media.giphy.com/media/NhkMeVafqPkPK/giphy.gif
+    alt: "Shiba inu standing on a large tortoise on a road"
+nudge.cheer_streak:
+  - url: https://media.giphy.com/media/7lsw8RenVcjCM/giphy.gif
+    alt: "Pixel art Nyan Cat flying with a rainbow trail"
+  - url: https://media.giphy.com/media/TP1pUJu9nusz7b1oXq/giphy.gif
+    alt: "Yellow emoji with a party hat celebrating over a cake as confetti falls"
+  - url: https://media.giphy.com/media/avc09zuOkpWQ5QG4XL/giphy.gif
+    alt: "Tiny pixel art yellow emoji with raised arms cheering"
+  - url: https://media.giphy.com/media/dF55QwRkLWYIANQnMf/giphy.gif
+    alt: "A cortisol level gauge with its needle sitting in the low green zone"
+nudge.cheer_done: *celebration
+nudge.cheer_progress: *celebration
+nudge.cheer_social: *celebration
+nudge.cheer_tomorrow: *celebration
+nudge.first_session: *celebration
+nudge.halfway: *celebration
+nudge.done: *celebration
+nudge.three_days_left_done: *celebration
+nudge.last_day_done: *celebration
+nudge.hackatime:
+  - url: https://media.giphy.com/media/C299iw7dL1YF7oni9e/giphy.gif
+    alt: "Pixel art computer with a colorful screen and a keyboard"
+nudge.plugin:
+  - url: https://media.giphy.com/media/lP8ezu4iNVmZYOZn3j/giphy.gif
+    alt: "Pixel art cat sitting at a desk typing on a computer"
+nudge.repo:
+  - url: https://media.giphy.com/media/l44QmGVKailybbSV2/giphy.gif
+    alt: "Pixel art hand holding a floppy disk next to a palm tree"
+nudge.kickoff:
+  - url: https://media.giphy.com/media/PlJkbZ39Jl3uFapIro/giphy.gif
+    alt: "Pixel art space shuttle with the words LIFT OFF"
+nudge.three_days_left:
+  - url: https://media.giphy.com/media/OBnwDJW77acLK/giphy.gif
+    alt: "Cartoon white rabbit in a blue jacket standing on a lawn"
+  - url: https://media.giphy.com/media/XYZ9OXuxBNvPA8APXs/giphy.gif
+    alt: "A white rabbit checking a pocket watch"
+  - url: https://media.giphy.com/media/EYLpQqZ14Nl7q3twr2/giphy-downsized.gif
+    alt: "White rabbit holding up a pocket watch"
+nudge.streak_saver: *celebration

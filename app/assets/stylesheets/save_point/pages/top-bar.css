@@ -1,0 +1,181 @@
+/* The participant top bar (shared/_top_bar): the logo, an optional slot, the pages nav, "Day N of M" and your account.
+   On wide screens the nav sits in the bar; on phones it's fixed to the bottom of the screen, and --top-bar-nav-h says
+   how much room it takes there, for pages with their own bottom dock. Loads after save_point/tokens and components. */
+
+.top-bar {
+  position: relative; z-index: 30;
+  /* One shape language for every piece: a pill, 48px tall, 2px border, a lip underneath. Inside it, chips are 36px
+     pills with the same padding. Change these five and the whole bar follows. */
+  --tb-h: var(--control-md); --tb-r: var(--radius-full);
+  --tb-in: calc(var(--tb-h) - 12px); --tb-r-in: var(--radius-full); --tb-pad-in: 0 var(--space-3);
+  --tb-font: 800 15px/1 var(--font-body);
+}
+.top-bar p, .top-bar form { margin: 0; }
+.top-bar__inner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4);
+  width: 100%; max-width: calc(1200px + 2 * var(--space-8)); margin-inline: auto;
+  padding: var(--space-3) max(var(--space-4), env(safe-area-inset-right, 0px)) var(--space-3) max(var(--space-4), env(safe-area-inset-left, 0px));
+}
+.top-bar__left { display: contents; }
+.top-bar__logo { flex: none; display: block; line-height: 0; border-radius: var(--radius-sm); }
+.top-bar__logo img { display: block; width: auto; height: 44px; filter: drop-shadow(0 3px 0 var(--shade)); }
+.top-bar__logo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Whatever the page puts beside the logo: a page-specific bit, if a page passes one. */
+.top-bar__slot { flex: 1 1 240px; min-width: 0; max-width: 560px; display: flex; align-items: center; }
+.top-bar__slot > * { min-width: 0; }
+
+/* The nav: a navy pill with the same height, border and lip as every other piece. Each tab is a 36px chip with its icon
+   to the left of the label. The current page is a gold chip. No dividers. */
+.top-bar__nav { flex: none; margin: 0 auto var(--lip-depth); }
+.top-bar .sp-nav {
+  gap: 2px; padding: 4px; height: var(--tb-h); align-items: stretch; box-sizing: border-box;
+  background: var(--frame); border: 2px solid var(--frame-track); border-radius: var(--tb-r);
+  box-shadow: 0 var(--lip-depth) 0 var(--frame-lip);
+}
+.top-bar .sp-nav a {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-width: 0;
+  height: calc(var(--tb-in) - 3px); padding: var(--tb-pad-in); border-radius: var(--tb-r-in);
+  font: var(--tb-font); color: var(--frame-muted); text-decoration: none; white-space: nowrap;
+}
+.top-bar .sp-nav a::before { display: none; }
+/* The gold highlight is a span inside the current tab, not the tab's own background, so it can glide between tabs. */
+.top-bar .sp-nav a { isolation: isolate; }
+.top-bar .sp-nav a[aria-current="page"] { background: none; box-shadow: none; }
+.top-bar__pill {
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip);
+  view-transition-name: top-bar-pill;
+}
+.top-bar .sp-nav a .sp-icon { font-size: var(--icon-sm); flex: none; }
+.top-bar .sp-nav a:hover { color: var(--on-frame); }
+.top-bar .sp-nav a[aria-current="page"] { color: var(--on-gold); }
+.top-bar .sp-nav a[aria-disabled="true"] { cursor: not-allowed; }
+.top-bar .sp-nav a[aria-disabled="true"] > :not(.top-bar__pill) { opacity: .75; }
+/* A locked tab shows its tip on hover, on focus and when clicked, and shakes when clicked (page_slide_controller.js). */
+.top-bar .sp-nav a[aria-disabled="true"]:is(:hover, :focus-visible, .is-nudged)::after {
+  content: attr(data-locked-tip); position: absolute; z-index: 5; top: calc(100% + 14px); left: 50%; translate: -50% 0; width: max-content; max-width: 320px;
+  padding: 6px 12px; border-radius: var(--radius-full); background: var(--frame); color: var(--on-frame); border: 2px solid var(--frame-track);
+  box-shadow: 0 var(--lip-depth) 0 var(--frame-lip); font: 700 13px/18px var(--font-body); white-space: nowrap; text-align: center; pointer-events: none;
+}
+.top-bar .sp-nav a.is-nudged { animation: top-bar-shake 360ms ease-out; }
+@keyframes top-bar-shake { 20%, 60% { translate: -5px 0; } 40%, 80% { translate: 5px 0; } }
+@media (prefers-reduced-motion: reduce) { .top-bar .sp-nav a.is-nudged { animation: none; } }
+.top-bar .sp-nav a[aria-disabled="true"]:hover { color: var(--frame-muted); }
+.top-bar .sp-nav a:not([aria-disabled="true"]) .top-bar__lock, .top-bar .sp-nav a[aria-disabled="true"] .top-bar__open { display: none; }
+.top-bar .sp-nav a > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-bar .sp-nav a > span.sp-dot { position: static; overflow: visible; min-width: 20px; height: 20px; padding: 0 6px; font-size: 12px; line-height: 20px; box-shadow: none; }
+
+.top-bar__slot { flex: 0 1 auto; }
+/* Gold badges ("Day N of M"): the same pill, in gold. */
+.top-bar .sp-badge {
+  box-sizing: border-box; height: var(--tb-h); padding: 0 var(--space-4) 0 var(--space-3); gap: var(--space-2);
+  border-radius: var(--tb-r); font: var(--tb-font); color: var(--on-gold);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line);
+  box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--gold-lip);
+}
+.top-bar .sp-badge .sp-icon, .top-bar .sp-badge > i .sp-icon { font-size: var(--icon-md); }
+
+.top-bar__me { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.top-bar__logo + .top-bar__me, .top-bar__slot + .top-bar__me { margin-left: auto; }
+.top-bar__sign-in { display: contents; }
+.top-bar__me > .sp-btn, .top-bar__sign-in > .sp-btn {
+  box-sizing: border-box; min-height: var(--tb-h); margin-bottom: var(--lip-depth); padding: 0 var(--space-5);
+  border-radius: var(--tb-r); font: var(--tb-font);
+}
+.top-bar__me > .sp-btn .sp-icon { font-size: var(--icon-md); }
+.top-bar__day { font-variant-numeric: tabular-nums; margin-bottom: var(--lip-depth); }
+.top-bar .sp-badge.top-bar__day { padding: 4px var(--space-4) 4px 4px; }
+/* "Day N of M": its icon is a coin inset 4px from the top, bottom (lip counted) and left, like the save file and buddy plates. */
+.top-bar .top-bar__day > i {
+  flex: none; align-self: flex-start; display: grid; place-items: center; width: calc(var(--tb-in) - 2px); height: calc(var(--tb-in) - 2px); border-radius: var(--tb-r-in);
+  font-size: var(--icon-md); color: var(--gold-ink); background: var(--surface); box-shadow: 0 2px 0 var(--gold-lip);
+}
+
+/* Your account: a white 48px piece with the same border and lip as the white buttons. */
+.top-bar__avatar {
+  appearance: none; box-sizing: border-box; display: grid; place-items: center; width: var(--tb-h); height: var(--tb-h);
+  padding: 0; margin: 0 0 var(--lip-depth); border: 2px solid var(--line-strong); border-radius: var(--tb-r);
+  color: var(--ink); background: var(--surface); box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--line-lip);
+  cursor: pointer; transition: transform 120ms cubic-bezier(.3, 1.6, .5, 1);
+}
+.top-bar__avatar { overflow: hidden; }
+/* Someone's picture, or their initial on their colour. */
+.top-bar .top-bar__avatar .avatar {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 0; box-shadow: none;
+  background: var(--avatar-color, var(--royal)); color: var(--on-royal);
+}
+.top-bar .top-bar__avatar .avatar .avatar__image { border-radius: 0; }
+.top-bar__avatar:hover { transform: translateY(-2px); }
+.top-bar__avatar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* The account popover. */
+.top-bar__popover {
+  position: fixed; inset: 72px max(var(--space-4), calc((100vw - 1200px) / 2)) auto auto; margin: 0;
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-4); display: none; gap: var(--space-1);
+  color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+  max-height: calc(100dvh - 96px); overflow-y: auto;
+}
+.top-bar__popover:popover-open { display: grid; }
+.top-bar__account-name { font: 800 italic 18px/24px var(--font-display); overflow-wrap: anywhere; }
+.top-bar__account-email { font: 600 14px/20px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
+.top-bar__admin { width: 100%; margin-top: var(--space-2); }
+.top-bar__logout { width: 100%; }
+.top-bar__account form { margin-top: var(--space-2); }
+
+
+@media (min-width: 600px) {
+  .top-bar__inner { padding-inline: max(var(--space-6), env(safe-area-inset-left, 0px)); }
+}
+@media (min-width: 760px) {
+  .top-bar__inner { padding-block: var(--space-4); }
+  .top-bar__logo img { height: 60px; }
+  .top-bar__popover { top: 84px; }
+  /* One layout for every page: a three-column grid with the nav alone in the middle column, so what sits on its left
+     (the logo, a save slot) or right (the buttons) can change from page to page without moving it. */
+  .top-bar__inner { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "left nav me" "slot slot slot"; align-items: center; }
+  .top-bar__left { display: contents; }
+  .top-bar__logo { grid-area: left; justify-self: start; }
+  .top-bar__slot { grid-area: slot; justify-self: start; max-width: none; width: 100%; }
+  .top-bar__nav { grid-area: nav; margin-inline: 0; }
+  .top-bar__me { grid-area: me; justify-self: end; margin-left: 0; }
+}
+@media (min-width: 960px) {
+  .top-bar__inner { padding-inline: var(--space-8); }
+}
+
+/* Wide enough for logo, plate, nav and account in one row: keep them there, and let the plate give way first. */
+@media (min-width: 1100px) {
+  .top-bar__inner { grid-template-areas: "left nav me"; }
+  .top-bar__left { grid-area: left; display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+  .top-bar__logo, .top-bar__slot { grid-area: auto; }
+  .top-bar__slot { flex: 0 1 auto; min-width: 0; width: auto; }
+}
+
+/* Phones: the logo and your account along the top, the nav fixed to the bottom of the screen. */
+@media (max-width: 759px) {
+  body:has(.top-bar__nav) { --top-bar-nav-h: calc(88px + env(safe-area-inset-bottom, 0px)); padding-bottom: var(--top-bar-nav-h); }
+  .top-bar .top-bar__nav {
+    position: fixed; z-index: 40; left: 50%; bottom: max(var(--space-3), env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%); width: calc(100% - 2 * var(--space-3)); max-width: 440px; justify-content: space-between; margin: 0;
+    height: auto; padding: 6px 6px 9px; /* 9 = 6 + the current tab's 3px lip */
+  }
+  /* Four labels don't fit beside their icons in 360px, so on the phone dock only, the icon sits over the label. */
+  .top-bar .sp-nav a { flex: 1 1 0; flex-direction: column; gap: 2px; height: 52px; padding-inline: 4px; font-size: 12px; line-height: 14px; }
+  .top-bar .sp-nav a .sp-icon { font-size: var(--icon-md); }
+  .top-bar .sp-nav a > span.sp-dot { position: absolute; top: 2px; right: 8px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; line-height: 18px; }
+  .top-bar__me > .sp-btn, .top-bar__sign-in > .sp-btn { padding-inline: var(--space-3); }
+  .top-bar__me { margin-left: auto; }
+  .top-bar__slot { order: 3; flex-basis: 100%; max-width: none; }
+  .top-bar__start-rest { display: none; }
+}
+@media (max-width: 420px) {
+  .top-bar .sp-nav a { padding-inline: 2px; min-width: 0; font-size: 11px; }
+  .top-bar__me { gap: var(--space-2); }
+}
+
+/* Changing tab: the view transition rules are in save_point/transitions.css, which every page loads. These two names pull
+   the bar (and, inside it, the gold highlight) out of the page, so it stays put while the page slides. */
+.top-bar { view-transition-name: top-bar; }

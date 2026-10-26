@@ -1,0 +1,33 @@
+<%# locals: (order:) %>
+<%# One claim: who (with their email, for their address on Hack Club Auth), what exactly, where to order it from,
+    the hours it took and when, then whatever the table puts last (the button, or who ordered it).
+    The data-label attributes name each cell where the table folds into cards on a phone (admin-orders.css). %>
+<% project = order.project %>
+<% user = project.user %>
+<tr id="<%= dom_id(order) %>">
+  <th scope="row" class="pg-admin-orders__who">
+    <span class="pg-admin-orders__card">
+      <%= admin_avatar_link(user, "pg-admin-orders__avatar") %>
+      <span class="pg-admin-orders__person">
+        <b><%= admin_person_link(user) %></b>
+        <small><%= user.email %><% if user.slack_display_name.present? %> · <%= name_with_slack(user, name: user.slack_display_name) %><% end %></small>
+      </span>
+    </span>
+  </th>
+  <td class="pg-admin-orders__what" data-label="What">
+    <b><%= order.configuration %></b>
+    <%# For this name on the parcel (their preferred one, else the Hack Club one), with the Hack Club name to check it by. %>
+    <small class="pg-admin-orders__recipient">To <b><%= order.recipient_name.presence || user.name.presence || user.public_name %></b><% if user.name.present? && order.recipient_name.present? && order.recipient_name != user.name %> (Hack Club: <%= user.name %>)<% end %></small>
+    <small class="admin__address pg-admin-orders__address"><%= user.address_lines(order.address) || "No address: look it up on Hack Club Auth" %></small>
+    <%# The phone they gave for the carrier, if any. %>
+    <% phone = order.address.is_a?(Hash) ? order.address["phone_number"] : nil %>
+    <% if phone.present? %><small class="pg-admin-orders__phone">Phone <%= phone %></small><% end %>
+  </td>
+  <td class="pg-admin-orders__from" data-label="From">
+    <%# A prize's kind says what to look for. %>
+    <%= order.prize_item&.kind || "unknown" %>
+  </td>
+  <td class="pg-admin-orders__hrs" data-label="Hours"><%= project_hours(order.hours.to_f) %> <small>hrs</small></td>
+  <td class="pg-admin-orders__date" data-label="Claimed"><%= order.created_at.strftime("%b %-d") %></td>
+  <%= yield %>
+</tr>

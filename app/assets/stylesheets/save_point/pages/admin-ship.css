@@ -1,0 +1,315 @@
+/* Admin: one ship in full (admin/ships/show), the reviewer's working screen. The admin nav (admin/_nav, styled by
+   admin-nav.css), the title and who shipped it, four tiles, then what they submitted beside the decision. On a wide
+   screen the decision panel stays in view while the reviewer scrolls the submission. Earlier ships of the project
+   come last, in the shared row partial (admin/ships/_row). Every rule sits under .pg-admin-ship. Loads after
+   save_point/tokens and save_point/components. */
+
+.pg-admin-ship { min-height: 100vh; padding-bottom: var(--space-16); }
+.pg-admin-ship a { color: var(--royal-ink); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.pg-admin-ship a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.pg-admin-ship p { margin: 0; }
+.pg-admin-ship .admin__muted { color: var(--ink-muted); font-weight: 600; }
+
+/* ---------- Main column ---------- */
+.pg-admin-ship .admin-bar { margin: 0; }
+.pg-admin-ship .ash {
+  display: grid; gap: var(--space-6); max-width: 1320px; margin-inline: auto;
+  padding: var(--space-4) max(var(--space-4), env(safe-area-inset-right, 0px)) 0 max(var(--space-4), env(safe-area-inset-left, 0px));
+}
+@media (min-width: 600px) { .pg-admin-ship .ash { padding-inline: var(--space-6); } }
+.pg-admin-ship .ash__main { display: grid; gap: var(--space-10); min-width: 0; }
+
+/* ---------- Head: back link, title, who shipped it ---------- */
+.pg-admin-ship .ash__head { display: grid; gap: var(--space-3); justify-items: start; min-width: 0; }
+.pg-admin-ship .ash__back a { display: inline-flex; align-items: center; gap: 4px; font: 800 14px/20px var(--font-body); text-decoration: none; }
+.pg-admin-ship .ash__back a:hover { text-decoration: underline; }
+.pg-admin-ship .ash__back .sp-icon { font-size: 18px; }
+.pg-admin-ship .ash__title {
+  margin: 0; max-width: 28ch; font: 900 italic clamp(30px, 4.4vw, 46px)/1.08 var(--font-display); color: var(--ink);
+  letter-spacing: -0.01em; text-wrap: balance; overflow-wrap: anywhere;
+}
+.pg-admin-ship .ash__byline { max-width: 80ch; font: 600 15px/24px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
+.pg-admin-ship .ash__alert { max-width: 100%; }
+
+/* Avatars: the animal on the person's colour. */
+.pg-admin-ship .avatar {
+  display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--avatar-color, var(--royal)); color: var(--on-royal); vertical-align: -6px; box-shadow: 0 0 0 2px var(--surface);
+}
+.pg-admin-ship .avatar svg { width: 64%; height: 64%; }
+.pg-admin-ship .ash__byline .avatar { margin: 0 6px 0 4px; }
+
+/* ---------- Tiles: four stat cards, two across on a phone ---------- */
+.pg-admin-ship .ash__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+@media (min-width: 800px) { .pg-admin-ship .ash__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); } }
+.pg-admin-ship .ash__tile {
+  --t-hi: var(--royal-hi); --t-lo: var(--royal); --t-on: var(--on-royal);
+  display: grid; align-content: start; gap: 2px; min-width: 0; padding: var(--space-3) var(--space-4) var(--space-4) var(--space-3);
+  background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-admin-ship .ash__tile--gold { --t-hi: var(--gold-hi); --t-lo: var(--gold); --t-on: var(--on-gold); }
+.pg-admin-ship .ash__tile--mint { --t-hi: var(--mint-hi); --t-lo: var(--mint); --t-on: var(--on-mint); }
+.pg-admin-ship .ash__tile--coral { --t-hi: var(--coral); --t-lo: var(--coral-ink); --t-on: var(--on-royal); }
+.pg-admin-ship .ash__tile--violet { --t-hi: var(--violet); --t-lo: var(--violet-ink); --t-on: var(--on-violet); }
+.pg-admin-ship .ash__tile > span {
+  display: inline-flex; align-items: flex-start; gap: var(--space-2); font: 800 12px/28px var(--font-body);
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+}
+.pg-admin-ship .ash__tile > span [data-icon] {
+  display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; font-size: 16px; color: var(--t-on);
+  background: linear-gradient(180deg, var(--t-hi), var(--t-lo)); box-shadow: inset 0 2px 0 var(--gloss);
+}
+.pg-admin-ship .ash__tile strong {
+  margin-top: var(--space-1); font: 900 italic clamp(22px, 2.6vw, 32px)/1.1 var(--font-display); color: var(--ink);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.pg-admin-ship .ash__tile strong a { color: var(--royal-ink); }
+.pg-admin-ship .ash__tile strong[data-decision="in_review"] { color: var(--gold-ink); }
+.pg-admin-ship .ash__tile strong[data-decision="awaiting_fraud"] { color: var(--gold-ink); }
+.pg-admin-ship .ash__tile strong[data-decision="approved"] { color: var(--mint-ink); }
+.pg-admin-ship .ash__tile strong[data-decision="rejected"] { color: var(--coral-ink); }
+.pg-admin-ship .ash__tile strong[data-decision="changes_needed"] { color: var(--coral-ink); }
+.pg-admin-ship .ash__tile small { font: 700 13px/18px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
+
+/* ---------- Panels ---------- */
+.pg-admin-ship .ash__side { display: grid; gap: var(--space-6); min-width: 0; }
+.pg-admin-ship .ash__ticks { display: grid; gap: var(--space-3); }
+.pg-admin-ship .ash__tick { display: flex; align-items: flex-start; gap: var(--space-3); font: 600 15px/22px var(--font-body); }
+.pg-admin-ship .ash__tick .sp-check { flex: none; margin-top: 2px; }
+.pg-admin-ship .ash__auto { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-lg); background: var(--gold-soft); font: 800 11px/18px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-ink); cursor: help; }
+.pg-admin-ship .ash__split { display: grid; gap: var(--space-10); align-items: start; }
+@media (min-width: 1000px) {
+  .pg-admin-ship .ash__split { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); gap: var(--space-6); }
+  .pg-admin-ship .ash__decide { position: sticky; top: var(--space-8); }
+}
+.pg-admin-ship .ash__panel { gap: var(--space-4); padding: var(--space-8) var(--space-4) var(--space-4); border-radius: var(--radius-lg); }
+@media (min-width: 600px) { .pg-admin-ship .ash__panel { padding: var(--space-8) var(--space-5) var(--space-5); } }
+.pg-admin-ship .ash__ribbon { max-width: calc(100% - var(--space-8)); white-space: nowrap; }
+.pg-admin-ship .ash__ribbon .sp-icon { font-size: 20px; }
+@media (max-width: 519px) { .pg-admin-ship .ash__ribbon { padding-inline: 14px; font-size: 16px; } }
+
+/* What they submitted: label and value in two columns, a dashed line between rows. */
+.pg-admin-ship .ash__details { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; font-size: 15px; line-height: 22px; }
+.pg-admin-ship .ash__details dt,
+.pg-admin-ship .ash__details dd { padding: 10px 0; border-top: 2px dashed var(--line); }
+.pg-admin-ship .ash__details dt:first-of-type,
+.pg-admin-ship .ash__details dt:first-of-type + dd { border-top: 0; }
+.pg-admin-ship .ash__details dt {
+  display: flex; align-items: flex-start; gap: 6px; padding-right: var(--space-4);
+  font: 800 12px/22px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+}
+.pg-admin-ship .ash__details dt [data-icon] { font-size: 16px; color: var(--royal-ink); margin-top: 3px; }
+.pg-admin-ship .ash__details dd { margin: 0; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.pg-admin-ship .ash__description { white-space: pre-line; font-weight: 600 !important; }
+@media (max-width: 519px) {
+  .pg-admin-ship .ash__details { grid-template-columns: minmax(0, 1fr); }
+  .pg-admin-ship .ash__details dt { padding-bottom: 0; }
+  .pg-admin-ship .ash__details dd { padding-top: 2px; border-top: 0; }
+}
+
+/* Screenshot: framed, and opens full size. */
+.pg-admin-ship .ash__shot { display: grid; gap: var(--space-2); margin: 0; }
+.pg-admin-ship .ash__shot a { display: block; width: fit-content; max-width: 100%; border-radius: var(--radius-md); }
+.pg-admin-ship .ash__shot img {
+  display: block; max-width: 100%; max-height: 640px; height: auto; border-radius: var(--radius-md);
+  border: 2px solid var(--line-strong); box-shadow: 0 var(--lip-depth) 0 var(--line-lip); background: var(--surface-sunken);
+}
+.pg-admin-ship .ash__shot a:hover img { border-color: var(--royal); }
+.pg-admin-ship .ash__shot figcaption { display: flex; align-items: flex-start; gap: 6px; font: 600 14px/20px var(--font-body); }
+.pg-admin-ship .ash__shot figcaption [data-icon] { font-size: 16px; margin-top: 2px; color: var(--royal-ink); }
+
+/* ---------- What changed: their statement beside the commits, then the game before and after ---------- */
+.pg-admin-ship .ash__changes { display: grid; gap: var(--space-10); align-items: start; }
+@media (min-width: 1000px) { .pg-admin-ship .ash__changes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-6); } }
+.pg-admin-ship .ash__statement-text { font: 600 16px/26px var(--font-body); }
+.pg-admin-ship .ash__commits-note { font: 600 14px/20px var(--font-body); }
+.pg-admin-ship .ash__commit-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; max-height: 420px; overflow: auto; }
+.pg-admin-ship .ash__commit { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--space-3); padding: 10px 0; border-top: 2px dashed var(--line); font: 600 15px/22px var(--font-body); }
+.pg-admin-ship .ash__commit:first-child { border-top: 0; }
+.pg-admin-ship .ash__sha { font: 800 13px/22px ui-monospace, SFMono-Regular, Menlo, monospace; text-decoration: none; }
+.pg-admin-ship .ash__commit-message { min-width: 0; overflow-wrap: anywhere; }
+.pg-admin-ship .ash__commit small { grid-column: 2; font: 600 13px/18px var(--font-body); }
+.pg-admin-ship .ash__problem { display: flex; align-items: flex-start; gap: 8px; padding: var(--space-3) var(--space-4); border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--gold-soft); font: 700 15px/22px var(--font-body); color: var(--ink); }
+.pg-admin-ship .ash__problem [data-icon] { flex: none; margin-top: 2px; font-size: 18px; color: var(--gold-ink); }
+.pg-admin-ship .ash__pair { display: grid; gap: var(--space-6); align-items: start; }
+@media (min-width: 800px) { .pg-admin-ship .ash__pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pg-admin-ship .ash__before figcaption,
+.pg-admin-ship .ash__after figcaption { display: block; font: 600 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-admin-ship .ash__before figcaption strong,
+.pg-admin-ship .ash__after figcaption strong { display: inline-block; margin-right: 6px; font: 800 12px/20px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+.pg-admin-ship .ash__empty-shot {
+  display: grid; place-items: center; align-content: center; gap: var(--space-2); min-height: 180px; padding: var(--space-4); text-align: center;
+  border: 3px dashed var(--line-strong); border-radius: var(--radius-lg); background: var(--surface-sunken);
+  font: 700 15px/22px var(--font-body); color: var(--ink-muted);
+}
+.pg-admin-ship .ash__empty-shot [data-icon] { font-size: 28px; color: var(--ink-faint); }
+
+/* ---------- Decision: the review's verdict, the fraud check, and who holds the ship (D-063) ---------- */
+.pg-admin-ship [hidden] { display: none !important; }
+.pg-admin-ship .ash__decide--gold { border-color: var(--gold-line); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 5px var(--gold-soft), var(--shadow-soft); }
+.pg-admin-ship .ash__note { font: 600 14px/21px var(--font-body); color: var(--ink-muted); }
+.pg-admin-ship .ash__claim { max-width: 100%; }
+.pg-admin-ship .ash__claim-banner { max-width: 100%; }
+.pg-admin-ship .ash__skip { display: flex; align-items: center; gap: var(--space-2); }
+.pg-admin-ship .ash__skip .sp-btn { margin-bottom: 0; }
+
+/* The keys: a small cap on the button or the note that names them. */
+.pg-admin-ship .ash__kbd {
+  display: inline-block; min-width: 20px; padding: 0 6px; border-radius: var(--radius-sm); background: var(--surface-sunken);
+  box-shadow: inset 0 -2px 0 var(--line-strong); font: 800 12px/20px ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center; color: var(--ink-muted); letter-spacing: 0; white-space: nowrap;
+}
+.pg-admin-ship .ash__verdict-btn .ash__kbd { margin-left: auto; }
+
+.pg-admin-ship .ash__verdict-form { display: grid; gap: var(--space-4); margin: 0; }
+.pg-admin-ship .ash__total { font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
+.pg-admin-ship .ash__total strong { font: 900 italic 24px/28px var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.pg-admin-ship .ash__hours-box { position: relative; display: block; min-width: 0; }
+.pg-admin-ship .ash__hours {
+  padding-right: 48px; font: 800 italic 20px/24px var(--font-display); font-variant-numeric: tabular-nums;
+}
+.pg-admin-ship .ash__hours-unit {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none;
+  font: 800 12px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+}
+
+/* Presets: shares of what was claimed, in a row that wraps. */
+.pg-admin-ship .ash__presets { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pg-admin-ship .ash__preset { margin-bottom: var(--lip-depth); gap: 4px; }
+.pg-admin-ship .ash__preset small { font: 700 12px/1 var(--font-body); color: var(--ink-muted); }
+
+/* The verdict buttons: one under another, the key at the right. */
+.pg-admin-ship .ash__verdicts { display: grid; gap: var(--space-2); }
+.pg-admin-ship .ash__verdict-btn { width: 100%; justify-content: flex-start; }
+.pg-admin-ship .ash__verdict-btn--coral { --b-ink: var(--coral-ink); }
+.pg-admin-ship .ash__verdict-btn--coral:hover { --b-lo: var(--coral-soft); }
+.pg-admin-ship .ash__verdict-btn--ban { --b-hi: var(--coral); --b-lo: var(--coral-ink); --b-line: var(--coral-ink); --b-lip: var(--shade); --b-ink: var(--on-royal); }
+.pg-admin-ship .ash__verdict-btn.is-armed { box-shadow: inset 0 2px 0 var(--gloss), 0 var(--lip-depth) 0 var(--b-lip), var(--focus-ring); transform: translateY(var(--press-depth)); }
+.pg-admin-ship .ash__verdict-btn.is-armed .ash__kbd { background: var(--gold); color: var(--on-gold); }
+
+.pg-admin-ship .ash__sendback-details { display: grid; gap: var(--space-3); }
+.pg-admin-ship .ash__sendback-details > summary { cursor: pointer; font: 800 14px/20px var(--font-body); color: var(--royal-ink); }
+.pg-admin-ship .ash__sendback-details > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.pg-admin-ship .ash__sendback-details[open] > summary { margin-bottom: var(--space-3); }
+.pg-admin-ship .ash__sendbacks { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pg-admin-ship .ash__sendbacks li { display: grid; gap: 2px; padding-top: var(--space-3); border-top: 2px dashed var(--line); font: 600 15px/22px var(--font-body); }
+.pg-admin-ship .ash__sendbacks li:first-child { padding-top: 0; border-top: 0; }
+.pg-admin-ship .ash__textarea { min-height: 84px; resize: vertical; font: 600 15px/22px var(--font-body); }
+.pg-admin-ship .ash__error { display: flex; align-items: flex-start; gap: 6px; font: 700 14px/20px var(--font-body); color: var(--coral-ink); }
+.pg-admin-ship .ash__error [data-icon] { flex: none; margin-top: 2px; font-size: 16px; }
+
+/* The handbook's limits (D-030), and what goes to Airtable once approved: a row each, label left, value right. */
+.pg-admin-ship .ash__limits,
+.pg-admin-ship .ash__justify {
+  display: grid; gap: 0; margin: 0; padding: var(--space-2) var(--space-4);
+  border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--surface-sunken);
+}
+.pg-admin-ship .ash__limits > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: 8px 0; border-top: 2px dashed var(--line); }
+.pg-admin-ship .ash__limits > div:first-child,
+.pg-admin-ship .ash__justify > div:first-child { border-top: 0; }
+.pg-admin-ship .ash__limits dt { font: 700 14px/20px var(--font-body); color: var(--ink-muted); }
+.pg-admin-ship .ash__limits dt small { display: block; font: 600 12px/16px var(--font-body); color: var(--ink-faint); }
+.pg-admin-ship .ash__limits dd { margin: 0; font: 800 15px/20px var(--font-body); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.pg-admin-ship .ash__limits dd small { font: 800 13px/20px var(--font-body); color: var(--coral-ink); }
+.pg-admin-ship .ash__limits .ash__limits-total dt,
+.pg-admin-ship .ash__limits .ash__limits-total dd { color: var(--ink); font-weight: 800; }
+.pg-admin-ship .ash__justify-label { margin: var(--space-4) 0 var(--space-2); }
+.pg-admin-ship .ash__justify > div { display: grid; gap: 2px; padding: 10px 0; border-top: 2px dashed var(--line); }
+.pg-admin-ship .ash__justify dt { font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-admin-ship .ash__justify dd { margin: 0; font: 600 14px/20px var(--font-body); overflow-wrap: anywhere; }
+
+/* Decided: a coin in the decision's colour, and what was decided. */
+.pg-admin-ship .ash__verdict {
+  --v-hi: var(--mint-hi); --v-lo: var(--mint); --v-on: var(--on-mint); --v-soft: var(--mint-soft); --v-ink: var(--mint-ink);
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: calc(var(--radius-lg) - 2px - var(--space-4)); background: var(--v-soft);
+}
+.pg-admin-ship .ash__decide--coral .ash__verdict { --v-hi: var(--coral); --v-lo: var(--coral-ink); --v-on: var(--on-royal); --v-soft: var(--coral-soft); --v-ink: var(--coral-ink); }
+.pg-admin-ship .ash__verdict-icon {
+  display: grid; place-items: center; flex: none; width: 44px; height: 44px; margin-bottom: 3px; border-radius: 50%; font-size: 24px; color: var(--v-on);
+  background: linear-gradient(180deg, var(--v-hi), var(--v-lo)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--shade);
+}
+.pg-admin-ship .ash__verdict-text { font: 800 16px/22px var(--font-body); color: var(--v-ink); }
+
+/* ---------- Earlier ships (admin/ships/_row, shared) ---------- */
+.pg-admin-ship .ash__scroll { overflow-x: auto; }
+.pg-admin-ship .ash__table { width: 100%; min-width: 640px; border-collapse: separate; border-spacing: 0; font-size: 15px; line-height: 20px; }
+.pg-admin-ship .ash__table thead th {
+  padding: 8px 10px; background: var(--surface-sunken); font: 800 12px/16px var(--font-body); letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-muted); text-align: left; white-space: nowrap;
+}
+.pg-admin-ship .ash__table thead th:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.pg-admin-ship .ash__table thead th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.pg-admin-ship .ash__table tbody th,
+.pg-admin-ship .ash__table tbody td { padding: 10px; text-align: left; vertical-align: top; border-bottom: 2px solid var(--line); font-weight: 700; }
+.pg-admin-ship .ash__table tbody tr:last-child > * { border-bottom: 0; }
+.pg-admin-ship .ash__table tbody tr:hover > * { background: var(--royal-soft); }
+.pg-admin-ship .ash__table small { display: block; margin-top: 2px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+.pg-admin-ship .ash__table .leaderboard__number { text-align: right; font-variant-numeric: tabular-nums; }
+.pg-admin-ship .ash__table td.leaderboard__number { font: 800 italic 17px/20px var(--font-display); }
+.pg-admin-ship .ash__table tbody th { position: relative; padding-left: 44px; }
+.pg-admin-ship .ash__table tbody th .avatar { position: absolute; left: 10px; top: 10px; width: 26px; height: 26px; }
+.pg-admin-ship .ash__table td[data-decision] { white-space: nowrap; font-weight: 800; }
+.pg-admin-ship .ash__table td[data-decision]::before {
+  content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 2px 0 var(--gold-lip);
+}
+.pg-admin-ship .ash__table td[data-decision="in_review"] { color: var(--gold-ink); }
+.pg-admin-ship .ash__table td[data-decision="awaiting_fraud"] { color: var(--gold-ink); }
+.pg-admin-ship .ash__table td[data-decision="approved"] { color: var(--mint-ink); }
+.pg-admin-ship .ash__table td[data-decision="approved"]::before { background: var(--mint); box-shadow: 0 2px 0 var(--mint-lip); }
+.pg-admin-ship .ash__table td[data-decision="rejected"] { color: var(--coral-ink); }
+.pg-admin-ship .ash__table td[data-decision="changes_needed"] { color: var(--coral-ink); }
+.pg-admin-ship .ash__table td[data-decision="rejected"]::before { background: var(--coral); box-shadow: 0 2px 0 var(--coral-ink); }
+.pg-admin-ship .ash__table td[data-decision="changes_needed"]::before { background: var(--coral); box-shadow: 0 2px 0 var(--coral-ink); }
+
+/* On a phone each earlier ship stacks into a card: who, the ship, then hours, date and status on one line. */
+@media (max-width: 699px) {
+  .pg-admin-ship .ash__scroll { overflow: visible; }
+  .pg-admin-ship .ash__table { display: block; min-width: 0; }
+  .pg-admin-ship .ash__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .pg-admin-ship .ash__table tbody { display: grid; }
+  .pg-admin-ship .ash__table tbody tr {
+    display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px var(--space-4);
+    padding: var(--space-3) 0; border-bottom: 2px solid var(--line);
+  }
+  .pg-admin-ship .ash__table tbody tr:last-child { border-bottom: 0; }
+  .pg-admin-ship .ash__table tbody tr > * { display: block; padding: 0; border: 0; background: none !important; min-width: 0; }
+  .pg-admin-ship .ash__table tbody th { grid-column: 1 / -1; padding-left: 36px; min-height: 26px; }
+  .pg-admin-ship .ash__table tbody th .avatar { left: 0; top: 0; }
+  .pg-admin-ship .ash__table tbody td:nth-child(2) { grid-column: 1 / -1; }
+  .pg-admin-ship .ash__table tbody td.leaderboard__number { text-align: left; }
+  .pg-admin-ship .ash__table tbody td.leaderboard__number::after { content: " hrs"; font: 800 12px/1 var(--font-body); font-style: normal; color: var(--ink-muted); }
+  .pg-admin-ship .ash__table td[data-decision] { white-space: normal; }
+}
+
+/* ---------- Evidence (D-063): what the claim is checked against ---------- */
+.pg-admin-ship .ash__quiet { display: flex; align-items: flex-start; gap: 6px; font: 600 14px/20px var(--font-body); }
+.pg-admin-ship .ash__quiet [data-icon] { flex: none; margin-top: 1px; font-size: 16px; }
+.pg-admin-ship .ash__problem--coral { background: var(--coral-soft); }
+.pg-admin-ship .ash__problem--coral [data-icon] { color: var(--coral-ink); }
+.pg-admin-ship .ash__problem a { font-weight: 800; }
+.pg-admin-ship .ash__evidence { align-items: start; }
+.pg-admin-ship .ash__evtable { width: 100%; border-collapse: collapse; font: 700 15px/22px var(--font-body); font-variant-numeric: tabular-nums; }
+.pg-admin-ship .ash__evtable th,
+.pg-admin-ship .ash__evtable td { padding: 8px 0; border-top: 2px dashed var(--line); text-align: right; }
+.pg-admin-ship .ash__evtable thead th { border-top: 0; padding-top: 0; font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.pg-admin-ship .ash__evtable th:first-child { text-align: left; padding-right: var(--space-3); overflow-wrap: anywhere; }
+.pg-admin-ship .ash__evtable tbody th { font-weight: 700; }
+.pg-admin-ship .ash__evtable tfoot th,
+.pg-admin-ship .ash__evtable tfoot td { border-top: 2px solid var(--line); font-weight: 800; }
+.pg-admin-ship .ash__files { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font: 700 15px/22px var(--font-body); overflow-wrap: anywhere; }
+.pg-admin-ship .ash__files small { font: 600 13px/18px var(--font-body); }
+.pg-admin-ship .ash__over { color: var(--coral-ink); }
+.pg-admin-ship .ash__links { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.pg-admin-ship a.ash__link-btn { color: inherit; text-decoration: none; }
+.pg-admin-ship .ash__warnbox { background: var(--gold-soft); }
+.pg-admin-ship .ash__details .sp-badge + .sp-badge { margin-left: var(--space-2); }
+.pg-admin-ship .ash__evidence .ash__side { gap: var(--space-10); }
+
+/* D-065: the hours start and its override. */
+.pg-admin-ship .ash__hours-start { display: grid; gap: var(--space-3); align-content: start; }
+.pg-admin-ship .ash__hours-start-line { margin: 0; font: 600 15px/22px var(--font-body); }
+.pg-admin-ship .ash__hours-start-form { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+.pg-admin-ship .ash__hours-start-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pg-admin-ship .ash__hours-start-note { margin: 0; font: 600 13px/19px var(--font-body); }

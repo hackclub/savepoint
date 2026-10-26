@@ -1,0 +1,154 @@
+<% content_for :title, "#{@project.title} · Projects · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-project" %>
+<% user = @project.user %>
+<% ships = @project.ships.sort_by(&:created_at).reverse %>
+
+<%# One project in full: who, where they've got to, the pledge as they made it, what Hackatime's linked to, each day
+    they've built, their buddy, their ships and their screenshot. Real names and emails are here, so nothing on this
+    page is recorded. %>
+<div class="pg-admin-project sp-page">
+  <div class="ap sp-container">
+    <main class="ap__main">
+      <header class="ap__head">
+        <p class="ap__back"><%= link_to admin_projects_path do %><%= sp_icon "left-fill" %>All projects<% end %></p>
+        <h1 class="ap__title"><%= @project.title %></h1>
+        <p class="leaderboard__note ap__byline">
+          By <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %>
+          (<%= user.email %><% if user.slack_display_name.present? %>, <%= name_with_slack(user, name: user.slack_display_name) %> on Slack<% end %>),
+          signed <%= project_date(@project.signed_on) %>, in <%= user.timezone.presence || "UTC" %>.
+          <% if user.streak_synced_at %>Hours synced <%= time_ago_in_words(user.streak_synced_at) %> ago.<% else %>Hours never synced.<% end %>
+        </p>
+        <% if user.impersonable_by?(current_user) && !impersonating? %>
+          <div class="ap__actions">
+            <%= button_to admin_user_impersonation_path(user), method: :post, class: "sp-btn sp-btn--royal sp-btn--sm",
+                  form: { data: { turbo: false } } do %>
+              <%= sp_icon "user-3-fill" %>View as <%= user.first_name.presence || "them" %>
+            <% end %>
+          </div>
+        <% end %>
+      </header>
+
+      <section class="ap__tiles" aria-label="Where they've got to">
+        <div class="admin__tile ap__tile ap__tile--gold">
+          <span><%= sp_icon "time-fill" %>Hours</span><strong><%= project_hours(@project.hours_logged) %></strong><small><%= project_hours_label(@project) %></small>
+        </div>
+        <div class="admin__tile ap__tile ap__tile--coral">
+          <span><%= sp_icon "fire-fill" %>Streak</span><strong><%= user.current_streak %></strong><small><%= pluralize(@days.size, "day") %> built</small>
+        </div>
+        <div class="admin__tile ap__tile ap__tile--royal">
+          <span><%= sp_icon "calendar-fill" %>Day</span><strong><%= @project.day_number %></strong><small>of <%= @project.build_days.size %> · done by <%= project_date(@project.finish_on) %></small>
+        </div>
+        <div class="admin__tile ap__tile ap__tile--violet">
+          <span><%= sp_icon "rocket-fill" %>Ship</span>
+          <% if (ship = @project.ship_in_review) %>
+            <strong><%= link_to "In review", admin_ship_path(ship) %></strong><small>since <%= project_date(ship.created_at.to_date) %></small>
+          <% elsif @project.shipped? %>
+            <strong data-decision="approved">Approved</strong><small><%= link_to "see the ship", admin_ship_path(ships.first) %></small>
+          <% elsif ships.any? %>
+            <strong data-decision="rejected"><%= @project.ship_rejected ? "Rejected" : "Sent back" %></strong><small><%= link_to "see the ship", admin_ship_path(ships.first) %></small>
+          <% else %>
+            <strong>Not yet</strong><small><%= @project.tracking? ? "can ship" : "needs Hackatime first" %></small>
+          <% end %>
+        </div>
+      </section>
+
+      <div class="ap__split">
+        <section class="sp-panel ap__panel" aria-labelledby="admin-project-pledge">
+          <h2 class="sp-ribbon ap__ribbon" id="admin-project-pledge"><span><%= sp_icon "flag-1-fill" %>The pledge</span></h2>
+          <dl class="admin__ship-details ap__details">
+            <dt>Idea</dt><dd><%= @project.idea %></dd>
+            <% if @project.name.present? %><dt>Renamed to</dt><dd><%= @project.name %></dd><% end %>
+            <dt>Prize</dt><dd><%= project_prize_name(@project) %></dd>
+            <dt>Pace</dt><dd><%= project_pace_label(@project.pace_minutes) %> <%= @project.build_time == "weekends" ? "a session, weekends" : "a day, #{@project.build_time}" %></dd>
+            <dt>Repo</dt>
+            <dd>
+              <% if @project.repo_url.present? %><%= safe_link_to @project.repo_url, @project.repo_url, target: "_blank", rel: "noopener" %>
+              <% elsif @project.repo_later %><span class="admin__muted">said they'd add one before shipping</span>
+              <% else %><span class="admin__muted">none yet</span><% end %>
+            </dd>
+            <dt>Hackatime</dt>
+            <dd>
+              <% if @project.tracking? %>
+                <%= @project.hackatime_projects.join(", ") %><% if @project.hackatime_auto_linked %> <small class="admin__muted">(linked itself)</small><% end %>
+              <% elsif @project.hackatime_linked? %><span class="admin__muted">linked, no project picked yet</span>
+              <% else %><span class="admin__muted">not linked</span><% end %>
+            </dd>
+            <dt>Buddy</dt>
+            <dd>
+              <% if (buddy = @project.buddy) %>
+                <%= link_to buddy.title, admin_project_path(buddy) %> <small class="admin__muted">(<%= admin_person_link(buddy.user) %>, paired <%= project_date(@project.pair.started_on) %>)</small>
+              <% elsif @project.buddy_skipped %><span class="admin__muted">skipped</span>
+              <% elsif @project.buddy_invited %><span class="admin__muted">invited someone, nobody's accepted</span>
+              <% else %><span class="admin__muted">none</span><% end %>
+            </dd>
+            <dt>Slack</dt>
+            <dd>
+              <% if user.slack_id.present? %><%= user.slack_id %><% else %><span class="admin__muted">no Slack ID</span><% end %>
+              <% if user.slack_muted_at %><small class="admin__muted">· stopped the Slack messages <%= project_date(user.slack_muted_at.to_date) %></small><% end %>
+              <% if user.slack_dm_failed_at %><small class="admin__muted">· a DM failed <%= project_date(user.slack_dm_failed_at.to_date) %></small><% end %>
+            </dd>
+          </dl>
+        </section>
+
+        <section class="sp-panel ap__panel" aria-labelledby="admin-project-days">
+          <h2 class="sp-ribbon sp-ribbon--gold ap__ribbon" id="admin-project-days"><span><%= sp_icon "calendar-fill" %>Days built</span></h2>
+          <% if @days.empty? %>
+            <p class="leaderboard__note ap__empty">Nothing synced from Hackatime yet.</p>
+          <% else %>
+            <div class="ap__scroll">
+              <table class="ap__table admin__table admin__table--days">
+                <thead><tr><th scope="col">Day</th><th class="ap__num" scope="col">Hours</th><th scope="col"><span class="visually-hidden">Counted</span></th></tr></thead>
+                <tbody>
+                  <% @days.each do |day| %>
+                    <tr class="<%= "is-counted" if day.completed? %>">
+                      <th scope="row"><%= project_date(day.activity_date) %></th>
+                      <td class="ap__num"><%= project_hours((day.coded_seconds / 3600.0).round(1)) %></td>
+                      <td><small class="admin__muted ap__count"><%= sp_icon(day.completed? ? "fire-fill" : "time-fill") %><%= day.completed? ? "counts for the streak" : "under 20 minutes" %></small></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </section>
+      </div>
+
+      <section class="sp-panel ap__panel" aria-labelledby="admin-project-ships">
+        <h2 class="sp-ribbon ap__ribbon" id="admin-project-ships"><span><%= sp_icon "rocket-fill" %>Ships</span></h2>
+        <% if ships.empty? %>
+          <p class="leaderboard__note ap__empty">Not shipped yet.</p>
+        <% else %>
+          <div class="ap__scroll">
+            <table class="ap__table admin__table admin__table--ships">
+              <thead>
+                <tr>
+                  <th scope="col">Who</th>
+                  <th scope="col">Ship</th>
+                  <th class="ap__num leaderboard__number" scope="col">Hours</th>
+                  <th scope="col">Shipped</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% ships.each do |ship| %>
+                  <%= render "admin/ships/row", ship: %>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </section>
+
+      <% if @project.screenshot.attached? %>
+        <section class="sp-panel ap__panel" aria-labelledby="admin-project-shot">
+          <h2 class="sp-ribbon sp-ribbon--gold ap__ribbon" id="admin-project-shot"><span><%= sp_icon "pic-fill" %>Screenshot</span></h2>
+          <figure class="ap__shot">
+            <%= link_to url_for(@project.screenshot), target: "_blank", rel: "noopener" do %>
+              <%= image_tag url_for(@project.screenshot), alt: "Screenshot of #{@project.title}" %>
+            <% end %>
+          </figure>
+        </section>
+      <% end %>
+    </main>
+  </div>
+</div>

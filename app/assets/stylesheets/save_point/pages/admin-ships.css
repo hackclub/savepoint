@@ -1,0 +1,203 @@
+/* Admin > Ships (admin/ships/index): the review queue. A tool page, dense and easy to scan: a chunky italic heading,
+   then "In review" and "Decided", each a table in a panel with a lip. The rows are the shared admin/ships/_row, so
+   they're styled here by their element and data attributes (the status cell is td[data-decision]). Every rule sits
+   under .pg-admin-ships. The admin nav styles itself (admin-nav.css). Below 760px each row becomes a card. */
+
+.pg-admin-ships { min-height: 100vh; min-height: 100dvh; color: var(--ink); overflow-x: clip; }
+.pg-admin-ships__wrap { width: 100%; max-width: 1360px; margin-inline: auto; padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px)); }
+@media (min-width: 600px) { .pg-admin-ships__wrap { padding-inline: var(--space-6); } }
+
+/* ---------- Heading, the queue's size, the note, an alert ---------- */
+.pg-admin-ships__main { display: grid; gap: var(--space-8); padding-block: var(--space-4) var(--space-16); }
+.pg-admin-ships__head { display: grid; gap: var(--space-3); }
+.pg-admin-ships__title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); }
+.pg-admin-ships__title {
+  margin: 0; font: 900 italic clamp(30px, 4.4vw, 44px)/1.05 var(--font-display); letter-spacing: -0.01em;
+  color: var(--ink); text-wrap: balance;
+}
+.pg-admin-ships__stat { font-size: 18px; }
+.pg-admin-ships__stat .sp-stat__key { font-size: 18px; }
+.pg-admin-ships__stat[data-waiting="false"] .sp-stat__key { color: var(--on-mint); background: linear-gradient(180deg, var(--mint-hi), var(--mint)); }
+.pg-admin-ships__note { margin: 0; max-width: 78ch; font: 600 15px/22px var(--font-body); color: var(--ink-muted); }
+
+.pg-admin-ships__alert {
+  display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; max-width: 78ch;
+  padding: 10px 14px; border-radius: var(--radius-md); background: var(--coral-soft); color: var(--coral-ink);
+  font: 800 15px/22px var(--font-body); box-shadow: inset 0 -2px 0 var(--shade);
+}
+.pg-admin-ships__alert [data-icon] { margin-top: 2px; font-size: 18px; }
+
+/* The two ways in to the queues (D-063), then a tab per stage with its count: a pill track, and the open tab a gold pill in
+   it. The track's radius is the pill's, which is the full radius, so the two stay concentric. */
+.pg-admin-ships__start { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.pg-admin-ships__tabs {
+  display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 100%; justify-self: start; padding: 4px;
+  background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-full); box-shadow: inset 0 2px 0 var(--shade);
+}
+.pg-admin-ships__tab {
+  display: inline-flex; align-items: center; gap: var(--space-2); padding: 6px 14px 7px; border-radius: var(--radius-full);
+  font: 800 14px/20px var(--font-body); color: var(--ink-muted); text-decoration: none; white-space: nowrap; transition: background 120ms, color 120ms;
+}
+.pg-admin-ships__tab:hover { color: var(--ink); }
+.pg-admin-ships__tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pg-admin-ships__tab b { font: 800 italic 14px/20px var(--font-display); font-variant-numeric: tabular-nums; }
+.pg-admin-ships__tab[aria-current="page"] { color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip); }
+
+/* ---------- Each section: a heading with a count, then a table or an empty panel ---------- */
+.pg-admin-ships__section { display: grid; gap: var(--space-3); min-width: 0; }
+.pg-admin-ships__section-head { display: flex; align-items: center; gap: var(--space-3); }
+.pg-admin-ships__heading {
+  display: inline-flex; align-items: center; gap: var(--space-2); margin: 0;
+  font: 900 italic 24px/1.15 var(--font-display); color: var(--ink);
+}
+.pg-admin-ships__heading-icon { font-size: 22px; color: var(--royal-ink); }
+.pg-admin-ships__count {
+  display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 9px; border-radius: var(--radius-full);
+  background: var(--frame); color: var(--on-frame); box-shadow: 0 3px 0 var(--frame-lip);
+  font: 800 italic 16px/1 var(--font-display); font-variant-numeric: tabular-nums;
+}
+
+.pg-admin-ships__empty {
+  display: flex; align-items: center; gap: var(--space-4); padding: var(--space-5) var(--space-6);
+  background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-admin-ships__empty p { margin: 0; font: 800 italic 20px/26px var(--font-display); color: var(--ink-muted); }
+.pg-admin-ships__empty-icon {
+  display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 50%; font-size: 26px;
+  color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  box-shadow: inset 0 2px 0 var(--gloss), 0 3px 0 var(--gold-lip);
+}
+
+/* ---------- The table ---------- */
+.pg-admin-ships__panel {
+  min-width: 0; overflow-x: auto; background: var(--surface);
+  border: 2px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
+}
+.pg-admin-ships__table { width: 100%; min-width: 820px; border-collapse: collapse; font: 600 14px/20px var(--font-body); }
+.pg-admin-ships__table thead th {
+  padding: 12px 14px; background: var(--surface-sunken); text-align: left; white-space: nowrap;
+  font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+  border-bottom: 2px solid var(--line);
+}
+.pg-admin-ships__table thead th:first-child { border-top-left-radius: calc(var(--radius-lg) - 2px); }
+.pg-admin-ships__table thead th:last-child { border-top-right-radius: calc(var(--radius-lg) - 2px); }
+.pg-admin-ships__table thead th.pg-admin-ships__num { text-align: right; }
+
+/* Both tables share column widths, so "In review" and "Decided" line up. */
+@media (min-width: 760px) {
+  .pg-admin-ships__table { table-layout: fixed; }
+  .pg-admin-ships__table thead th:nth-child(1) { width: 30%; }
+  .pg-admin-ships__table thead th:nth-child(2) { width: 31%; }
+  .pg-admin-ships__table thead th:nth-child(3) { width: 9%; }
+  .pg-admin-ships__table thead th:nth-child(4) { width: 11%; }
+  .pg-admin-ships__table thead th:nth-child(5) { width: 19%; }
+}
+
+.pg-admin-ships__table tbody th, .pg-admin-ships__table tbody td { padding: 12px 14px; text-align: left; vertical-align: top; font-weight: 700; }
+.pg-admin-ships__table tbody tr + tr > * { border-top: 2px solid var(--line); }
+.pg-admin-ships__table tbody tr { transition: background 120ms; }
+.pg-admin-ships__table tbody tr:hover { background: var(--royal-soft); }
+.pg-admin-ships__table tbody tr:target { background: var(--gold-soft); }
+
+/* A lip of the status's colour down the left of each row: gold waits, mint's approved, coral's sent back. */
+.pg-admin-ships__table tbody tr { --status: var(--gold); --status-hi: var(--gold-hi); --status-lip: var(--gold-lip); --status-ink: var(--gold-ink); --status-soft: var(--gold-soft); }
+.pg-admin-ships__table tbody tr[data-status="approved"] { --status: var(--mint); --status-hi: var(--mint-hi); --status-lip: var(--mint-lip); --status-ink: var(--mint-ink); --status-soft: var(--mint-soft); }
+.pg-admin-ships__table tbody tr[data-status="rejected"],
+.pg-admin-ships__table tbody tr[data-status="changes_needed"] { --status: var(--coral); --status-hi: var(--coral); --status-lip: var(--coral-ink); --status-ink: var(--coral-ink); --status-soft: var(--coral-soft); }
+.pg-admin-ships__table tbody th { box-shadow: inset 4px 0 0 var(--status); }
+
+/* Who: the avatar beside the name, email and Slack under it. */
+.pg-admin-ships__table tbody th { position: relative; min-width: 220px; padding-left: 64px; font-weight: 800; color: var(--ink); }
+.pg-admin-ships__table .avatar {
+  position: absolute; left: 16px; top: 10px; display: grid; place-items: center; width: 36px; height: 36px; padding: 4px;
+  border-radius: 50%; overflow: hidden;
+  background: var(--avatar-color, var(--royal-soft)); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--line);
+}
+.pg-admin-ships__table .avatar svg { display: block; width: 100%; height: 100%; }
+
+.pg-admin-ships__table small { display: block; margin-top: 2px; font: 600 13px/18px var(--font-body); color: var(--ink-faint); overflow-wrap: anywhere; }
+
+/* Ship: its title, the link to it in full. */
+.pg-admin-ships__table tbody td:nth-child(2) { min-width: 220px; }
+.pg-admin-ships__table tbody td:nth-child(2) a {
+  font: 800 italic 16px/20px var(--font-display); color: var(--royal-ink);
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--royal-glow);
+  border-radius: 4px;
+}
+.pg-admin-ships__table tbody td:nth-child(2) a:hover { text-decoration-color: currentColor; }
+.pg-admin-ships__table tbody td:nth-child(2) a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Hours and the date. */
+.pg-admin-ships__table tbody td:nth-child(3) {
+  text-align: right; white-space: nowrap; font: 800 italic 18px/20px var(--font-display); color: var(--royal-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pg-admin-ships__table tbody td:nth-child(4) { white-space: nowrap; color: var(--ink-muted); }
+
+/* Status: a badge (a soft pill in the status's colour, a coin with the status's icon knocked out of it, the label), then
+   who decided and when under it. The pill is the span around the label, and the coin is its ::before. The coin sits 4px
+   in from the pill's top, bottom and left, its lip is drawn inside it, and the pill's radius is the coin's plus the 4px. */
+.pg-admin-ships__table td[data-decision] { min-width: 150px; white-space: nowrap; font: 900 14px/20px var(--font-body); color: var(--status-ink); }
+.pg-admin-ships__status {
+  --inset: 4px; --coin: 24px;
+  position: relative; display: inline-flex; align-items: center; height: calc(var(--coin) + 2 * var(--inset));
+  padding: 0 14px 0 calc(var(--coin) + 2 * var(--inset) + 6px);
+  border-radius: calc(var(--coin) / 2 + var(--inset)); background: var(--status-soft); box-shadow: inset 0 -2px 0 var(--shade);
+}
+.pg-admin-ships__status::before {
+  --icon: url("/save_point/icons/time-fill.svg");
+  content: ""; position: absolute; left: var(--inset); top: var(--inset); width: var(--coin); height: var(--coin); border-radius: 50%;
+  background: linear-gradient(180deg, var(--status-hi), var(--status));
+  -webkit-mask-image: var(--icon), linear-gradient(#000, #000); mask-image: var(--icon), linear-gradient(#000, #000);
+  -webkit-mask-size: 16px 16px, 100% 100%; mask-size: 16px 16px, 100% 100%;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  box-shadow: inset 0 -3px 0 var(--status-lip), inset 0 2px 0 var(--gloss);
+}
+.pg-admin-ships__table tr[data-status="approved"] .pg-admin-ships__status::before { --icon: url("/save_point/icons/check-fill.svg"); }
+.pg-admin-ships__table tr[data-status="changes_needed"] .pg-admin-ships__status::before { --icon: url("/save_point/icons/left-fill.svg"); }
+.pg-admin-ships__table tr[data-status="rejected"] .pg-admin-ships__status::before { --icon: url("/save_point/icons/close-fill.svg"); }
+.pg-admin-ships__table tr[data-status="awaiting_fraud"] .pg-admin-ships__status::before { --icon: url("/save_point/icons/search-fill.svg"); }
+.pg-admin-ships__table td[data-decision] small { margin-top: 8px; font-weight: 700; }
+
+/* ---------- Narrow: each row is a card ---------- */
+@media (max-width: 759px) {
+  .pg-admin-ships__panel { overflow: visible; background: none; border: 0; box-shadow: none; border-radius: 0; }
+  .pg-admin-ships__table { min-width: 0; }
+  .pg-admin-ships__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .pg-admin-ships__table, .pg-admin-ships__table tbody { display: block; }
+  .pg-admin-ships__table tbody { display: grid; gap: var(--space-4); }
+  .pg-admin-ships__table tbody tr {
+    display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0;
+    background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft); overflow: hidden;
+  }
+  .pg-admin-ships__table tbody tr:hover { background: var(--surface); }
+  .pg-admin-ships__table tbody tr + tr > * { border-top: 0; }
+  .pg-admin-ships__table tbody th, .pg-admin-ships__table tbody td { display: block; min-width: 0; padding: 10px 14px; overflow-wrap: anywhere; }
+  .pg-admin-ships__table tbody th {
+    grid-column: 1 / -1; min-width: 0; padding: 12px 14px 12px 62px; min-height: 64px;
+    background: var(--surface-sunken); box-shadow: inset 0 4px 0 var(--status);
+  }
+  .pg-admin-ships__table .avatar { top: 14px; }
+  .pg-admin-ships__table tbody td:nth-child(2) { grid-column: 1 / -1; min-width: 0; border-top: 2px solid var(--line); }
+  .pg-admin-ships__table tbody td:nth-child(2) a { font-size: 18px; line-height: 22px; }
+  .pg-admin-ships__table tbody td:nth-child(n + 3) { border-top: 2px solid var(--line); }
+  .pg-admin-ships__table tbody td:nth-child(3) { text-align: left; border-right: 2px solid var(--line); }
+  .pg-admin-ships__table tbody td:nth-child(4) { border-right: 2px solid var(--line); }
+  .pg-admin-ships__table tbody td:nth-child(3)::before,
+  .pg-admin-ships__table tbody td:nth-child(4)::before {
+    display: block; margin-bottom: 4px;
+    font: 800 11px/14px var(--font-body); font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+  }
+  .pg-admin-ships__table tbody td:nth-child(3)::before { content: "Hours"; }
+  .pg-admin-ships__table tbody td:nth-child(4)::before { content: "Shipped"; }
+  .pg-admin-ships__table td[data-decision] { min-width: 0; white-space: normal; align-self: stretch; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-admin-ships *, .pg-admin-ships *::before, .pg-admin-ships *::after { transition: none !important; }
+}

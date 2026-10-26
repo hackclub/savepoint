@@ -1,0 +1,128 @@
+<% content_for :title, "People · Save Point admin" %>
+<% content_for :stylesheets, " save_point/pages/admin-users" %>
+
+<%# Everyone who's signed in, newest first: who they are, what they pledged, where they've got to, and a button to
+    see the site as them. Real names and emails are here, so nothing on this page is recorded. %>
+<div class="sp-page pg-admin-users">
+  <main class="pg-admin-users__wrap pg-admin-users__main">
+    <header class="pg-admin-users__head">
+      <div class="pg-admin-users__title-row">
+        <h1 class="pg-admin-users__title">Everyone who's signed in</h1>
+        <span class="sp-stat pg-admin-users__count-stat">
+          <span class="sp-stat__key"><%= sp_icon "user-3-fill" %></span>
+          <span class="pg-admin-users__count"><%= pluralize(@total, "person") %></span>
+        </span>
+      </div>
+      <p class="pg-admin-users__note">
+        Newest first. "View as" shows you the site as they see it, until you stop from the strip at the bottom; nothing
+        you do as them is marked as yours, so look, don't touch. You can't view as yourself or another admin.
+      </p>
+      <% if flash[:alert] %>
+        <p class="sp-toast sp-toast--coral pg-admin-users__alert" role="alert">
+          <span class="sp-toast__icon"><%= sp_icon "warning-fill" %></span><%= flash[:alert] %>
+        </p>
+      <% end %>
+      <%= form_with url: admin_users_path, method: :get, class: "pg-admin-users__search", role: "search" do |form| %>
+        <span class="pg-admin-users__search-field">
+          <%= sp_icon "search-fill" %>
+          <%= form.search_field :q, value: @query, placeholder: "Name, email, Slack or Hack Club ID", aria: { label: "Search people" },
+                autocomplete: "off", spellcheck: false, class: "sp-input" %>
+        </span>
+        <%= form.button "Search", type: "submit", class: "sp-btn sp-btn--royal" %>
+        <% if @query.present? %><%= link_to "Clear", admin_users_path, class: "sp-btn sp-btn--ghost" %><% end %>
+      <% end %>
+    </header>
+
+    <% if @users.empty? %>
+      <div class="sp-panel pg-admin-users__empty-panel">
+        <%= sp_icon "search-fill", "pg-admin-users__empty-icon" %>
+        <p class="pg-admin-users__empty">Nobody<%= " matches that" if @query.present? %>.</p>
+      </div>
+    <% else %>
+      <% if @total > @users.size %>
+        <p class="pg-admin-users__note pg-admin-users__more">
+          <%= sp_icon "information-fill" %>
+          <span>The newest <%= @users.size %> of <%= @total %>. Search for the rest.</span>
+        </p>
+      <% end %>
+      <div class="pg-admin-users__panel">
+        <table class="pg-admin-users__table">
+          <thead>
+            <tr>
+              <th scope="col">Who</th>
+              <th scope="col">Slack</th>
+              <th scope="col">Project</th>
+              <th scope="col">Goal</th>
+              <th class="pg-admin-users__num" scope="col">Streak</th>
+              <th scope="col">Signed in</th>
+              <th scope="col"><span class="pg-admin-users__hidden">View as</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @users.each do |user| %>
+              <% project = user.project %>
+              <tr id="<%= dom_id(user) %>">
+                <th scope="row" class="pg-admin-users__who-cell">
+                  <span class="pg-admin-users__who">
+                    <%= admin_avatar_link(user, "pg-admin-users__avatar") %>
+                    <span>
+                      <span class="pg-admin-users__name"><%= admin_person_link(user) %></span>
+                      <small class="pg-admin-users__muted"><%= user.email %> · <%= user.hca_id %></small>
+                    </span>
+                  </span>
+                </th>
+                <td data-label="Slack">
+                  <%= user.slack_display_name.present? ? name_with_slack(user, name: user.slack_display_name) : "—" %>
+                  <% if user.slack_id.present? %><small class="pg-admin-users__muted"><%= user.slack_id %></small><% end %>
+                </td>
+                <td data-label="Project" class="pg-admin-users__project">
+                  <% if project %>
+                    <span class="pg-admin-users__project-title"><%= project.title %></span>
+                    <small class="pg-admin-users__muted"><%= project.pace_minutes %> min</small>
+                    <% if project.tracking? %>
+                      <span class="pg-admin-users__chip pg-admin-users__chip--mint">tracking</span>
+                    <% elsif project.hackatime_linked? %>
+                      <span class="pg-admin-users__chip pg-admin-users__chip--gold">Hackatime linked</span>
+                    <% else %>
+                      <span class="pg-admin-users__chip">no Hackatime</span>
+                    <% end %>
+                  <% else %>
+                    <span class="pg-admin-users__muted">no pledge yet</span>
+                  <% end %>
+                </td>
+                <td data-label="Goal" class="pg-admin-users__goal">
+                  <% goal = project&.chosen_prize %>
+                  <% if goal %>
+                    <span class="pg-admin-users__goal-item">
+                      <span class="pg-admin-users__goal-thumb">
+                        <%= goal.image ? image_tag("save_point/prizes/#{goal.image}", alt: goal.name, loading: "lazy") : sp_icon(goal.icon) %>
+                      </span>
+                      <span class="pg-admin-users__goal-name"><%= goal.name %></span>
+                    </span>
+                  <% else %>
+                    <span class="pg-admin-users__muted">none</span>
+                  <% end %>
+                </td>
+                <td class="pg-admin-users__num pg-admin-users__streak" data-label="Streak"><%= user.current_streak %></td>
+                <td data-label="Signed in">
+                  <%= user.created_at.strftime("%b %-d") %>
+                  <% if user.streak_synced_at %><small class="pg-admin-users__muted">synced <%= time_ago_in_words(user.streak_synced_at) %> ago</small><% end %>
+                </td>
+                <td class="pg-admin-users__actions">
+                  <% if user.impersonable_by?(current_user) && !impersonating? %>
+                    <%= button_to admin_user_impersonation_path(user), method: :post, class: "sp-btn sp-btn--sm sp-btn--royal pg-admin-users__view-as",
+                          form: { data: { turbo: false } } do %>
+                      <%= sp_icon "user-3-fill" %>View as
+                    <% end %>
+                  <% elsif user.listed_admin? %>
+                    <span class="sp-badge sp-badge--violet pg-admin-users__admin"><%= sp_icon "lock-fill" %>admin</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </main>
+</div>

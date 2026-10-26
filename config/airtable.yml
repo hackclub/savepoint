@@ -1,0 +1,12 @@
+# The program base and the tables the rolling sync writes (D-027). The
+# submission table is the YSWS template's, and its field names are the
+# template's. Sync stays off until AIRTABLE_SYNC=1.
+shared:
+  base: appDr5w0pu1HalQbs # YSWS - Save Point
+  enabled: <%= ENV.fetch("AIRTABLE_SYNC", "0") == "1" %>
+  tables:
+    users: Users
+    projects: Projects
+    orders: Orders
+    ships: YSWS Project Submission
+  submission_table_id: tblvPYnH7OouAeFkC

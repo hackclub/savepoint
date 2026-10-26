@@ -1,0 +1,35 @@
+/* Someone's picture: their Slack one, or the first letter of their name in white on their colour. */
+@layer components {
+  .avatar {
+    --avatar-color: var(--grey-600);
+
+    flex: none;
+    inline-size: 24px;
+    block-size: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--avatar-color);
+    color: var(--white);
+    overflow: hidden;
+    container-type: inline-size;
+
+    .avatar__image {
+      inline-size: 100%;
+      block-size: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .avatar__initial {
+      font-family: var(--font-display, inherit);
+      font-size: 52cqi;
+      line-height: 1;
+      font-weight: 700;
+      text-transform: uppercase;
+
+      &::before { content: attr(data-initial); }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+<%# One question, one panel. data-state is active (open), done (folded into a bar that reopens it) or locked (not
+    reached yet). %>
+<%= tag.section class: "onboarding-row", aria: { labelledby: "onboarding-question-#{number}" },
+      data: { onboarding_target: "row", state: number == 1 ? "active" : "locked" } do %>
+  <span class="onboarding-row__header" aria-hidden="true"><span class="onboarding-row__number"><%= number %></span><%= sp_icon "check-fill", "onboarding-row__tick" %></span>
+
+  <button type="button" class="onboarding-row__summary" disabled
+          data-onboarding-target="summary" data-action="onboarding#open" data-onboarding-step-param="<%= number %>">
+    <span class="onboarding-row__name"><%= step[:label] %></span>
+    <span class="onboarding-row__answer">
+      <span class="onboarding-row__value" data-onboarding-target="value"></span>
+      <span class="onboarding-row__change"><%= sp_icon "edit-2-fill" %><span class="onboarding-row__change-label">Change</span></span>
+    </span>
+  </button>
+
+  <div class="onboarding-row__question">
+    <h2 class="onboarding-row__title" id="onboarding-question-<%= number %>" tabindex="-1"><%= step[:question] %></h2>
+  </div>
+
+  <div class="onboarding-row__stage">
+    <%= render "onboarding/steps/#{%w[game hackatime prize build_time][number - 1]}" %>
+  </div>
+<% end %>

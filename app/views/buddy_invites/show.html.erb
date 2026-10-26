@@ -1,0 +1,97 @@
+<% content_for :title, "#{buddy_name(@inviter)} wants to build with you · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/buddy-invite" %>
+<% mine = @project == @inviter %>
+<% can_accept = !mine && @inviter.buddy.nil? && @project&.buddy.nil? %>
+
+<%# Someone's buddy invite: who they are and what they're building, what a pair earns, and accepting. One card in the
+    style of the landing page's claim popup, under a bar that takes you back to your project, buddy, leaderboard and
+    shop once you have a project, or to signing in and onboarding before. %>
+<div class="pg-buddy-invite sp-page">
+  <%= render "shared/top_bar" %>
+
+  <main class="pg-buddy-invite__main">
+    <%# The goo filter melts the halftone's dots together, as on the landing page's prize cards. %>
+    <svg class="pg-buddy-invite__defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <filter id="pg-buddy-invite-goo" x="-10" y="0" width="420" height="260" filterUnits="userSpaceOnUse">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2.8"/>
+        <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 35 -6.1" result="goo"/>
+        <feMerge><feMergeNode in="goo"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </svg>
+
+    <div class="pg-buddy-invite__stage">
+      <%# Decorative light behind the card: a glow, beams, and a burst of stars and confetti as it opens. %>
+      <div class="pg-buddy-invite__fx" aria-hidden="true">
+        <span class="pg-buddy-invite__glow"></span>
+        <span class="pg-buddy-invite__beams"></span>
+        <% claim_burst.each do |dot| %>
+          <i class="pg-buddy-invite__p pg-buddy-invite__p--<%= dot[:kind] %>" style="--dx:<%= dot[:dx] %>;--dy:<%= dot[:dy] %>;--s:<%= dot[:size] %>px;--d:<%= dot[:delay] %>ms;--r:<%= dot[:spin] %>deg;--c:<%= dot[:color] %>"></i>
+        <% end %>
+      </div>
+
+      <section class="pg-buddy-invite__sheet" aria-labelledby="buddy-invited-title">
+        <div class="pg-buddy-invite__card">
+          <div class="pg-buddy-invite__top">
+            <svg class="pg-buddy-invite__dots" viewBox="0 0 400 240" aria-hidden="true" focusable="false">
+              <g filter="url(#pg-buddy-invite-goo)"><% claim_halftone.each do |x, y, r| %><circle cx="<%= x %>" cy="<%= y %>" r="<%= r %>"/><% end %></g>
+            </svg>
+
+            <div class="pg-buddy-invite__head">
+              <h1 class="pg-buddy-invite__title buddy-invited__title" id="buddy-invited-title">
+                <%= mine ? "This is your own invite link." : "#{buddy_name(@inviter)} invited you to build together." %>
+              </h1>
+              <p class="pg-buddy-invite__lead">
+                You each make your own game.
+              </p>
+            </div>
+
+            <div class="pg-buddy-invite__project">
+              <% if (shot = @inviter.screenshot).attached? && shot.blob.persisted? %>
+                <div class="pg-buddy-invite__shot">
+                  <span class="pg-buddy-invite__rays" aria-hidden="true"></span>
+                  <%= image_tag url_for(shot), alt: "Screenshot of #{@inviter.title}" %>
+                </div>
+              <% end %>
+              <div class="pg-buddy-invite__plate">
+                <%= avatar_tag(@inviter.user, "pg-buddy-invite__face") %>
+                <span class="pg-buddy-invite__who">
+                  <span class="pg-buddy-invite__game buddy-card__title"><%= @inviter.title %></span>
+                  <span class="pg-buddy-invite__note">Day <%= @inviter.day_number %> · <%= project_hours(@inviter.hours_logged) %>h logged</span>
+                </span>
+              </div>
+            </div>
+
+            <svg class="pg-buddy-invite__wave" viewBox="0 0 400 48" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 70 6, 130 4, 200 22 S 330 48, 400 14 V 48 H 0 Z"/></svg>
+          </div>
+
+          <div class="pg-buddy-invite__bottom">
+            <% if flash[:alert] %>
+              <p class="pg-buddy-invite__error project__step-error" role="alert"><%= sp_icon "warning-fill" %><span><%= flash[:alert] %></span></p>
+            <% end %>
+            <% if !mine && !can_accept %>
+              <p class="pg-buddy-invite__error project__step-error" role="alert"><%= sp_icon "warning-fill" %><span><%= @project&.buddy ? "You already have a buddy." : "#{buddy_name(@inviter)} already has a buddy." %></span></p>
+            <% end %>
+
+            <div class="pg-buddy-invite__actions">
+              <%= link_to "Not now", @project ? project_path : root_path, class: "sp-btn pg-buddy-invite__later" %>
+              <% if mine %>
+                <%= link_to buddy_path, class: "sp-btn sp-btn--gold pg-buddy-invite__go" do %><%= sp_icon "user-3-fill" %><span>Go to Buddy</span><% end %>
+              <% elsif can_accept %>
+                <%= button_to buddy_invite_path(@inviter.buddy_code), class: "sp-btn sp-btn--gold pg-buddy-invite__go",
+                      form: { class: "pg-buddy-invite__go-form", data: { turbo: false } } do %><%= sp_icon "heart-fill" %><span>Pair up</span><% end %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%# The claim popup's banner art, over the card's top edge. Its tails hang past the card. %>
+        <div class="pg-buddy-invite__banner" aria-hidden="true">
+          <%= image_tag "save_point/claim-banner.png", alt: "", width: 1200, height: 381 %>
+          <span class="pg-buddy-invite__banner-text">Buddy</span>
+        </div>
+      </section>
+
+      <p class="pg-buddy-invite__sticker sp-callout-text">You each make your own game.</p>
+    </div>
+  </main>
+</div>

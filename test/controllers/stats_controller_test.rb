@@ -24,10 +24,11 @@ class StatsControllerTest < ActionDispatch::IntegrationTest
       get stats_path
 
       assert_select ".stats__tile", text: /Built yesterday.*4/m
-      assert_select ".stats__legend li", text: "Current"
+      assert_select ".stats__legend li", text: "Built yesterday too"
       assert_select ".stats__legend li", text: "New"
-      assert_select ".stats__legend li", { text: "Resurrected", count: 0 }, "nobody's been away a month"
-      assert_select ".stats__lines", 3
+      assert_select ".stats__legend li", { text: "Back after days off", count: 0 }, "nobody's taken a day off"
+      assert_select ".stats__lines", 2
+      assert_no_match(/\bMAU\b|\bWAU\b|monthly|resurrect|dormant/i, response.body)
       assert_select ".stats__toggle-option--active", "Word of mouth"
       assert_select ".stats__levers tbody tr", minimum: 1
 

@@ -50,7 +50,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart__legend tbody tr", text: /Pending.*0\.0\s*h/m
     assert_select ".admin-chart__legend tbody tr", text: /Approved.*0\.0\s*h/m
     assert_select "svg.admin-chart__funnel[role=img][aria-label]"
-    assert_select "svg.admin-chart__columns[role=img]", 5
+    assert_select "svg.admin-chart__columns[role=img]", 6
   end
 
   test "the numbers in Save Point so far are not buttons or links" do
@@ -112,6 +112,20 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "DAU shows how many of those builders also opened the site, and a dash before it was recorded" do
+    sign_in_as(users(:orpheus))
+    travel_to Program::DATES.begin + 4
+    get admin_root_path
+    assert_select ".admin__readout", text: /DAU.*site visits: –/m
+
+    users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 3, coded_seconds: 30 * 60)
+    SiteDay.create!(user: users(:ana), date: Program::DATES.begin + 3)
+    Rails.cache.clear
+    get admin_root_path
+    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
+    assert_select ".admin-chart", text: /Also on the site/
+  end
+
   test "the old Stats and Numbers pages go to their sections of the home page" do
     sign_in_as(users(:orpheus))
 
@@ -134,7 +148,8 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#admin-growth" do
       assert_select ".admin__readout-name", text: /Builders/
       assert_select ".admin__readout-name", text: /Games shipped/
-      assert_select ".admin__readout-name", text: /DAU ÷ MAU/
+      assert_select ".admin__readout-name", text: /CURR/
+      assert_select "body", text: /WAU|MAU|weekly|monthly/i, count: 0
       assert_select ".stats__lines", minimum: 2
       assert_select ".stats__toggle a[href^=?]", admin_growth_path, minimum: 2
       assert_select ".stats__toggle a[href*=?]", "signups=flat"

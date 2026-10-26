@@ -19,7 +19,7 @@ class Metric
     [ "shipped", "Shipped", true, true, ->(through) { ships.where(created_at: ..through).distinct.count(:project_id) } ],
     [ "shipped_hours", "Hours shipped", true, true, ->(through) { ships.where(created_at: ..through).latest_per_project.sum(:hours).to_f } ],
     # The day.
-    [ "builders", "Built that day", false, true, ->(through) { activities.where(activity_date: through.to_date, coded_seconds: 1..).count } ],
+    [ "builders", "Built that day", false, true, ->(through) { activities.where(activity_date: through.to_date, coded_seconds: Growth::ACTIVE_SECONDS..).count } ],
     [ "completed", "Hit 20 minutes that day", false, true, ->(through) { activities.completed.where(activity_date: through.to_date).count } ],
     [ "hours_day", "Hours that day", false, true, ->(through) { hours(activities.where(activity_date: through.to_date)) } ],
     [ "hours", "Hours in all", true, true, ->(through) { hours(activities.where(activity_date: Program::FIRST_STREAK_DATE..through.to_date)) } ],

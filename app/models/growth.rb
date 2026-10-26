@@ -1,12 +1,12 @@
 # Who's building, day by day, after Duolingo's growth model (as Stardance runs it): every builder, every day of
 # Save Point, in one state by when they last built, and how many moved from each state one day to each state the
 # next. Built on a day means ACTIVE_SECONDS or more on Hackatime that day (their synced streak day, StreakActivity):
-# five minutes, well short of a streak's twenty, since this asks who showed up, not who did their bit.
+# one minute, well short of a streak's twenty, since this asks who showed up, not who did their bit (D-075).
 #
 # Only finished days are modelled (today's still filling in), and the whole thing is small enough to work out from
 # the streak days each time, so nothing's snapshotted. PublicStats caches it with the rest of the page.
 class Growth
-  ACTIVE_SECONDS = 5 * 60
+  ACTIVE_SECONDS = 60
   # Duolingo's states: the four that built that day, then the three that didn't, by how long it's been. A week is
   # the day and the six before it, a month the day and the 29 before it.
   STATES = %w[new current reactivated resurrected at_risk_wau at_risk_mau dormant].freeze

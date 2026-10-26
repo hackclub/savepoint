@@ -175,10 +175,23 @@ module LandingHelper
     safe_join([ safe_join(parts, " "), tag.small(" a day") ])
   end
 
-  # The call to action: onboarding, where you sign in with Hack Club at the end, as Save Point's does.
-  def landing_cta(label = "Continue your game", size: "lg", **options)
+  # Where the landing page's buttons go: onboarding, where you sign in with Hack Club at the end, as Save Point's does. Someone
+  # already signed in (reading /about) is not sent through sign-up again: it is their project, or onboarding where they left off.
+  def landing_destination
+    return onboarding_path unless signed_in?
+
+    current_user.project ? project_path : onboarding_path
+  end
+
+  # The wording for a signed-in person with a project; everyone else keeps "Continue your game".
+  def landing_cta_label
+    signed_in? && current_user.project ? "Back to your project" : "Continue your game"
+  end
+
+  # The call to action, to landing_destination.
+  def landing_cta(label = landing_cta_label, size: "lg", **options)
     classes = [ "sp-btn", "sp-btn--gold", ("sp-btn--#{size}" if size), "cta", options.delete(:class) ]
-    link_to onboarding_path, class: classes, **options do
+    link_to landing_destination, class: classes, **options do
       safe_join([ label, " ", sp_icon("play-fill") ])
     end
   end
@@ -186,6 +199,8 @@ module LandingHelper
   # The hero's call to action with the live sign-up count in it: "Join 12 people also finishing their game". With
   # nobody signed up it says "Continue your game". signups_controller.js polls /signups and swaps the two.
   def landing_join_cta(count, size: "lg")
+    return landing_cta(size:, class: "cta--join") if signed_in?
+
     link_to onboarding_path, class: [ "sp-btn", "sp-btn--gold", ("sp-btn--#{size}" if size), "cta", "cta--join" ],
             data: { controller: "signups", signups_url_value: signups_path, signups_count_value: count } do
       safe_join([

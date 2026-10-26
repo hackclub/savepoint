@@ -122,6 +122,7 @@
 .top-bar__account-name { font: 800 italic 18px/24px var(--font-display); overflow-wrap: anywhere; }
 .top-bar__account-email { font: 600 14px/20px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
 .top-bar__admin { width: 100%; margin-top: var(--space-2); }
+.top-bar__faq { width: 100%; margin-top: var(--space-2); }
 .top-bar__logout { width: 100%; }
 .top-bar__account form { margin-top: var(--space-2); }
 

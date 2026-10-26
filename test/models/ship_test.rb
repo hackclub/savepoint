@@ -310,6 +310,47 @@ class ShipTest < ActiveSupport::TestCase
     Hackatime.stubbed_category_seconds = {}
   end
 
+  test "the Lapse time is kept apart for the reviewer's split (D-085)" do
+    ship = ship_now(hours: 3)
+    ship.update_columns(hackatime_projects: [ "rhythm-game" ])
+    Hackatime.stubbed_category_seconds = { "1001" => { "ai coding" => 0, "designing" => 600, "timelapsing" => 1800 } }
+    ship.fetch_hackatime_categories!
+    assert_equal [ 2400, 1800 ], ship.reload.values_at(:art_seconds, :lapse_seconds)
+  ensure
+    Hackatime.stubbed_category_seconds = {}
+  end
+
+  test "the reviewer sets Lapse coding hours, never above the Lapse hours" do
+    travel_to(Program::STARTS_AT + 2.days) do
+      @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 10 * 3600)
+      ship = ship_now(hours: 10)
+      ship.update_columns(ai_coding_seconds: 0, art_seconds: 2 * 3600, lapse_seconds: 90 * 60)
+      assert_equal 0, ship.lapse_coding_hours
+      assert ship.set_lapse_coding!("1.25")
+      assert_equal BigDecimal("1.25"), ship.reload.lapse_coding_hours
+      assert_equal BigDecimal("0.75"), ship.limits.art, "2 of art less 1.25 of Lapse coding"
+      assert_not ship.set_lapse_coding!("1.51")
+      assert_match "coding can't be more", ship.errors.messages_for(:lapse_coding_hours).first
+      assert_not ship.set_lapse_coding!("-1")
+      assert_not ship.set_lapse_coding!("abc")
+      assert_equal BigDecimal("1.25"), ship.reload.lapse_coding_hours
+      assert ship.set_lapse_coding!("1.5"), "all of it"
+    end
+  end
+
+  test "approving a ship with Lapse coding holds art to the cap on the larger coding (D-085)" do
+    travel_to(Program::STARTS_AT + 2.days) do
+      @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 10 * 3600)
+      ship = ship_now(hours: 10)
+      ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600, lapse_seconds: 3 * 3600)
+      assert_equal BigDecimal("5.71"), ship.limits.most, "before: all the art is under the cap"
+      ship.set_lapse_coding!("3")
+      assert_equal 8, ship.limits.most
+      assert ship.decide!("approved", by: users(:ana), technical_features: "A save file.")
+      assert_equal [ 7, 1, 8 ], ship.reload.values_at(:review_coding_hours, :review_art_hours, :review_hours).map(&:to_i)
+    end
+  end
+
   test "art is designing plus Lapse (timelapsing), and unknown when either is unknown (D-042)" do
     ship = ship_now(hours: 3)
     ship.update_columns(hackatime_projects: [ "rhythm-game" ])

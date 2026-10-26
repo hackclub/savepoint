@@ -24,6 +24,12 @@
     <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
     <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
   </div>
+  <% if limits.lapse_coding.positive? %>
+    <div id="admin-ship-lapse-coding">
+      <dt>Lapse coding <small>counts as coding, outside the cap</small></dt>
+      <dd><%= format.(limits.lapse_coding) %> hrs</dd>
+    </div>
+  <% end %>
   <div class="ash__limits-total"><dt>Most to approve</dt><dd><%= format.(limits.most) %> hrs</dd></div>
 </dl>
 

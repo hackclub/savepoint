@@ -52,6 +52,48 @@ class Ship::LimitsTest < ActiveSupport::TestCase
     assert_not limits(8, ai: 1, art: nil).known?
   end
 
+  # D-085: Lapse hours the reviewer calls coding leave art and join coding, outside the cap.
+  def lapse_limits(claimed, ai: 0, art: 0, lapse: 0, coding: 0)
+    Ship::Limits.new(claimed:, ai_coding_seconds: (ai * 3600).round, art_seconds: (art * 3600).round,
+                     lapse_seconds: (lapse * 3600).round, lapse_coding_hours: coding)
+  end
+
+  test "Lapse coding defaults to 0, so all Lapse time is art and nothing changes" do
+    l = lapse_limits(10, ai: 3, art: 4, lapse: 3)
+    assert_equal 0, l.lapse_coding
+    assert_equal 4, l.art
+    assert_equal BigDecimal("5.71"), l.most
+  end
+
+  test "the worked example with 3 of the 4 art hours being Lapse coding" do
+    l = lapse_limits(10, ai: 3, art: 4, lapse: 3, coding: 3)
+    assert_equal 1, l.art, "only the designing hour stays art"
+    assert_equal 9, l.coding
+    assert_equal 7, l.coding_cap, "9 of coding less two thirds of 3"
+    assert_equal 3, l.art_max, "7 * 30 / 70"
+    assert_equal 1, l.art_allowed
+    assert_equal 8, l.most, "7 of coding and the 1 hour of art"
+    assert_not l.reason&.include?("art"), "art is under the cap, so it cuts nothing"
+  end
+
+  test "the rest of the Lapse hours and designing time still share the cap" do
+    l = lapse_limits(10, art: 6, lapse: 5, coding: 2)
+    assert_equal 4, l.art, "4 of art left: 1 Lapse hour and 1 + 2 designing... 6 less 2"
+    assert_equal 6, l.coding
+    assert_equal BigDecimal("2.57"), l.art_allowed.floor(2), "6 * 30 / 70"
+    assert_equal BigDecimal("8.57"), l.most
+    assert_match "not counting the Lapse coding", l.reason
+  end
+
+  test "Lapse coding is held between 0 and the Lapse hours, and nothing moves when Lapse time is unknown" do
+    assert_equal 3, lapse_limits(10, art: 4, lapse: 3, coding: 9).lapse_coding
+    assert_equal 0, lapse_limits(10, art: 4, lapse: 3, coding: -1).lapse_coding
+    unknown = Ship::Limits.new(claimed: 10, ai_coding_seconds: 0, art_seconds: 4 * 3600, lapse_seconds: nil, lapse_coding_hours: 2)
+    assert_equal 0, unknown.lapse_coding
+    assert_equal 4, unknown.art
+    assert_not unknown.lapse_known?
+  end
+
   test "hours print without a trailing zero" do
     assert_equal "4", Ship::Limits.format(4)
     assert_equal "5.71", Ship::Limits.format(BigDecimal("5.714"))

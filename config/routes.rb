@@ -77,6 +77,7 @@ Rails.application.routes.draw do
         patch :checklist
         patch :snapshot
         patch :hours_start
+        patch :lapse_split
         post :review
         post :fraud
         post :send_back

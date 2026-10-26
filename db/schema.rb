@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -292,6 +292,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_170000) do
     t.datetime "fraud_reviewed_at"
     t.decimal "fraud_deduction_hours", precision: 6, scale: 2, default: "0.0", null: false
     t.text "fraud_notes"
+    t.integer "lapse_seconds"
+    t.decimal "lapse_coding_hours", precision: 6, scale: 2, default: "0.0", null: false
     t.index ["decided_by_id"], name: "index_ships_on_decided_by_id"
     t.index ["fraud_reviewer_id"], name: "index_ships_on_fraud_reviewer_id"
     t.index ["project_id"], name: "index_ships_on_project_id"

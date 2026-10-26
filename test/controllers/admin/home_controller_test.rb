@@ -141,6 +141,31 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart--daily", text: /Hours built.*1\.0\s*h in #{(Date.current - Program::HACKATIME_START).to_i} finished days/m
   end
 
+  test "with site visits recorded only today, the site card shows today's partial bar and says so" do
+    sign_in_as(users(:orpheus))
+    travel_to Program::DATES.begin + 4
+    users(:ana).streak_activities.create!(activity_date: Date.current, coded_seconds: 600)
+    SiteDay.create!(user: users(:ana), date: Date.current)
+    get admin_root_path
+
+    assert_select ".admin-chart--daily", text: /Also on the site.*Today so far: 1 of 1 builder also opened the site/m
+    assert_select ".admin-chart--daily", text: /Not recorded yet/, count: 0
+    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
+    assert_select ".admin-chart--daily:has(.admin__readout-name):has(.admin-chart__day.is-partial .admin-chart__column)", minimum: 1
+  end
+
+  test "the sign-up day card reports today so far when only today has sign-ups" do
+    sign_in_as(users(:orpheus))
+    travel_to Program::DATES.begin + 4
+    User.where.not(slack_id: "U0ORPHEUS").update_all(created_at: Program::DATES.begin - 5)
+    ana = users(:ana)
+    ana.update_columns(created_at: Time.current)
+    ana.streak_activities.create!(activity_date: Date.current, coded_seconds: 25 * 60)
+    get admin_root_path
+
+    assert_select ".admin-chart--daily", text: /Built on their sign-up day.*Today so far: 1 of 1 sign-up built 20 minutes/m
+  end
+
   test "the old Stats and Numbers pages go to their sections of the home page" do
     sign_in_as(users(:orpheus))
 

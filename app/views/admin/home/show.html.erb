@@ -74,7 +74,14 @@
           <%= render "chart_card", name: "Also on the site", icon: "mouse-fill", rows: shown, chart: admin_daily_chart(shown, :on_site, unit: "builders also on the site",
                                      title: ->(row) { row[:on_site] ? "#{row[:date].strftime("%a %b %-d")}: #{row[:on_site]} of #{row[:dau]} builders also opened the site" : "#{row[:date].strftime("%a %b %-d")}: not recorded yet" }),
                                    headline: (latest[:on_site] if latest && latest[:on_site]), sub: (admin_chart_date(latest[:date]) if latest && latest[:on_site]),
-                                   takeaway: site_builders.positive? ? "#{site_total} of #{site_builders} builders also opened the site, on the days it was recorded (from Oct 26)." : "Not recorded yet: the first day is when this shipped." %>
+                                   takeaway: if site_builders.positive?
+                                               "#{site_total} of #{site_builders} builders also opened the site, on the days it was recorded (from Oct 26)."
+                                             elsif @summary[:site_days].any?
+                                               today = @summary[:today_row]
+                                               today&.dig(:on_site) ? "Today so far: #{today[:on_site]} of #{pluralize(today[:dau], "builder")} also opened the site. No finished day recorded yet." : "Today so far: no builders yet. No finished day recorded yet."
+                                             else
+                                               "Not recorded yet: the first day is when this shipped."
+                                             end %>
           <% signups_total = daily.sum { |row| row[:signups] } %>
           <%= render "chart_card", name: "Sign-ups", icon: "user-3-fill", rows: shown, chart: admin_daily_chart(shown, :signups, unit: "sign-ups"),
                                    headline: (number_with_delimiter(latest[:signups]) if latest), sub: (admin_chart_date(latest[:date]) if latest),
@@ -91,7 +98,13 @@
                                    chart: admin_daily_chart(shown_on_day, :percent, unit: "% built that day", max: 100,
                                      title: ->(row) { row[:percent] ? "#{row[:date].strftime("%a %b %-d")}: #{row[:percent]}% of #{row[:signed_up]} built their first 20 minutes that day (#{row[:built]})" : "#{row[:date].strftime("%a %b %-d")}: no sign-ups" }),
                                    headline: (("#{last_day[:percent]}%") if last_day), sub: (admin_chart_date(last_day[:date]) if last_day),
-                                   takeaway: signed.positive? ? "#{(built * 100.0 / signed).round}% of #{number_with_delimiter(signed)} sign-ups built 20 minutes on the day they signed up." : "Nobody has signed up on a finished day yet." %>
+                                   takeaway: if signed.positive?
+                                               "#{(built * 100.0 / signed).round}% of #{number_with_delimiter(signed)} sign-ups built 20 minutes on the day they signed up."
+                                             elsif (today = @summary[:sign_up_today]) && today[:signed_up].positive?
+                                               "Today so far: #{today[:built]} of #{pluralize(today[:signed_up], "sign-up")} built 20 minutes. Nobody signed up on a finished day yet."
+                                             else
+                                               "Nobody has signed up on a finished day yet."
+                                             end %>
         </div>
 
         <% nudges = @summary[:nudge_results] %>

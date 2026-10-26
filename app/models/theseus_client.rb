@@ -53,7 +53,15 @@ class TheseusClient
       fields = ShippingAddress.from_hash(order.address)
       first, last = split_name(order.recipient_name.presence || order.project.user.recipient_name)
       { first_name: first, last_name: last, line_1: fields.street_address, line_2: fields.street_address_2.presence, city: fields.locality,
-        state: fields.region.presence, postal_code: fields.postal_code.presence, country: fields.country }.compact
+        state: fields.region.presence, postal_code: fields.postal_code.presence, country: country_for(fields.country) }.compact
+    end
+
+    # Theseus can't parse the UK's constituent countries ("Northern Ireland" got a 422), so they go as ISO "GB".
+    # Every other value passes through, since Theseus reads names and ISO codes itself.
+    UK_NAMES = [ "northern ireland", "england", "scotland", "wales", "uk", "u.k.", "great britain", "britain" ].freeze
+
+    def country_for(country)
+      UK_NAMES.include?(country.to_s.squish.downcase) ? "GB" : country
     end
 
     # "Ada Byron Lovelace" is Ada Byron and Lovelace. One word is a first name.

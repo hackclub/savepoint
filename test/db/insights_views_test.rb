@@ -5,17 +5,18 @@ require Rails.root.join("db/migrate/20261024100100_add_last_seen_to_insights_use
 require Rails.root.join("db/migrate/20261024130100_add_onboarding_progress_to_insights_users")
 require Rails.root.join("db/migrate/20261024110100_add_hackatime_seen_to_insights_projects")
 require Rails.root.join("db/migrate/20261026100100_update_insights_ships_for_fraud_stage")
+require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
 
 # The views the analytics service reads (hackclub/save-point-analytics). The test database loads from schema.rb,
 # which doesn't dump views, so the migration runs here when they're absent. The test's transaction rolls it back.
 class InsightsViewsTest < ActiveSupport::TestCase
-  VIEWS = (CreateInsightsViews::VIEWS + %w[visits]).freeze
+  VIEWS = (CreateInsightsViews::VIEWS + %w[visits nudges site_days]).freeze
   FORBIDDEN = %w[email name address phone_number birthdate slack_id hackatime_access_token].freeze
 
   setup do
     connection = ActiveRecord::Base.connection
     present = connection.select_values("select viewname from pg_views where schemaname = 'insights'")
-    return if (VIEWS - present).empty?
+    next if (VIEWS - present).empty?
 
     ActiveRecord::Migration.suppress_messages do
       CreateInsightsViews.new.up
@@ -24,10 +25,11 @@ class InsightsViewsTest < ActiveSupport::TestCase
       AddOnboardingProgressToInsightsUsers.new.up
       AddHackatimeSeenToInsightsProjects.new.up
       UpdateInsightsShipsForFraudStage.new.up
+      AddRetentionDataToInsightsViews.new.up
     end
   end
 
-  test "the six views exist" do
+  test "the views exist" do
     present = ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'")
     assert_equal VIEWS.sort, present.sort
   end
@@ -63,7 +65,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
   test "the UTM migration reverses" do
     ActiveRecord::Migration.suppress_messages do
       AddUtmToInsightsViews.new.down
-      assert_equal %w[orders projects ships streak_activities users], ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
+      assert_equal %w[nudges orders projects ships site_days streak_activities users], ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
       AddUtmToInsightsViews.new.up
     end
   end
@@ -81,7 +83,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
     columns = ActiveRecord::Base.connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'users' order by ordinal_position")
     row = ActiveRecord::Base.connection.select_rows("select onboarding_step_reached, onboarding_step_at from insights.users where user_id = #{users(:ana).id}").first
 
-    assert_equal %w[onboarding_step_reached onboarding_step_at], columns.last(2)
+    assert_equal %w[onboarding_step_reached onboarding_step_at], columns.last(4).first(2)
     assert_equal 4, row.first
     assert_not_nil row.last
   end
@@ -137,5 +139,58 @@ class InsightsViewsTest < ActiveSupport::TestCase
     assert_equal %w[rejected rejected], row.call
     ship.update_columns(status: "approved")
     assert_equal %w[approved approved], row.call
+  end
+
+  test "insights.users shows when Hackatime was linked and when each onboarding step was reached" do
+    users(:ana).update_columns(hackatime_linked_at: Time.utc(2026, 10, 24, 9), onboarding_step_times: { "2" => "2026-10-24T08:00:00Z", "4" => "2026-10-24T08:05:00Z" })
+    row = ActiveRecord::Base.connection.select_rows("select hackatime_linked_at, onboarding_step_times from insights.users where user_id = #{users(:ana).id}").first
+
+    assert_not_nil row.first
+    assert_equal({ "2" => "2026-10-24T08:00:00Z", "4" => "2026-10-24T08:05:00Z" }, JSON.parse(row.last.to_s))
+  end
+
+  test "insights.projects shows the step times, the goal prize, the buddy fields and the pace" do
+    project = projects(:ana)
+    connection = ActiveRecord::Base.connection
+    project.update_columns(first_coded_at: Time.utc(2026, 10, 24, 10, 31), hackatime_picked_at: Time.utc(2026, 10, 24, 9), prize_key: project.prize_key, pace_minutes: 45, buddy_invited: true, buddy_skipped: false)
+    row = connection.select_rows("select first_coded_at, hackatime_picked_at, prize_key, pace_minutes, buddy_invited, buddy_skipped, paired_on from insights.projects where project_id = #{project.id}").first
+
+    assert_not_nil row[0]
+    assert_not_nil row[1]
+    assert_equal [ project.prize_key, 45, true, false ], row[2..5]
+    assert_nil row[6], "not paired"
+
+    Pair.create!(first_project: project, second_project: projects(:orpheus), started_on: Date.new(2026, 10, 25))
+    assert_equal Date.new(2026, 10, 25), connection.select_value("select paired_on from insights.projects where project_id = #{project.id}")
+    assert_equal Date.new(2026, 10, 25), connection.select_value("select paired_on from insights.projects where project_id = #{projects(:orpheus).id}"), "the second project of a pair too"
+  end
+
+  test "insights.nudges has the kind, arm and outcome but never the message" do
+    connection = ActiveRecord::Base.connection
+    columns = connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'nudges'")
+    assert_equal %w[arm bucket clicked_at holdout kind nudge_id opted_out_at reward sent_at user_id], columns.sort
+
+    nudge = Nudge.create!(user: users(:ana), kind: "bandit", bucket: "evening", arm: "bandit", text: "hey ana", token: "t0ken", sent_at: Time.utc(2026, 10, 25, 9), reward: 1)
+    row = connection.select_rows("select user_id, kind, bucket, arm, holdout, reward from insights.nudges where nudge_id = #{nudge.id}").first
+    assert_equal [ users(:ana).id, "bandit", "evening", "bandit", false, 1 ], row
+  end
+
+  test "insights.site_days has a participant and a day" do
+    SiteDay.create!(user: users(:ana), date: Date.new(2026, 10, 26))
+    connection = ActiveRecord::Base.connection
+
+    assert_equal %w[date user_id], connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'site_days'").sort
+    assert_equal [ users(:ana).id, Date.new(2026, 10, 26) ], connection.select_rows("select user_id, date from insights.site_days").first
+  end
+
+  test "the retention data migration reverses" do
+    ActiveRecord::Migration.suppress_messages do
+      AddRetentionDataToInsightsViews.new.down
+      connection = ActiveRecord::Base.connection
+      assert_equal %w[orders projects ships streak_activities users visits], connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
+      assert_not_includes connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'projects'"), "first_coded_at"
+      assert_not_includes connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'users'"), "onboarding_step_times"
+      AddRetentionDataToInsightsViews.new.up
+    end
   end
 end

@@ -152,6 +152,51 @@ class StreakActivityTest < ActiveSupport::TestCase
     end
   end
 
+  test "the first counted span's start is kept as the first coded moment" do
+    project = @user.project
+    project.update_columns(first_coded_at: nil)
+    travel_to Time.utc(2026, 10, 28, 12) do
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 10, 27, 16, 7), 3), span(Time.utc(2026, 10, 26, 22, 31), 10) ] }
+      StreakActivity.sync_for_user!(@user)
+      assert_equal Time.utc(2026, 10, 26, 22, 31), project.reload.first_coded_at
+
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 10, 25, 9), 10), span(Time.utc(2026, 10, 28, 9), 10) ] }
+      StreakActivity.sync_for_user!(@user)
+      assert_equal Time.utc(2026, 10, 26, 22, 31), project.reload.first_coded_at, "it's set once"
+    end
+  end
+
+  test "time before the hours start isn't the first coded moment" do
+    project = @user.project
+    project.update_columns(first_coded_at: nil, hours_start_override: Time.utc(2026, 10, 26, 12))
+    travel_to Time.utc(2026, 10, 28, 12) do
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 10, 26, 8), 10), span(Time.utc(2026, 10, 27, 8), 10) ] }
+      StreakActivity.sync_for_user!(@user)
+      assert_equal Time.utc(2026, 10, 27, 8), project.reload.first_coded_at
+    end
+  end
+
+  test "no time yet leaves the first coded moment empty" do
+    @user.project.update_columns(first_coded_at: nil)
+    Hackatime.stubbed_spans = { "1001" => [] }
+    StreakActivity.sync_for_user!(@user)
+
+    assert_nil @user.project.reload.first_coded_at
+  end
+
+  test "someone with days from before first_coded_at existed is read from the first day once" do
+    project = @user.project
+    travel_to Time.utc(2026, 10, 28, 12) do
+      @user.update_columns(streak_synced_at: Time.current)
+      @user.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 600)
+      project.update_columns(first_coded_at: nil)
+      Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 10, 24, 15, 2), 10) ] }
+      StreakActivity.sync_for_user!(@user)
+
+      assert_equal Time.utc(2026, 10, 24, 15, 2), project.reload.first_coded_at
+    end
+  end
+
   test "nothing syncs until you've picked Hackatime projects to track" do
     @user.project.update!(hackatime_projects: [])
     Hackatime.stubbed_spans = { "1001" => [ span(Time.current - 1.hour, 30) ] }

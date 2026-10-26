@@ -4,6 +4,10 @@ require Rails.root.join("db/migrate/20261026100000_add_fraud_stage_to_ships")
 # D-063: ships decided before the fraud stage existed keep their meaning. Rejected ships were "changes needed" and approved ships
 # were approved with a fraud check passed. The test database already has the new columns, so the migration runs down, then up.
 class FraudStageMigrationTest < ActiveSupport::TestCase
+  # Running the migration down and up puts the users columns it adds after any added since, so a statement planned
+  # in here has a different row type from the rolled-back table. Forget the plans before the rollback.
+  teardown { ActiveRecord::Base.connection.clear_cache! }
+
   test "existing ships map to the new statuses, and the migration reverses" do
     project = projects(:ana)
     make = ->(title) do

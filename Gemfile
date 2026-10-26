@@ -77,4 +77,4 @@ gem "dotenv-rails", "~> 3.2"
 gem "slack-ruby-client", "~> 3.2"
 gem "slocks", "~> 0.1.2"
 # The admin MCP server (D-046): Model Context Protocol, over Streamable HTTP, at /admin/mcp.
-gem "mcp", "1.7.0"
+gem "mcp", "1.8.1"

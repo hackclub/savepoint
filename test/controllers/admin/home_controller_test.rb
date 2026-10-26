@@ -50,7 +50,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart__legend tbody tr", text: /Pending.*0\.0\s*h/m
     assert_select ".admin-chart__legend tbody tr", text: /Approved.*0\.0\s*h/m
     assert_select "svg.admin-chart__funnel[role=img][aria-label]"
-    assert_select "svg.admin-chart__columns[role=img]", 5
+    assert_select "svg.admin-chart__columns[role=img]", 6
   end
 
   test "the numbers in Save Point so far are not buttons or links" do
@@ -101,15 +101,29 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     get admin_root_path
 
-    ids = %w[waiting building funnel prizes signups growth history]
+    ids = %w[waiting building funnel stuck prizes signups growth history]
     ids.each do |id|
       assert_select "main section##{id}", 1
       assert_select ".pg-admin-home__jump a[href=?]", "##{id}"
     end
     assert_select "#waiting .admin__tile", 3, "the waiting block is whole"
-    %w[growth signups history].each do |frame|
+    %w[growth signups history stuck].each do |frame|
       assert_select "turbo-frame#admin-#{frame}[loading=lazy][src=?]", send("admin_#{frame}_path")
     end
+  end
+
+  test "DAU shows how many of those builders also opened the site, and a dash before it was recorded" do
+    sign_in_as(users(:orpheus))
+    travel_to Program::DATES.begin + 4
+    get admin_root_path
+    assert_select ".admin__readout", text: /DAU.*site visits: –/m
+
+    users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 3, coded_seconds: 30 * 60)
+    SiteDay.create!(user: users(:ana), date: Program::DATES.begin + 3)
+    Rails.cache.clear
+    get admin_root_path
+    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
+    assert_select ".admin-chart", text: /Also on the site/
   end
 
   test "the old Stats and Numbers pages go to their sections of the home page" do
@@ -134,7 +148,8 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#admin-growth" do
       assert_select ".admin__readout-name", text: /Builders/
       assert_select ".admin__readout-name", text: /Games shipped/
-      assert_select ".admin__readout-name", text: /DAU ÷ MAU/
+      assert_select ".admin__readout-name", text: /CURR/
+      assert_select "body", text: /WAU|MAU|weekly|monthly/i, count: 0
       assert_select ".stats__lines", minimum: 2
       assert_select ".stats__toggle a[href^=?]", admin_growth_path, minimum: 2
       assert_select ".stats__toggle a[href*=?]", "signups=flat"
@@ -146,6 +161,19 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
     get admin_growth_path(signups: "flat"), headers: { "Turbo-Frame" => "admin-growth" }
     assert_select ".stats__toggle-option--active", "Flat"
+  end
+
+  test "who's stuck lists people who stopped by step, linking to their admin page, and not admins" do
+    sign_in_as(users(:orpheus))
+    users(:ana).update_columns(last_seen_at: 2.hours.ago, last_seen_path: "/project")
+    get admin_stuck_path, headers: { "Turbo-Frame" => "admin-stuck" }
+
+    assert_select "details.admin-stuck", 5
+    assert_select "details.admin-stuck[data-empty]", 4, "a group nobody is in has no table to open"
+    assert_select "details.admin-stuck summary", text: /Pledged, not picked\s*1/
+    assert_select "tr", text: /pixelana.*2 hours ago.*\/project/m
+    assert_select "a.admin-person[href=?]", admin_user_path(users(:ana))
+    assert_select "a.admin-person[href=?]", admin_user_path(users(:orpheus)), 0
   end
 
   test "opening a section's URL itself shows it under the admin bar" do
@@ -200,12 +228,12 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the new sections are for admins only" do
-    %w[growth signups history].each do |section|
+    %w[growth signups history stuck].each do |section|
       get "/admin/#{section}"
       assert_response :not_found
     end
     sign_in_as(users(:ana))
-    %w[growth signups history].each do |section|
+    %w[growth signups history stuck].each do |section|
       get "/admin/#{section}"
       assert_response :not_found
     end

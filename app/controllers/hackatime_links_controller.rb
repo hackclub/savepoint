@@ -15,7 +15,7 @@ class HackatimeLinksController < ApplicationController
     uid = Hackatime.user_id(token) if token.present?
     return redirect_to project_path, alert: "Couldn't tell who you are on Hackatime. Try again." if uid.blank?
 
-    if current_user.update(hackatime_uid: uid, hackatime_access_token: token)
+    if current_user.update(hackatime_uid: uid, hackatime_access_token: token, hackatime_linked_at: current_user.hackatime_linked_at || Time.current)
       Hackatime.forget(current_user)
       note_hackatime_projects_you_have
       redirect_to after_link_path(chain)

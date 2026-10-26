@@ -8,9 +8,9 @@ module Admin::ChartsHelper
     pending: { name: "Pending", key: :pending_hours, about: "awaiting review" },
     approved: { name: "Approved", key: :approved_hours, about: "approved by a reviewer" }
   }.freeze
-  # The states someone builds in, as Growth names them, bottom of a column first.
-  BUILD_STATES = [ { key: :new, id: "new", name: "New" }, { key: :current, id: "current", name: "Building most days" },
-                   { key: :reactivated, id: "reactivated", name: "Back after a week" }, { key: :resurrected, id: "resurrected", name: "Back after a month" } ].freeze
+  # The three groups a day's builders fall into (Growth's states that built), bottom of a column first.
+  BUILD_STATES = [ { key: :new, id: "new", name: "New" }, { key: :current, id: "current", name: "Built yesterday too" },
+                   { key: :returning, id: "returning", name: "Back after days off" } ].freeze
   BAR_WIDTH = 400
   BAR_HEIGHT = 36
   PLOT_WIDTH = 300
@@ -106,7 +106,7 @@ module Admin::ChartsHelper
         end
         detail = series.map { |part| "#{row[:states].fetch(part[:key])} #{part[:name].downcase}" }.join(", ")
         tag.g(class: "admin-chart__day") do
-          tag.title("#{row[:date].strftime("%a %b %-d")}: #{totals[index]} #{unit} (#{detail})") +
+          tag.title("#{row[:date].strftime("%a %b %-d")}: #{totals[index]} #{unit} (#{detail})#{", #{row[:on_site]} also opened the site" if row[:on_site]}") +
             tag.rect(class: "admin-chart__hit", x:, y: 0, width:, height: PLOT_HEIGHT) + safe_join(segments)
         end
       end

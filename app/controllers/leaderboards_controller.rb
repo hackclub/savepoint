@@ -10,6 +10,7 @@ class LeaderboardsController < ApplicationController
     return redirect_to onboarding_path unless @project
 
     @sort = SORTS.include?(params[:sort]) ? params[:sort] : default_sort # old ?sort=week and ?sort=streak links land on the default
+    @all = params[:all] == "1" # the whole list instead of your part of it
     current_user.sync_streak_if_stale!
   end
 

@@ -15,6 +15,22 @@ class HackatimeLinksControllerTest < ActionDispatch::IntegrationTest
     assert projects(:orpheus).step_done?("hackatime")
   end
 
+  test "linking Hackatime notes when, and linking again keeps the first time" do
+    sign_in_as_orpheus
+    mock_hackatime(token: "token-orpheus")
+    travel_to Time.utc(2026, 10, 26, 9) do
+      post "/auth/hackatime"
+      follow_redirect!
+    end
+    assert_equal Time.utc(2026, 10, 26, 9), users(:orpheus).reload.hackatime_linked_at
+
+    travel_to Time.utc(2026, 10, 27, 9) do
+      post "/auth/hackatime"
+      follow_redirect!
+    end
+    assert_equal Time.utc(2026, 10, 26, 9), users(:orpheus).reload.hackatime_linked_at
+  end
+
   test "a token Hackatime doesn't recognize links nothing" do
     sign_in_as_orpheus
     mock_hackatime(token: "nonsense")

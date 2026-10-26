@@ -1,0 +1,38 @@
+<% content_for :title, "Admin · Save Point" %>
+<% content_for :stylesheets, " save_point/pages/admin-home" %>
+<%# The who's-stuck section's lazy frame (StuckPeople, D-078 item 1): people who stopped, grouped by the furthest step they reached,
+    most actionable first, each group collapsed with its count. A row is the person (to their admin page), how long since they
+    signed up, when they were last seen and the page they were on. Person-level, so it's here and not in Insights (D-047). %>
+<div class="pg-admin-home"><div class="sp-container">
+<%= turbo_frame_tag "admin-stuck" do %>
+  <p class="admin-chart__takeaway admin-stuck__lead">People who stopped, by how far they got, with the nearest to coming back first. Admins, banned accounts, people who've shipped and anyone still building are left out. Most recently seen first, 50 at most.</p>
+  <% @groups.each do |group| %>
+    <details class="admin-more admin-stuck" <%= "data-empty" if group.people.empty? %>>
+      <summary><%= sp_icon "down-fill" %><%= group.label %> <span class="admin-stuck__count"><%= group.total %></span></summary>
+      <% unless group.people.empty? %>
+        <div class="admin-chart">
+          <p class="admin-chart__takeaway"><%= group.total %> <%= group.about %>.</p>
+          <div class="pg-admin-home__scroll" tabindex="0" role="region" aria-label="<%= group.label %>">
+            <table class="admin__table admin__table--wide">
+              <thead><tr><th scope="col">Person</th><th class="admin__num" scope="col">Signed up</th><th class="admin__num" scope="col">Last seen</th><th scope="col">Last page</th></tr></thead>
+              <tbody>
+                <% group.people.each do |person| %>
+                  <tr>
+                    <th scope="row"><%= link_to person.user.public_name, admin_user_path(person.user), class: "admin-person", data: { turbo_frame: "_top" } %></th>
+                    <td class="admin__num"><%= time_ago_in_words(person.signed_up_at) %> ago</td>
+                    <td class="admin__num"><%= person.last_seen_at ? "#{time_ago_in_words(person.last_seen_at)} ago" : "never" %></td>
+                    <td><%= person.last_path.presence ? tag.code(person.last_path) : "–" %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+          <% if group.total > group.people.size %>
+            <p class="admin-chart__takeaway">and <%= group.total - group.people.size %> more.</p>
+          <% end %>
+        </div>
+      <% end %>
+    </details>
+  <% end %>
+<% end %>
+</div></div>

@@ -7,7 +7,7 @@ class AdminSummary
   CACHE_FOR = 2.minutes
 
   def self.cached
-    Rails.cache.fetch("admin_summary/v3", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("admin_summary/v5", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h
@@ -15,19 +15,28 @@ class AdminSummary
     funnel_now = ParticipantFunnel.run
     dates = growth.days.map(&:date)
     { signups: User.participants.count, signups_today: User.participants.where(created_at: Time.current.all_day).count,
-      dau: growth.latest&.dau, dau_date: growth.latest&.date, daily:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
+      dau: growth.latest&.dau, dau_date: growth.latest&.date, daily:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
       pace:, prize_spend: AdminInsights::PrizeSpend.call(pace), sign_up_day: AdminInsights::SignUpDay.call(dates:),
       ship_flow: AdminInsights::ShipFlow.call(dates:), nudge_results: AdminInsights::NudgeResults.call }
   end
 
+  # How many of each day's builders also opened the site (D-076), by date. Nothing before the first day it was recorded: a
+  # missing date is unknown, not 0.
+  def site_days
+    first = SiteDay.minimum(:date)
+    return {} unless first
+    SiteDay.builders_by_date.select { |row| row[:date] >= first }.to_h { |row| [ row[:date], row[:on_site] ] }
+  end
+
   # One row for each finished day of Save Point so far (the days Growth models), oldest first: that day's DAU and how it
-  # splits into Growth's active states (new, current, reactivated, resurrected), the participants who signed in that day
+  # splits into Growth's three groups (new, built the day before too, back after days off), the participants who signed in that day
   # (UTC), and the hours they built. A day with nothing in it is 0, not missing.
   def daily
     signed_up = participants.where(created_at: Program::HACKATIME_START.beginning_of_day..).group("created_at::date").count
     seconds = StreakActivity.where(user_id: participants.select(:id), activity_date: Program::HACKATIME_START..).group(:activity_date).sum(:coded_seconds)
+    on_site = site_days
     growth.days.map do |day|
-      { date: day.date, dau: day.dau, states: Growth::ACTIVE_STATES.index_with { |state| day.count_for(state) }.symbolize_keys, signups: signed_up.fetch(day.date, 0), hours: (seconds.fetch(day.date, 0) / 3600.0).round(1) }
+      { date: day.date, on_site: on_site[day.date], dau: day.dau, states: Growth::ACTIVE_STATES.index_with { |state| day.count_for(state) }.symbolize_keys, signups: signed_up.fetch(day.date, 0), hours: (seconds.fetch(day.date, 0) / 3600.0).round(1) }
     end
   end
 

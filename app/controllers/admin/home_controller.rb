@@ -9,11 +9,18 @@ class Admin::HomeController < Admin::BaseController
     @totals = { "Projects" => Project.count, "People" => User.count }
   end
 
-  # Totals, DAU/WAU/MAU, who comes back, the growth simulator and streaks: the public stats (PublicStats) in the admin look.
+  # Totals, DAU beside who also opened the site, who comes back, the growth simulator and streaks: the public stats (PublicStats) in the admin look.
   def growth
     @stats = PublicStats.cached
     # Where the projected DAU's new builders come from (Growth::Simulator): with everyone's friends, or steady.
     @signups = params[:signups].presence_in(Growth::Simulator::SIGNUPS) || "word_of_mouth"
+    @site_days = AdminSummary.cached[:site_days]
+    render_section
+  end
+
+  # Who stopped, by how far they got (StuckPeople, D-078).
+  def stuck
+    @groups = StuckPeople.new.groups
     render_section
   end
 

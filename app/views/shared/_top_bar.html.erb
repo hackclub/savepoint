@@ -70,6 +70,10 @@
               <%= sp_icon "settings-3-fill" %><span>Admin</span>
             <% end %>
           <% end %>
+          <%# The landing page and its FAQ, which "/" skips for you. %>
+          <%= link_to about_path(anchor: "faq"), class: "sp-btn sp-btn--sm top-bar__faq", data: { turbo_prefetch: false } do %>
+            <%= sp_icon "question-fill" %><span>FAQ</span>
+          <% end %>
           <%= button_to "Log out", logout_path, method: :delete, class: "sp-btn sp-btn--sm top-bar__logout" %>
         </div>
       <% else %>

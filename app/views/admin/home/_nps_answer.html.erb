@@ -1,0 +1,16 @@
+<%# locals: (answer:) %>
+<%# One written NPS answer: its score, who, when and where from, then each question they answered. %>
+<li class="admin-chart admin-answer">
+  <header class="admin-answer__head">
+    <span class="admin-answer__pill admin-answer__pill--<%= nps_group(answer.score) %>" title="<%= nps_group(answer.score) %>"><%= answer.score %></span>
+    <span class="admin-answer__who"><%= link_to answer.user.public_name, admin_user_path(answer.user), class: "admin-person" %></span>
+    <span class="admin-answer__meta"><%= answer.created_at.utc.strftime("%b %-d, %H:%M") %> UTC</span>
+    <span class="admin-answer__meta"><%= answer.source == "ship" ? "Ship#{" (#{answer.project.title})" if answer.project}" : "Popup" %></span>
+  </header>
+  <dl class="admin-answer__qa">
+    <% NpsResponse::QUESTIONS.each do |key, question| %>
+      <% next if answer[key].blank? %>
+      <div><dt><%= question[:label] %></dt><dd><%= answer[key] %></dd></div>
+    <% end %>
+  </dl>
+</li>

@@ -16,42 +16,27 @@ class OnboardingControllerTest < ActionDispatch::IntegrationTest
     assert_equal 3, user.reload.onboarding_step_reached
   end
 
-  test "the sheet shows progress with signing in done, from the furthest step reached" do
-    sign_in_as_orpheus
-    users(:orpheus).update_columns(onboarding_step_reached: nil)
-
-    get onboarding_path
-    assert_select ".onboarding-progress [data-onboarding-target=progressCount]", text: "1 of 5 done"
-    assert_select ".onboarding-progress__seg[data-done]", count: 1
-    assert_select ".onboarding-progress__next", text: "Next: Game"
-
-    users(:orpheus).update_columns(onboarding_step_reached: 3)
-    get onboarding_path
-    assert_select "[data-onboarding-target=progressCount]", text: "3 of 5 done"
-    assert_select ".onboarding-progress__next", text: "Next: Prize"
-  end
-
   test "the sticker promise shows only to someone who can still earn the stickers" do
     sign_in_as_orpheus
     user = users(:orpheus)
     user.update_columns(created_at: Time.current, ysws_eligible: true, hackatime_trust_level: "green")
 
     get onboarding_path
-    assert_select ".onboarding-progress__reward", count: 1
+    assert_select ".onboarding-stickers", count: 1
 
     user.update_columns(ysws_eligible: false)
     get onboarding_path
-    assert_select ".onboarding-progress__reward", count: 0
+    assert_select ".onboarding-stickers", count: 0
 
     user.update_columns(ysws_eligible: true, created_at: 2.hours.ago)
     get onboarding_path
-    assert_select ".onboarding-progress__reward", count: 0, message: "past the first hour"
+    assert_select ".onboarding-stickers", count: 0, message: "past the first hour"
   end
 
-  test "signed out sees no progress strip" do
+  test "signed out sees no sticker line" do
     get onboarding_path
     assert_response :success
-    assert_select ".onboarding-progress", count: 0
+    assert_select ".onboarding-stickers", count: 0
   end
 
   test "progress needs you signed in" do

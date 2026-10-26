@@ -13,14 +13,13 @@
      data-onboarding-project-url-value="<%= project_path %>"
      data-onboarding-progress-url-value="<%= onboarding_progress_path %>"
      data-onboarding-hackatime-url-value="<%= onboarding_hackatime_path %>"
-     data-onboarding-has-project-value="<%= current_user&.project.present? %>"
-     data-onboarding-done-value="<%= onboarding_done_count(current_user) %>">
+     data-onboarding-has-project-value="<%= current_user&.project.present? %>">
   <%# The top bar, like the shop's. My project is locked until there's a project. %>
   <%= render "shared/top_bar", current: :onboarding, day: false, project_data: { onboarding_target: "projectTab" } %>
 
   <main class="onboarding__main">
     <h1 class="onboarding__title">Start building</h1>
-    <%= render "onboarding/progress" if signed_in? %>
+    <%= render "onboarding/stickers" if onboarding_sticker_promise?(current_user) %>
     <div class="onboarding__rows">
       <% onboarding_steps.each.with_index(1) do |step, number| %>
         <%= render "onboarding/row", step:, number: %>

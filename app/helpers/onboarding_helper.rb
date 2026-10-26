@@ -9,17 +9,6 @@ module OnboardingHelper
     ]
   end
 
-  # D-078 item 4: the progress strip counts signing in as done, then the four questions. 5 is the last step's number
-  # in onboarding_step_reached (Start building).
-  def onboarding_progress_labels
-    [ "Signed in" ] + onboarding_steps.map { |step| step[:label] }
-  end
-
-  # How far along the strip starts: the furthest step reached, at least the first screen. Signing in is done, so it is never 0.
-  def onboarding_done_count(user)
-    (user&.onboarding_step_reached || 1).clamp(1, onboarding_progress_labels.size)
-  end
-
   # The free stickers (D-051) as the sheet's reward, only while they can still be earned: an account made since they began,
   # YSWS-eligible and not banned, inside its first hour, without them already.
   def onboarding_sticker_promise?(user, now: Time.current)

@@ -13,9 +13,9 @@ export default class extends Controller {
     "name", "repo", "jame", "repoHint", "gameNext",
     "hackatime", "hackatimeList",
     "prize", "prizeNext", "buildTime", "start", "startLabel", "saveError", "saveErrorText",
-    "projectTab", "progressCount", "progressNext", "progressSeg"
+    "projectTab"
   ]
-  static values = { prizes: Array, defaultPrize: String, signedIn: Boolean, projectUrl: String, progressUrl: String, hackatimeUrl: String, hasProject: Boolean, done: Number }
+  static values = { prizes: Array, defaultPrize: String, signedIn: Boolean, projectUrl: String, progressUrl: String, hackatimeUrl: String, hasProject: Boolean }
 
   connect() {
     this.listedRepo = "" // the code link the picker rows were drawn for (the page draws them with none)
@@ -31,9 +31,6 @@ export default class extends Controller {
     if (!this.buildTimeTargets.some((input) => input.value === this.state.buildTime)) this.state.buildTime = null
     // Without a prize there's nothing to go on from, so you can't be past step 3.
     if (!this.state.prize) this.state.step = Math.min(this.state.step, 3)
-    // The progress strip (D-078): signing in is done, then each question passed. It only moves forward, from what the server
-    // recorded or this tab has reached, so reopening an answer never takes it back.
-    this.furthest = Math.max(this.doneValue, 1)
     this.nameTarget.value = this.state.name
     this.repoTarget.value = this.state.repo
     this.jameTarget.checked = this.state.jame
@@ -184,7 +181,7 @@ export default class extends Controller {
 
   #set(changes) {
     Object.assign(this.state, changes)
-    this.#saveAnswers() // so a reload keeps the answers, and the strip and the open step agree
+    this.#saveAnswers() // so a reload keeps the answers and the open step
     this.#render()
   }
 
@@ -229,16 +226,6 @@ export default class extends Controller {
 
   // Drawing
 
-  #renderProgress() {
-    if (!this.hasProgressCountTarget) return
-    this.furthest = Math.max(this.furthest, this.state.step, this.state.saving ? this.progressSegTargets.length : 0)
-    const total = this.progressSegTargets.length
-    const done = Math.min(this.furthest, total)
-    this.progressSegTargets.forEach((seg, index) => seg.toggleAttribute("data-done", index < done))
-    this.progressCountTarget.textContent = `${done} of ${total} done`
-    this.progressNextTarget.textContent = done < total ? `Next: ${this.progressSegTargets[done].textContent.trim()}` : "Next: Start building"
-  }
-
   #render() {
     const s = this.state
     const prize = this.prizesValue.find((prize) => prize.id === s.prize)
@@ -273,7 +260,6 @@ export default class extends Controller {
     this.startTarget.disabled = !s.prize || !s.buildTime || s.saving || !this.signedInValue
     this.startLabelTarget.textContent = s.saving ? "Starting…" : "Start building"
 
-    this.#renderProgress()
     this.projectTabTarget.setAttribute("aria-disabled", !this.hasProjectValue)
   }
 }

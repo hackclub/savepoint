@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -296,6 +296,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_140000) do
     t.index ["status"], name: "index_ships_on_status"
   end
 
+  create_table "site_days", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.date "date", null: false
+    t.datetime "created_at", null: false
+    t.index ["date"], name: "index_site_days_on_date"
+    t.index ["user_id", "date"], name: "index_site_days_on_user_id_and_date", unique: true
+  end
+
   create_table "solid_cable_messages", force: :cascade do |t|
     t.binary "channel", null: false
     t.binary "payload", null: false
@@ -564,6 +572,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_140000) do
   add_foreign_key "ships", "users", column: "fraud_reviewer_id"
   add_foreign_key "ships", "users", column: "reviewer_id"
   add_foreign_key "ships", "users", column: "snapshot_edited_by_id"
+  add_foreign_key "site_days", "users", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

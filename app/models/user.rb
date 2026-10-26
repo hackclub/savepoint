@@ -88,11 +88,13 @@ class User < ApplicationRecord
   end
 
   # Where and when you were last seen on the site (D-047), written at most once a minute. It skips callbacks and
-  # updated_at, since a page view isn't an edit.
+  # updated_at, since a page view isn't an edit. The same throttle gates the day's SiteDay (D-076), so it costs one
+  # insert a minute at most, and a no-op after the first of the day.
   def touch_last_seen(path, now = Time.current)
     return if last_seen_at && last_seen_at > now - 1.minute
 
     update_columns(last_seen_at: now, last_seen_path: path)
+    SiteDay.record!(self, now)
   end
 
   # Where you are, for anything that goes by your calendar day (the deadline): your browser's timezone, or UTC until

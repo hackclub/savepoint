@@ -406,6 +406,22 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     ENV.delete("THESEUS_API_KEY")
   end
 
+  test "mark_order_ordered holds a sticker order for a banned account and says why" do
+    order = make_order("stickers", "waiting", hours: 0)
+    ENV["THESEUS_API_KEY"] = "k"
+    Web.adapter = ->(*) { flunk "nothing should go to Theseus" }
+    order.project.user.update!(hackatime_uid: "hk1", hackatime_access_token: "token")
+    Hackatime.stubbed_trust_levels = { order.project.user.hackatime_uid => "red" }
+    result = mcp_tool(@token, "mark_order_ordered", { order_id: order.id })
+    assert_equal false, result["ordered"]
+    assert_equal "Not sent: Hackatime has banned this account", result["message"]
+    assert order.reload.waiting?
+  ensure
+    Web.adapter = nil
+    Hackatime.stubbed_trust_levels = {}
+    ENV.delete("THESEUS_API_KEY")
+  end
+
   test "decide_extension decides once, and the bot DMs them" do
     extension = projects(:ana).create_extension!(reason: "exams")
     result = mcp_tool(@token, "decide_extension", { extension_id: extension.id, decision: "approved" })

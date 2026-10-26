@@ -7,8 +7,12 @@
 <%# Your project, the dashboard onboarding unlocks: your game and setting up to build it (Hackatime, a repo), then
     once you're set up, your prize and schedule, with your streak and the leaderboard beside. Until a Hackatime
     project's linked, the page keeps an eye out for one linking itself. %>
-<% watching = @project.hackatime_linked? && @project.hackatime_projects.none? %>
+<%# D-078: with no time from you yet, the first-heartbeat panel does the watching (and links the project when time comes). %>
+<% awaiting = @project.awaiting_first_heartbeat? %>
+<% watching = !awaiting && @project.hackatime_linked? && @project.hackatime_projects.none? %>
 <div class="pg-project sp-page" data-saved
+     <% if awaiting %>data-controller="first-heartbeat" data-first-heartbeat-url-value="<%= first_heartbeat_project_path %>"
+     data-action="visibilitychange@document->first-heartbeat#check"<% end %>
      <% if watching %>data-controller="hackatime-watch"
      data-hackatime-watch-url-value="<%= hours_project_path(refresh: 1) %>"
      data-action="visibilitychange@document->hackatime-watch#check"<% end %>>
@@ -43,6 +47,9 @@
           </div>
           <% if set_up %><%= render "projects/screenshot", project: @project %><% end %>
         </header>
+
+        <% if awaiting %><%= render "projects/first_heartbeat", project: @project %><% end %>
+        <% if set_up && project_goal_left?(@project) %><%= render "projects/goal_left", project: @project %><% end %>
 
         <% if @project.hackatime_auto_linked? %><%= render "projects/auto_linked", project: @project %><% end %>
 

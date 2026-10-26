@@ -19,6 +19,10 @@ module Program
   STARTS_AT = starts_at_from(ENV["PROGRAM_STARTS_AT"])
   ENDS_AT = Time.utc(2026, 11, 2, 21)
 
+  # D-078: the last third of Save Point, from about Oct 30, when effort rises as a goal gets near (Kivetz 2006). From
+  # then the project page leads with the minutes left to your goal prize.
+  GOAL_SALIENCE_STARTS_AT = ENDS_AT - (ENDS_AT - STARTS_AT) / 3
+
   # The calendar dates of the program, UTC: the start's date to the end's date. Hours are kept per date (StreakActivity).
   DATES = STARTS_AT.to_date..ENDS_AT.to_date
   # What an extension (Extension) was: this many days past the old last day. Save Point itself runs that long now, so
@@ -66,6 +70,11 @@ module Program
     return now.utc.to_date unless day
 
     (STARTS_AT + (day[:number] - 1).days + 12.hours).utc.to_date
+  end
+
+  # Whether it's the last third of the program, up to the end and after.
+  def self.goal_salient?(now = Time.current)
+    now >= GOAL_SALIENCE_STARTS_AT
   end
 
   # "Day 3 of 10", or "Starts soon" before the start.

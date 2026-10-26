@@ -300,6 +300,28 @@ class Project < ApplicationRecord
     hackatime_linked? && hackatime_projects.none? && available_hackatime_projects&.none?
   end
 
+  # D-078: Hackatime's linked but no time has ever arrived from you: none seen when we asked it, and no coded day synced.
+  # The project page then waits for your first heartbeat.
+  def awaiting_first_heartbeat?
+    hackatime_linked? && hackatime_seen_seconds.to_i.zero? && user.streak_activities.where("coded_seconds > 0").none?
+  end
+
+  # Asks Hackatime now whether your first time has arrived (and links the project it's on, as the project page does),
+  # and says whether it has. Hackatime is asked at most once per FIRST_HEARTBEAT_EVERY per person; in between, the
+  # last answer stands.
+  FIRST_HEARTBEAT_EVERY = 30.seconds
+
+  def first_heartbeat_arrived?
+    Rails.cache.fetch([ "first-heartbeat", user_id ], expires_in: FIRST_HEARTBEAT_EVERY) do
+      available = Hackatime.projects(user, refresh: true)
+      self.available_hackatime_projects = available
+      auto_link_hackatime_project(available)
+      !awaiting_first_heartbeat?
+    rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
+      false
+    end
+  end
+
   def pair
     pair_as_first || pair_as_second
   end

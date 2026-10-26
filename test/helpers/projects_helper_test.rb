@@ -246,4 +246,27 @@ class ProjectsHelperTest < ActionView::TestCase
       assert_no_match "different repo", render(partial: "shared/hackatime_rows", locals: { choices: choices[:projects] })
     end
   end
+
+  def board(size, me:, off: false, admin: false)
+    (1..size).map { |rank| { rank:, you: rank == me, off: off && rank == me, hidden: admin && rank == me } }
+  end
+
+  def window(rows, **) = leaderboard_window(rows, **).map { |row| row.is_a?(Array) ? row : row[:rank] }
+
+  test "the board shows the top three, then you with five either side, and the gap between" do
+    assert_equal [ 1, 2, 3, 4, 5, 6, 7, 8 ], window(board(30, me: 3)).first(8), "near the top the window touches the top three"
+    assert_equal [ 1, 2, 3, [ :gap, 9 ], 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 ], window(board(30, me: 18)), "in the middle"
+    assert_equal [ 1, 2, 3, [ :gap, 21 ], 25, 26, 27, 28, 29, 30 ], window(board(30, me: 30)), "at the bottom there are fewer below"
+    assert_equal (1..10).to_a, window(board(10, me: 5)), "a short board is just the board"
+  end
+
+  test "someone with no time yet sees the top three and nothing ranked last" do
+    assert_equal [ 1, 2, 3 ], window(board(31, me: 31, off: true))
+    assert_equal [ 1, 2 ], window(board(3, me: 3, off: true))
+  end
+
+  test "the full list comes back when asked for, and admins always see it" do
+    assert_equal (1..30).to_a, window(board(30, me: 18), all: true)
+    assert_equal (1..29).to_a, window(board(30, me: 30, admin: true)), "an admin has no row, so no window"
+  end
 end

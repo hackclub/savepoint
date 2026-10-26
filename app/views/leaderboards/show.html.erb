@@ -6,6 +6,11 @@
 <% content_for :stylesheets, " save_point/pages/leaderboard" %>
 <% rows = leaderboard(@project, sort: @sort) %>
 <% you = rows.find { |row| row[:you] } %>
+<%# Your part of the board, not all of it (D-078): the top three, a gap, then you with five either side. %>
+<% shown = leaderboard_window(rows, all: @all) %>
+<% listed = rows.count { |row| !row[:hidden] } %>
+<% partial = shown.count { |row| !row.is_a?(Array) } < listed %>
+<% unranked = you && you[:off] && !you[:hidden] && !@all %>
 <% podium = rows.reject { |row| row[:off] }.first(3) %>
 <% sorted_value = ->(row) { "#{row[:hours]} hrs" } %>
 <% hours_label = @sort == "today" ? "Hours today" : "Total hours" %>
@@ -81,8 +86,12 @@
             </tr>
           </thead>
           <tbody>
-            <% rows.reject { |row| row[:hidden] }.each_with_index do |row, index| %>
-              <tr style="--row: <%= [index, 9].min %>"<%= " data-you" if row[:you] %>>
+            <% shown.each_with_index do |row, index| %>
+              <% if row.is_a?(Array) %>
+                <tr class="leaderboard__gap"><td colspan="4"><span aria-hidden="true">⋮</span> <%= pluralize(row.last, "builder") %> in between</td></tr>
+                <% next %>
+              <% end %>
+              <tr style="--row: <%= [index, 9].min %>"<%= " data-you aria-current=true".html_safe if row[:you] %>>
                 <td class="leaderboard__rank">
                   <%= tag.span row[:rank], class: "leaderboard__coin", data: { medal: (row[:rank] if row[:rank] <= 3 && !row[:off]) } %>
                   <% if row[:change]&.nonzero? %>
@@ -112,6 +121,14 @@
             <% end %>
           </tbody>
         </table>
+        <% if unranked %>
+          <p class="leaderboard__nudge">log some time and you'll show up here. the race is wide open.</p>
+        <% end %>
+        <% if you && !you[:hidden] && (partial || @all) %>
+          <p class="leaderboard__more">
+            <%= link_to (@all ? "just my part" : "see everyone (#{listed})"), leaderboard_path(sort: @sort, all: (1 unless @all)), class: "leaderboard__more-link" %>
+          </p>
+        <% end %>
       </section>
     </div>
   </main>

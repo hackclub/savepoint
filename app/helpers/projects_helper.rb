@@ -340,6 +340,25 @@ module ProjectsHelper
     end
   end
 
+  # What the board shows you (D-078 item 8): the top three, then you with the five above and five below, and a [:gap, n]
+  # marker wherever the list skips n people. Everyone when you ask for it, or when you're an admin (no row of your own).
+  # Not set up yet: just the top three.
+  LEADERBOARD_REACH = 5
+  def leaderboard_window(rows, all: false)
+    rows = rows.reject { |row| row[:hidden] }
+    me = rows.index { |row| row[:you] }
+    return rows if all || me.nil?
+
+    keep = (0...[ 3, rows.size ].min).to_a
+    keep |= ([ me - LEADERBOARD_REACH, 0 ].max..[ me + LEADERBOARD_REACH, rows.size - 1 ].min).to_a unless rows[me][:off]
+    keep -= [ me ] if rows[me][:off]
+    keep = keep.each_cons(2).flat_map { |a, b| b - a == 2 ? [ a, a + 1 ] : [ a ] }.push(keep.last).uniq if keep.size > 1 # a gap of one is just that person
+    keep.each_with_index.flat_map do |index, at|
+      skipped = at.zero? ? 0 : index - keep[at - 1] - 1
+      skipped.positive? ? [ [ :gap, skipped ], rows[index] ] : [ rows[index] ]
+    end
+  end
+
   # The top three today as stairs (second, first, third), with you on a step of your own if you're further down,
   # and how far it is to pass whoever's just above you.
   def leaderboard_stairs(you)

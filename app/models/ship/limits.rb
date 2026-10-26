@@ -2,22 +2,30 @@
 # (Ship#ai_cap_seconds and #art_allowed_seconds there). All the time is Hackatime's, so the claimed hours split into
 # art (Hackatime's "designing" category and Lapse's "timelapsing", D-042) and coding (the rest). "ai coding" time is
 # part of coding and counts at a third. Art counts at most ART_CAP_PERCENT of the approved total. Unknown category time (nil) cuts nothing.
+# D-085: the reviewer may call some of the Lapse hours coding (an editor Hackatime can't track). Those leave art and join
+# coding, so they sit outside the art cap. The rest of the Lapse hours and "designing" stay under it.
 #
 #   claimed 10, ai coding 3, art 4: coding 6, coding cap 6 - 3 * 2/3 = 4, art at most 4 * 30/70 = 1.71, most 5.71
+#   the same with 3 of the art being Lapse coding: art 1, coding 9, coding cap 9 - 2 = 7, art at most 3, most 8
 class Ship::Limits
   ART_CAP_PERCENT = 30
   # Under this many hours apart is form rounding, not a cut.
   TOLERANCE = BigDecimal("0.01")
 
-  attr_reader :claimed, :ai_coding, :art
+  attr_reader :claimed, :ai_coding, :art, :lapse, :lapse_coding
 
-  def initialize(claimed:, ai_coding_seconds:, art_seconds:)
+  def initialize(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds: nil, lapse_coding_hours: 0)
     @claimed = [ claimed.to_d, 0 ].max
     @ai_known = !ai_coding_seconds.nil?
     @art_known = !art_seconds.nil?
     @ai_coding = [ hours(ai_coding_seconds), @claimed ].min
-    @art = [ hours(art_seconds), @claimed - @ai_coding ].min
+    # Lapse time is part of the art time. Unknown (nil) Lapse time can't be split, so nothing moves.
+    @lapse = lapse_seconds.nil? || !@art_known ? 0.to_d : [ hours(lapse_seconds), hours(art_seconds) ].min
+    @lapse_coding = [ lapse_coding_hours.to_d, 0, @lapse ].sort[1]
+    @art = [ [ hours(art_seconds) - @lapse_coding, @claimed - @ai_coding - @lapse_coding ].min, 0 ].max
   end
+
+  def lapse_known? = @art_known && @lapse.positive?
 
   def ai_known? = @ai_known
   def art_known? = @art_known
@@ -66,8 +74,8 @@ class Ship::Limits
                "(#{self.class.hrs(ai_coding / 3)})."
     end
     if art_cut >= TOLERANCE
-      parts << "Hackatime has #{self.class.hrs(art)} of art (designing and Lapse), which counts at most #{ART_CAP_PERCENT}% " \
-               "of the approved hours (#{self.class.hrs(art_allowed)})."
+      parts << "Hackatime has #{self.class.hrs(art)} of art (designing and Lapse#{", not counting the Lapse coding" if lapse_coding.positive?}), " \
+               "which counts at most #{ART_CAP_PERCENT}% of the approved hours (#{self.class.hrs(art_allowed)})."
     end
     parts.join(" ").presence
   end

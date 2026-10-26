@@ -81,6 +81,27 @@
       <% elsif !limits.art_known? %>
         <p class="admin__muted">Hackatime didn't say how much of the time is art.</p>
       <% end %>
+      <% if limits.lapse_known? %>
+        <p id="admin-ship-lapse-time">Lapse time <strong><%= Ship::Limits.hrs(limits.lapse) %></strong>:
+          <strong><%= Ship::Limits.hrs(limits.lapse_coding) %></strong> coding, <strong><%= Ship::Limits.hrs(limits.lapse - limits.lapse_coding) %></strong> art.</p>
+        <% if ship.in_review? && !ship.by?(current_user) %>
+          <%= form_with url: lapse_split_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "lapse-split", data: { turbo: false } do |form| %>
+            <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
+            <div class="sp-field">
+              <%= form.label :lapse_coding_hours, "Lapse hours that were coding", class: "sp-label" %>
+              <span class="ash__hours-box">
+                <%= form.number_field :lapse_coding_hours, value: ship.lapse_coding_hours.to_f, min: 0, max: limits.lapse.floor(2).to_f, step: 0.01,
+                      class: "sp-input admin__hours ash__hours", aria: { describedby: "admin-ship-lapse-help" } %>
+                <span class="ash__hours-unit" aria-hidden="true">hrs</span>
+              </span>
+            </div>
+            <div class="ash__hours-start-actions">
+              <%= form.button type: "submit", class: "sp-btn sp-btn--royal sp-btn--sm" do %><%= sp_icon "save-2-fill" %>Set Lapse coding<% end %>
+            </div>
+          <% end %>
+          <p class="admin__muted ash__hours-start-note" id="admin-ship-lapse-help">0 means all of it is art. Coding hours sit outside the <%= Ship::Limits::ART_CAP_PERCENT %>% art cap, for an editor Hackatime can't track. The coding and art limits below update when you set it.</p>
+        <% end %>
+      <% end %>
       <% if lapses.error %>
         <p class="ash__problem" data-lapses="unavailable"><%= sp_icon "warning-fill" %>The session list is unavailable: <%= lapses.error %>.</p>
       <% elsif lapses.lapses.empty? %>

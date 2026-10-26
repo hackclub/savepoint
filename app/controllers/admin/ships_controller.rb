@@ -10,7 +10,7 @@
 # admins off the same ship. The queues (Admin::QueuesController) hand out the oldest ship waiting.
 class Admin::ShipsController < Admin::BaseController
   before_action :set_ship, except: :index
-  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start]
+  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split]
 
   def index
     @stage = params[:stage].presence_in(Ship::STAGES.keys)
@@ -104,6 +104,19 @@ class Admin::ShipsController < Admin::BaseController
       redirect_to admin_ship_path(@ship), notice: value ? "Hours now count from #{value.utc.strftime("%b %-d, %H:%M")} UTC." : "Override cleared."
     else
       redirect_to admin_ship_path(@ship), alert: project.errors.full_messages_for(:hours_start_override).first
+    end
+  end
+
+  # D-085: how many of the ship's Lapse hours were coding. Saved on its own, so the review page draws again with the art cap
+  # worked from it. Logged like an admin tool call.
+  def lapse_split
+    return redirect_to(admin_ship_path(@ship), alert: "This ship isn't in review.") unless @ship.in_review?
+
+    if @ship.set_lapse_coding!(params[:lapse_coding_hours])
+      AdminAuditEvent.create!(user: current_user, tool: "set_lapse_coding", ids: { "ship_id" => @ship.id })
+      redirect_to admin_ship_path(@ship, queue: params[:queue].presence), notice: "Lapse coding set to #{Ship::Limits.hrs(@ship.lapse_coding_hours)}."
+    else
+      redirect_to admin_ship_path(@ship, queue: params[:queue].presence), alert: @ship.errors.messages_for(:lapse_coding_hours).first
     end
   end
 

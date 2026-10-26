@@ -255,6 +255,34 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[data-shortcut=n][href=?]", admin_review_path(skip: @ship.id)
   end
 
+  test "the Lapse split saves, moves the limits, and refuses more than the Lapse hours (D-085)" do
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 3 * 3600, lapse_seconds: 2 * 3600)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "form#lapse-split input[name=lapse_coding_hours][value='0.0'][max='2.0']"
+    assert_select "#admin-ship-lapse-time", /Lapse time 2 hrs: 0 hrs coding, 2 hrs art/
+    assert_select "#admin-ship-lapse-coding", 0
+
+    patch lapse_split_admin_ship_path(@ship), params: { lapse_coding_hours: "1.5" }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal BigDecimal("1.5"), @ship.reload.lapse_coding_hours
+    follow_redirect!
+    assert_select "#admin-ship-lapse-time", /1.5 hrs coding, 0.5 hrs art/
+    assert_select "#admin-ship-lapse-coding dd", "1.5 hrs"
+    assert_select "input[name=art_hours][max='1.5']" # 3 of art less 1.5 of Lapse coding
+
+    patch lapse_split_admin_ship_path(@ship), params: { lapse_coding_hours: "2.5" }
+    assert_equal BigDecimal("1.5"), @ship.reload.lapse_coding_hours
+    assert_match "coding can't be more", flash[:alert]
+  end
+
+  test "a reviewer can't set the Lapse split on their own ship" do
+    @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
+    sign_in_as(@ship.project.user)
+    patch lapse_split_admin_ship_path(@ship), params: { lapse_coding_hours: "1" }
+    assert_equal 0, @ship.reload.lapse_coding_hours
+  end
+
   test "the fraud form has the keys" do
     @ship.update_columns(status: "awaiting_fraud", fraud_status: "pending", review_hours: 5, review_coding_hours: 5, review_art_hours: 0)
     sign_in_as(users(:orpheus))

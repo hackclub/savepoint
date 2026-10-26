@@ -84,7 +84,7 @@ module AdminMcp::Present
 
   def limits(limits)
     { hackatime_counted: limits.claimed.to_f, ai_coding: limits.ai_coding.to_f, ai_known: limits.ai_known?, ai_cut: limits.ai_cut.to_f,
-      art: limits.art.to_f, art_known: limits.art_known?, art_cut: limits.art_cut.to_f, art_cap_percent: Ship::Limits::ART_CAP_PERCENT,
+      lapse: limits.lapse.to_f, lapse_coding: limits.lapse_coding.to_f, art: limits.art.to_f, art_known: limits.art_known?, art_cut: limits.art_cut.to_f, art_cap_percent: Ship::Limits::ART_CAP_PERCENT,
       most_to_approve: limits.most.to_f, cut: limits.cut?, reason: limits.reason }
   end
 

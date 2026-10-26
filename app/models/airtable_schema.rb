@@ -46,6 +46,7 @@ module AirtableSchema
     [ "Justification - Specific Technical Features", "multilineText" ],
     [ "Justification - Deflation Justification", "multilineText" ],
     [ "Justification - Additional Justification", "multilineText" ],
+    [ "Justification - Alternate Tracking Method", "multilineText" ],
     [ "Optional - Override Duplicate Justification", "multilineText" ]
   ].freeze
 

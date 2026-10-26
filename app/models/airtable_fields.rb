@@ -96,6 +96,7 @@ module AirtableFields
       "Justification - Specific Technical Features" => s.technical_features,
       "Justification - Deflation Justification" => deflation(s),
       "Justification - Additional Justification" => additional(s),
+      "Justification - Alternate Tracking Method" => alternate_tracking(s),
       "Optional - Override Duplicate Justification" => duplicate(s, earlier)
     }.compact_blank
   end
@@ -147,6 +148,15 @@ module AirtableFields
     deducted = ("The fraud check deducted #{hours_text(s.fraud_deduction_hours)}: #{s.fraud_notes}" if s.fraud_deduction_hours.positive?)
     "Deflated from #{hours_text(s.claimed_hours)} to #{hours_text(s.approved_hours)}, Hackatime time since " \
       "#{us_date(s.project.hours_start.utc.to_date)}. #{[ s.deflation_reason, deducted ].compact_blank.join(" ")}".strip
+  end
+
+  # D-085: Lapse hours the reviewer called coding, for an editor Hackatime can't track (GameMaker Studio, say). Those hours
+  # were counted from Lapse recordings, not Hackatime, and sit outside the art cap.
+  def alternate_tracking(s)
+    return unless s.lapse_coding_hours.positive?
+
+    "#{hours_text(s.lapse_coding_hours)} of Lapse recordings were coding in an editor Hackatime can't track. " \
+      "The reviewer counted them as coding, not art, so they sit outside the #{Ship::Limits::ART_CAP_PERCENT}% art cap."
   end
 
   def additional(s)

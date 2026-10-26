@@ -55,6 +55,15 @@ class AirtableFieldsTest < ActiveSupport::TestCase
     assert_empty row.keys - AirtableSchema.field_names(:ships)
   end
 
+  test "Lapse coding is told under Alternate Tracking Method, and is absent at 0 (D-085)" do
+    assert_not AirtableFields.ship(first_ship).key?("Justification - Alternate Tracking Method")
+    ship = approved(at: Program::STARTS_AT + 2.days, hours: 6, lapse_coding_hours: BigDecimal("2.5"))
+    assert_equal "2.5 hours of Lapse recordings were coding in an editor Hackatime can't track. " \
+                 "The reviewer counted them as coding, not art, so they sit outside the 30% art cap.",
+                 AirtableFields.ship(ship)["Justification - Alternate Tracking Method"]
+    assert_includes AirtableSchema.field_names(:ships), "Justification - Alternate Tracking Method"
+  end
+
   test "a deflated ship states the hours deflated to, then the reviewer's reason" do
     ship = approved(at: Program::STARTS_AT + 2.days, hours: BigDecimal("5.71"), claimed: 10,
                     deflation_reason: "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr).")

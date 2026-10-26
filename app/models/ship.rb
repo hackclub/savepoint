@@ -29,7 +29,8 @@ class Ship < ApplicationRecord
   # Hackatime gives design and art tools, plus "timelapsing", the category Lapse gives its heartbeats (D-042;
   # hackclub/lapse sets it, so the two never overlap). Together they're one art time under one cap.
   AI_CODING_CATEGORY = "ai coding"
-  ART_CATEGORIES = [ "designing", "timelapsing" ].freeze
+  LAPSE_CATEGORY = "timelapsing"
+  ART_CATEGORIES = [ "designing", LAPSE_CATEGORY ].freeze
   # http or https only, with a real host: javascript:, data: and the like never pass (they would run in an admin's browser).
   URL = %r{\Ahttps?://[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::\d{1,5})?(?:[/?#]\S*)?\z}i
 
@@ -122,7 +123,26 @@ class Ship < ApplicationRecord
   end
 
   # The most the handbook allows for the hours that count (D-030): AI coding at a third, art at most 30%.
-  def limits(claimed = counted_hours) = Ship::Limits.new(claimed:, ai_coding_seconds:, art_seconds:)
+  def limits(claimed = counted_hours) = Ship::Limits.new(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:)
+
+  # D-085: the hours of the Lapse time the reviewer calls coding, from the review page. Held between 0 and the Lapse hours
+  # Hackatime counted. False, with an error on the ship, when it isn't a number in that range or the ship isn't in review.
+  def set_lapse_coding!(value)
+    errors.clear
+    hours = (BigDecimal(value.to_s.strip) if value.to_s.strip.match?(/\A\d+(\.\d+)?\z/))
+    top = limits.lapse.floor(2)
+    if !in_review?
+      errors.add(:lapse_coding_hours, "Only a ship in review takes this")
+    elsif hours.nil?
+      errors.add(:lapse_coding_hours, "Enter the Lapse hours that were coding, like 2.5")
+    elsif hours > top
+      errors.add(:lapse_coding_hours, "Lapse time is #{Ship::Limits.hrs(top)}, so coding can't be more")
+    end
+    return false if errors.any?
+
+    update!(lapse_coding_hours: hours.round(2))
+    true
+  end
 
   # D-050: the checklist ticks the app already knows, each with its reason: { "continued" => [ true, "..." ] }. A key it cannot
   # decide is left out (never runs, readme or hours_fit). `earlier` is this ship's Ship::EarlierShip result.
@@ -165,7 +185,7 @@ class Ship < ApplicationRecord
   # Asks Hackatime for the ship's "ai coding" and art time from the project's hours start (D-065) to the ship, once, while it's in
   # review, and keeps it. If Hackatime can't say, both stay unknown and the review page says so.
   def fetch_hackatime_categories!
-    return unless in_review? && (ai_coding_seconds.nil? || art_seconds.nil?)
+    return unless in_review? && (ai_coding_seconds.nil? || art_seconds.nil? || lapse_seconds.nil?)
 
     user = project&.user
     return unless user&.hackatime_linked?
@@ -174,7 +194,8 @@ class Ship < ApplicationRecord
     ai = Hackatime.category_seconds(user, hackatime_projects, AI_CODING_CATEGORY, **window)
     art_parts = ART_CATEGORIES.map { |category| Hackatime.category_seconds(user, hackatime_projects, category, **window) }
     art = art_parts.sum unless art_parts.any?(&:nil?) # one unknown part leaves the art time unknown
-    update_columns(ai_coding_seconds: ai, art_seconds: art)
+    lapse = art_parts[ART_CATEGORIES.index(LAPSE_CATEGORY)] # D-085: kept apart, for the reviewer's split
+    update_columns(ai_coding_seconds: ai, art_seconds: art, lapse_seconds: (lapse if art))
   rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
     nil
   end

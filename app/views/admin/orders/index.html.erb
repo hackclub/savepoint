@@ -32,20 +32,8 @@
         </p>
       <% end %>
 
-      <%# The free stickers go through Theseus (D-067), one button each or all at once, and the queue they land in is a click away. %>
       <% sticker_count = @waiting.count(&:stickers?) %>
-      <% if (@waiting + @ordered).any?(&:stickers?) %>
-        <div class="pg-admin-orders__stickers">
-          <% if sticker_count.positive? %>
-            <%= button_to send_stickers_admin_orders_path, class: "sp-btn sp-btn--gold sp-btn--sm", form: { data: { turbo: false } } do %>
-              <%= sp_icon "truck-fill" %>Ship all waiting stickers (<%= sticker_count %>)
-            <% end %>
-          <% end %>
-          <%= link_to TheseusClient.queue_url, class: "sp-btn sp-btn--ghost sp-btn--sm pg-admin-orders__queue", target: "_blank", rel: "noopener" do %>
-            <%= sp_icon "truck-fill" %>Open the Theseus queue
-          <% end %>
-        </div>
-      <% end %>
+      <% show_stickers = (@waiting + @ordered).any?(&:stickers?) %>
 
       <% { "To order" => [ "admin-orders-waiting", @waiting, "Nothing to order.", "gift-fill" ],
            "Ordered" => [ "admin-orders-ordered", @ordered, "None yet.", "check-circle-fill" ] }.each do |heading, (id, orders, empty, icon)| %>
@@ -54,6 +42,19 @@
             <span><%= sp_icon icon %><%= heading %></span>
           </h2>
           <span class="sp-badge pg-admin-orders__tally" aria-hidden="true"><%= orders.size %></span>
+          <% if orders.equal?(@waiting) && show_stickers %>
+          <%# The free stickers go through Theseus (D-067), one button each or all at once, and the queue they land in is a click away. They sit in the card's header row beside the tab. %>
+          <div class="pg-admin-orders__stickers">
+            <% if sticker_count.positive? %>
+              <%= button_to send_stickers_admin_orders_path, class: "sp-btn sp-btn--gold sp-btn--sm", form: { data: { turbo: false } } do %>
+                <%= sp_icon "truck-fill" %>Ship all waiting stickers (<%= sticker_count %>)
+              <% end %>
+            <% end %>
+            <%= link_to TheseusClient.queue_url, class: "sp-btn sp-btn--ghost sp-btn--sm pg-admin-orders__queue", target: "_blank", rel: "noopener" do %>
+              <%= sp_icon "truck-fill" %>Open the Theseus queue
+            <% end %>
+          </div>
+          <% end %>
           <% if orders.empty? %>
             <p class="pg-admin-orders__empty"><%= sp_icon "sparkles-fill" %><%= empty %></p>
           <% else %>

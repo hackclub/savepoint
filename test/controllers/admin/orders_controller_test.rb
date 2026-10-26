@@ -94,6 +94,38 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{send_stickers_admin_orders_path}']", 0
   end
 
+  test "the Theseus queue link shows when there is a sticker order, and not otherwise" do
+    sign_in_as(users(:orpheus))
+    get admin_orders_path
+    assert_select "a[href*='back_office']", 0
+
+    sticker = make_sticker(projects(:ana))
+    get admin_orders_path
+    assert_select "a[href='https://mail.hackclub.com/back_office/letter/queues/save-point-stickers'][target=_blank][rel=noopener]", "Open the Theseus queue"
+
+    sticker.update!(status: "ordered", ordered_at: Time.current, ordered_by: users(:orpheus), theseus_letter_id: "ltr!n43hw55m4")
+    get admin_orders_path
+    assert_select "a", text: "Open the Theseus queue"
+    assert_select "form[action='#{send_stickers_admin_orders_path}']", 0
+  end
+
+  test "a sticker row links to the project it was earned on, and a plain prize row does not" do
+    sticker = make_sticker(projects(:ana))
+    sign_in_as(users(:orpheus))
+    get admin_orders_path
+    assert_select "tr##{dom_id(sticker)} .pg-admin-orders__project a[href='#{admin_project_path(projects(:ana))}']", projects(:ana).title
+    assert_select "tr##{dom_id(@order)} .pg-admin-orders__project", 0
+  end
+
+  test "a shipped sticker row links its letter id to Theseus" do
+    sticker = make_sticker(projects(:ana))
+    sticker.update!(status: "ordered", ordered_at: Time.current, ordered_by: users(:orpheus), theseus_letter_id: "ltr!n43hw55m4")
+    sign_in_as(users(:orpheus))
+    get admin_orders_path
+    assert_select "tr##{dom_id(sticker)} .pg-admin-orders__project a", projects(:ana).title
+    assert_select "tr##{dom_id(sticker)} .pg-admin-orders__letter a[href='https://mail.hackclub.com/back_office/letters/ltr!n43hw55m4'][target=_blank][rel=noopener] code", "ltr!n43hw55m4"
+  end
+
   test "a plain prize never goes to Theseus" do
     calls = stub_theseus
     sign_in_as(users(:orpheus))

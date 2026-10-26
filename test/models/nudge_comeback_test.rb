@@ -45,7 +45,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
   end
 
   def earn_packs(count, keys: Reward::COMEBACK_STICKER_KEYS)
-    keys.first(count).each { |key| @user.rewards.create!(key:) }
+    travel_to(at_slot - 7.days) { keys.first(count).each { |key| @user.rewards.create!(key:) } }
   end
 
   test "someone who built before and missed yesterday gets one DM, which promises stickers" do
@@ -106,7 +106,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
   end
 
   test "at the cap of 3 packs it still goes out, but doesn't promise stickers" do
-    @user.rewards.create!(key: "stickers")
+    travel_to(at_slot - 7.days) { @user.rewards.create!(key: "stickers") }
     earn_packs(2)
 
     nudge = deliver
@@ -150,7 +150,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
   end
 
   test "a DM that didn't promise stickers earns none" do
-    @user.rewards.create!(key: "stickers")
+    travel_to(at_slot - 7.days) { @user.rewards.create!(key: "stickers") }
     earn_packs(2)
     nudge = deliver
     built_on(7)
@@ -164,7 +164,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
 
   test "the first-hour stickers count towards the cap of 3" do
     nudge = deliver
-    @user.rewards.create!(key: "stickers")
+    travel_to(at_slot - 7.days) { @user.rewards.create!(key: "stickers") }
     earn_packs(1)
     built_on(7)
     Hackatime.stubbed_spans["1001"] << span(at_slot(10, hour: 12), 30)
@@ -182,7 +182,7 @@ class NudgeComebackTest < ActiveSupport::TestCase
   end
 
   test "the cap holds when two syncs earn at the same moment" do
-    @user.rewards.create!(key: "stickers")
+    travel_to(at_slot - 7.days) { @user.rewards.create!(key: "stickers") }
     earn_packs(1)
     nudges = 2.times.map do |index|
       @user.nudges.create!(kind: "comeback", arm: "comeback_stickers", stickers_promised: true, built_on: at_slot(10).to_date - 1 - index,

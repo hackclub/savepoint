@@ -7,17 +7,29 @@ class AdminSummary
   CACHE_FOR = 2.minutes
 
   def self.cached
-    Rails.cache.fetch("admin_summary/v5", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("admin_summary/v6", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h
     pace = AdminInsights::GoalPace.call
     funnel_now = ParticipantFunnel.run
     dates = growth.days.map(&:date)
+    sign_up_days = AdminInsights::SignUpDay.call(dates: Program::DATES.cover?(Date.current) ? [ *dates, Date.current ] : dates)
     { signups: User.participants.count, signups_today: User.participants.where(created_at: Time.current.all_day).count,
-      dau: growth.latest&.dau, dau_date: growth.latest&.date, daily:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
-      pace:, prize_spend: AdminInsights::PrizeSpend.call(pace), sign_up_day: AdminInsights::SignUpDay.call(dates:),
+      dau: dau_today, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
+      pace:, prize_spend: AdminInsights::PrizeSpend.call(pace), sign_up_day: sign_up_days.first(dates.size), sign_up_today: (sign_up_days[dates.size]&.merge(partial: true)),
       ship_flow: AdminInsights::ShipFlow.call(dates:), nudge_results: AdminInsights::NudgeResults.call }
+  end
+
+  # Participants who have built Growth::ACTIVE_SECONDS or more today so far (D-081). Today is the UTC date, as for Growth's
+  # finished days and the sign-ups today beside it, so it lines up with the days charted below.
+  def dau_today
+    StreakActivity.where(activity_date: Date.current, coded_seconds: Growth::ACTIVE_SECONDS.., user_id: participants.select(:id)).count
+  end
+
+  # Of today's builders, how many also opened the site; nil until any visit has been recorded.
+  def dau_on_site(recorded)
+    recorded.fetch(Date.current, 0) if recorded.any?
   end
 
   # How many of each day's builders also opened the site (D-076), by date. Nothing before the first day it was recorded: a
@@ -31,13 +43,13 @@ class AdminSummary
   # One row for each finished day of Save Point so far (the days Growth models), oldest first: that day's DAU and how it
   # splits into Growth's three groups (new, built the day before too, back after days off), the participants who signed in that day
   # (UTC), and the hours they built. A day with nothing in it is 0, not missing.
-  def daily
-    signed_up = participants.where(created_at: Program::HACKATIME_START.beginning_of_day..).group("created_at::date").count
-    seconds = StreakActivity.where(user_id: participants.select(:id), activity_date: Program::HACKATIME_START..).group(:activity_date).sum(:coded_seconds)
-    on_site = site_days
-    growth.days.map do |day|
-      { date: day.date, on_site: on_site[day.date], dau: day.dau, states: Growth::ACTIVE_STATES.index_with { |state| day.count_for(state) }.symbolize_keys, signups: signed_up.fetch(day.date, 0), hours: (seconds.fetch(day.date, 0) / 3600.0).round(1) }
-    end
+  def daily = rows_for(growth.days)
+
+  # Today as far as it's got (D-082): the same row as a finished day's, marked partial so the charts draw it as unfinished.
+  # Nil outside the days of Save Point.
+  def today_row
+    today = Growth.new(participants_only: true, today: Date.current + 1).days.last
+    rows_for([ today ]).first&.merge(partial: true) if today&.date == Date.current
   end
 
   # Hours built on projects that no ship holds yet, hours in the ships in review, and hours approved. A ship holds every
@@ -55,6 +67,15 @@ class AdminSummary
   end
 
   private
+    def rows_for(days)
+      signed_up = participants.where(created_at: Program::HACKATIME_START.beginning_of_day..).group("created_at::date").count
+      seconds = StreakActivity.where(user_id: participants.select(:id), activity_date: Program::HACKATIME_START..).group(:activity_date).sum(:coded_seconds)
+      on_site = site_days
+      days.map do |day|
+        { date: day.date, on_site: on_site[day.date], dau: day.dau, states: Growth::ACTIVE_STATES.index_with { |state| day.count_for(state) }.symbolize_keys, signups: signed_up.fetch(day.date, 0), hours: (seconds.fetch(day.date, 0) / 3600.0).round(1) }
+      end
+    end
+
     def participants = User.participants
 
     def projects = Project.where(user_id: participants.select(:id))

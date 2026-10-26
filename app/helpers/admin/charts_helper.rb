@@ -11,6 +11,8 @@ module Admin::ChartsHelper
   # The three groups a day's builders fall into (Growth's states that built), bottom of a column first.
   BUILD_STATES = [ { key: :new, id: "new", name: "New" }, { key: :current, id: "current", name: "Built yesterday too" },
                    { key: :returning, id: "returning", name: "Back after days off" } ].freeze
+  # Said on the hover and in the alt text of a column for today: it's still filling in (D-082).
+  PARTIAL_NOTE = " (today so far)".freeze
   BAR_WIDTH = 400
   BAR_HEIGHT = 36
   PLOT_WIDTH = 300
@@ -66,14 +68,14 @@ module Admin::ChartsHelper
     top = (max || [ values.compact.max.to_f, 1 ].max).to_f
     slot = PLOT_WIDTH.to_f / rows.size
     width = [ slot - GAP, 1 ].max.round(2)
-    label = "#{unit} a day, #{admin_chart_date(rows.first[:date])} to #{admin_chart_date(rows.last[:date])}: #{values.map { |value| value.nil? ? "none" : value }.join(", ")}"
+    label = "#{unit} a day, #{admin_chart_date(rows.first[:date])} to #{rows.last[:partial] ? "today so far" : admin_chart_date(rows.last[:date])}: #{values.map { |value| value.nil? ? "none" : value }.join(", ")}"
     tag.svg(class: "admin-chart__columns", viewBox: "0 0 #{PLOT_WIDTH} #{PLOT_HEIGHT}", role: "img", aria: { label: }) do
       marks = rows.each_with_index.map do |row, index|
         value = values[index]
         height = value.to_f.zero? ? 0 : [ PLOT_HEIGHT * value / top, 2 ].max.round(2)
         x = (index * slot + GAP / 2.0).round(2)
-        tag.g(class: "admin-chart__day") do
-          tag.title(title ? title.call(row) : "#{row[:date].strftime("%a %b %-d")}: #{number_with_delimiter(value)} #{unit}") +
+        tag.g(class: [ "admin-chart__day", ("is-partial" if row[:partial]) ]) do
+          tag.title("#{title ? title.call(row) : "#{row[:date].strftime("%a %b %-d")}: #{number_with_delimiter(value)} #{unit}"}#{PARTIAL_NOTE if row[:partial]}") +
             tag.rect(class: "admin-chart__hit", x:, y: 0, width:, height: PLOT_HEIGHT) +
             (height.positive? ? tag.path(class: "admin-chart__column", d: column_path(x, width, height, PLOT_HEIGHT)) : "".html_safe)
         end
@@ -91,7 +93,7 @@ module Admin::ChartsHelper
     top = [ totals.max, 1 ].max.to_f
     slot = PLOT_WIDTH.to_f / rows.size
     width = [ slot - GAP, 1 ].max.round(2)
-    label = "#{unit} a day, #{admin_chart_date(rows.first[:date])} to #{admin_chart_date(rows.last[:date])}: #{totals.join(", ")}"
+    label = "#{unit} a day, #{admin_chart_date(rows.first[:date])} to #{rows.last[:partial] ? "today so far" : admin_chart_date(rows.last[:date])}: #{totals.join(", ")}"
     tag.svg(class: "admin-chart__columns", viewBox: "0 0 #{PLOT_WIDTH} #{PLOT_HEIGHT}", role: "img", aria: { label: }) do
       marks = rows.each_with_index.map do |row, index|
         x = (index * slot + GAP / 2.0).round(2)
@@ -105,8 +107,8 @@ module Admin::ChartsHelper
           tag.path(class: "admin-chart__column admin-chart__column--#{part[:id]}", d: path)
         end
         detail = series.map { |part| "#{row[:states].fetch(part[:key])} #{part[:name].downcase}" }.join(", ")
-        tag.g(class: "admin-chart__day") do
-          tag.title("#{row[:date].strftime("%a %b %-d")}: #{totals[index]} #{unit} (#{detail})#{", #{row[:on_site]} also opened the site" if row[:on_site]}") +
+        tag.g(class: [ "admin-chart__day", ("is-partial" if row[:partial]) ]) do
+          tag.title("#{row[:date].strftime("%a %b %-d")}: #{totals[index]} #{unit} (#{detail})#{", #{row[:on_site]} also opened the site" if row[:on_site]}#{PARTIAL_NOTE if row[:partial]}") +
             tag.rect(class: "admin-chart__hit", x:, y: 0, width:, height: PLOT_HEIGHT) + safe_join(segments)
         end
       end
@@ -143,6 +145,9 @@ module Admin::ChartsHelper
 
   # "Oct 21", for the axis under a chart.
   def admin_chart_date(date) = date.strftime("%b %-d")
+
+  # The label under the last column: its date, or "Today" when it's today so far.
+  def admin_chart_end(row) = row[:partial] ? "Today" : admin_chart_date(row[:date])
 
   def admin_hours(hours) = number_with_precision(hours, precision: 1, delimiter: ",")
 

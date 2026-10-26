@@ -22,7 +22,50 @@ class AdminSummaryTest < ActiveSupport::TestCase
 
     assert_equal User.where.not(slack_id: "U0ORPHEUS").count, summary[:signups]
     assert_equal 0, summary[:signups_today]
-    assert_equal [ 1, Date.new(2026, 10, 23) ], summary.values_at(:dau, :dau_date)
+    assert_equal 0, summary[:dau], "ana built yesterday, not today"
+  end
+
+  test "DAU is the participants who have built a minute or more today so far, not the last finished day" do
+    dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
+    eve = User.create!(hca_id: "ident!eve", first_name: "Eve")
+    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: Growth::ACTIVE_SECONDS)
+    dee.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: Growth::ACTIVE_SECONDS - 30)
+    users(:orpheus).streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 3600)
+    eve.streak_activities.create!(activity_date: Date.new(2026, 10, 23), coded_seconds: 3600)
+    summary = AdminSummary.new.to_h
+
+    assert_equal 1, summary[:dau], "ana's 60 s counts; dee's 30 s, the admin's hour and eve's yesterday don't"
+    assert_nil summary[:dau_on_site], "no visit recorded yet"
+    assert_equal 1, summary[:today_row][:dau]
+    assert_equal true, summary[:today_row][:partial]
+  end
+
+  test "the site count beside today's DAU is today's, 0 once visits are being recorded" do
+    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 600)
+    SiteDay.create!(user: @ana, date: Date.new(2026, 10, 23))
+    assert_equal 0, AdminSummary.new.to_h[:dau_on_site]
+    SiteDay.create!(user: @ana, date: Date.new(2026, 10, 24))
+    assert_equal 1, AdminSummary.new.to_h[:dau_on_site]
+  end
+
+  test "today's row is the day so far: builders split by state, sign-ups, hours, and the finished days stay without it" do
+    dee = User.create!(hca_id: "ident!dee", first_name: "Dee", created_at: Time.utc(2026, 10, 24, 9))
+    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 1800)
+    dee.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 1800)
+    summary = AdminSummary.new.to_h
+
+    assert_equal Date.new(2026, 10, 24), summary[:today_row][:date]
+    assert_equal({ new: 1, current: 1, returning: 0 }, summary[:today_row][:states])
+    assert_equal [ 1, 1.0 ], summary[:today_row].values_at(:signups, :hours)
+    assert_equal Date.new(2026, 10, 23), summary[:daily].last[:date], "daily is finished days only, so averages leave today out"
+    assert_equal Date.new(2026, 10, 24), summary[:sign_up_today][:date]
+    assert_equal Date.new(2026, 10, 23), summary[:sign_up_day].last[:date]
+  end
+
+  test "there is no row for today outside the days of Save Point" do
+    travel_to Program::DATES.end + 3
+    assert_nil AdminSummary.new.to_h[:today_row]
+    assert_nil AdminSummary.new.to_h[:sign_up_today]
   end
 
   test "daily says how many builders also opened the site, and nothing before the first recorded day" do

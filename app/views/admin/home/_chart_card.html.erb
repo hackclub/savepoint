@@ -12,7 +12,7 @@
   <p class="admin-chart__takeaway"><%= takeaway %></p>
   <%= chart %>
   <% if rows.any? %>
-    <p class="admin-chart__axis"><span><%= admin_chart_date(rows.first[:date]) %></span><span><%= admin_chart_date(rows.last[:date]) %></span></p>
+    <p class="admin-chart__axis"><span><%= admin_chart_date(rows.first[:date]) %></span><span><%= admin_chart_end(rows.last) %></span></p>
   <% end %>
   <% if local_assigns[:legend] %>
     <ul class="admin-chart__keys">

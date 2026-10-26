@@ -49,6 +49,26 @@ class TheseusClientTest < ActiveSupport::TestCase
     assert_equal({ "save_point_order_id" => @order.id, "save_point_user_id" => users(:ana).id }, body["metadata"])
   end
 
+  test "the UK's constituent countries go to Theseus as GB" do
+    [ "Northern Ireland", "  northern   IRELAND ", "England", "Scotland", "Wales", "UK", "U.K.", "Great Britain", "Britain" ].each do |name|
+      @calls.clear
+      @order.update!(address: HQ_ADDRESS.merge("country" => name))
+      stub
+      TheseusClient.new(key: "k").send_stickers(@order)
+      assert_equal "GB", @calls.first.last["address"]["country"], name
+    end
+  end
+
+  test "any other country is sent as it is" do
+    [ "Pakistan", "United Kingdom", "USA" ].each do |name|
+      @calls.clear
+      @order.update!(address: HQ_ADDRESS.merge("country" => name))
+      stub
+      TheseusClient.new(key: "k").send_stickers(@order)
+      assert_equal name, @calls.first.last["address"]["country"]
+    end
+  end
+
   test "a one-word name is a first name with no last name" do
     @order.update!(recipient_name: "Ada")
     stub

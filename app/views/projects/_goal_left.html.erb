@@ -1,0 +1,12 @@
+<%# locals: (project:) %>
+<%# D-078: late in the program the minutes left to your goal prize lead the page, with today's pace beside them. %>
+<section class="project__left" aria-labelledby="project-left-title">
+  <span class="project__left-coin" aria-hidden="true"><%= sp_icon "flag-1-fill" %></span>
+  <div class="project__left-text">
+    <h2 class="project__left-title" id="project-left-title">
+      <span class="project__left-number"><%= project_pace_label(project_minutes_left(project)) %></span> left to your <%= project.prize_name %>
+    </h2>
+    <p class="project__left-note"><%= project_hours_label(project, project.hours_unspent_logged) %> logged</p>
+  </div>
+  <p class="project__left-pace"><span class="project__left-pace-label">Today's pace</span><%= project_today(project).delete_prefix("Today: ") %></p>
+</section>

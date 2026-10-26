@@ -1,0 +1,18 @@
+<%# locals: (project:) %>
+<%# D-078: Hackatime's linked but no time has ever reached it from you. Says what to do, and checks for the first heartbeat while
+    the page is open (first-heartbeat controller): the panel turns to the success one, then the page carries on. %>
+<section class="project__heartbeat" data-state="waiting" data-first-heartbeat-target="panel" aria-labelledby="project-heartbeat-title">
+  <span class="project__heartbeat-icon" aria-hidden="true">
+    <span data-first-heartbeat-target="waitingIcon"><%= sp_icon "heart-fill" %></span>
+    <span data-first-heartbeat-target="doneIcon" hidden><%= sp_icon "check-circle-fill" %></span>
+  </span>
+  <div class="project__heartbeat-text" role="status" aria-live="polite">
+    <h2 class="project__heartbeat-title" id="project-heartbeat-title" data-first-heartbeat-target="title">Waiting for your first heartbeat</h2>
+    <p class="project__heartbeat-note" data-first-heartbeat-target="note">
+      Open your editor on your game and type for a minute. Hackatime counts it through its plugin, and your hours start here.
+      Not set up yet? <%= link_to "Set up the plugin", hackatime_url, target: "_blank", rel: "noopener" %>.
+    </p>
+    <p class="project__heartbeat-status" data-first-heartbeat-target="status"><span class="project__heartbeat-dot" aria-hidden="true"></span>Checking Hackatime every 30 seconds</p>
+  </div>
+  <button type="button" class="sp-btn sp-btn--gold sp-btn--sm project__heartbeat-again" data-first-heartbeat-target="again" data-action="first-heartbeat#again" hidden>Check again</button>
+</section>

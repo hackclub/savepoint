@@ -1,0 +1,23 @@
+<%# locals: (project:, unshipped: nil) %>
+<%# D-096: after a first ship, counts your unshipped hours up to Project::SHIP_PROMPT_HOURS, then asks you to ship. `unshipped` is only for /dev's gallery. %>
+<% unshipped ||= project.unshipped_hours %>
+<% limit = Project::SHIP_PROMPT_HOURS %>
+<% due = unshipped >= limit %>
+<section class="project__ship-counter" data-due="<%= due %>" aria-label="Unshipped hours">
+  <div class="project__ship-counter-body">
+    <p class="project__ship-counter-text">
+      <% if due %>
+        <strong><%= project_hours(unshipped) %> hours</strong> built since your last ship. Time to ship it.
+      <% else %>
+        <strong><%= project_hours(unshipped) %> of <%= limit %> hours</strong> since your last ship
+      <% end %>
+    </p>
+    <div class="project__ship-counter-bar" role="progressbar" aria-valuemin="0" aria-valuemax="<%= limit %>" aria-valuenow="<%= [ unshipped, limit ].min %>"
+         aria-label="Unshipped hours">
+      <span class="project__ship-counter-fill" style="inline-size: <%= [ unshipped * 100.0 / limit, 100 ].min.round(1) %>%"></span>
+    </div>
+  </div>
+  <% if due %>
+    <%= link_to project_ship_path, class: "sp-btn sp-btn--gold sp-btn--sm project__ship-counter-action" do %><%= sp_icon "rocket-fill" %>Ship it<% end %>
+  <% end %>
+</section>

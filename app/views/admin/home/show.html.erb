@@ -65,7 +65,7 @@
               <li>
                 <%= link_to pair[:name], admin_user_path(pair[:user_id]) %> shares a repo with
                 <%= link_to pair[:other_name], admin_user_path(pair[:other_user_id]) %>
-                <small>(<%= link_to pair[:title], admin_project_path(pair[:project_id]) %> and <%= link_to pair[:other_title], admin_project_path(pair[:other_project_id]) %>), counted once in DAU</small>
+                <small>(<%= link_to pair[:title], admin_project_path(pair[:project_id]) %> and <%= link_to pair[:other_title], admin_project_path(pair[:other_project_id]) %>)</small>
               </li>
             <% end %>
           </ul>

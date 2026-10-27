@@ -23,7 +23,7 @@ class AdminSummary
 
   # D-086: participants who built Growth::ACTIVE_SECONDS or more in the last 24 hours, a rolling window (CodedBucket), counting
   # confirmed links only (D-084, D-087). Not today's date: that mixed midnight UTC with everyone's own streak day.
-  # D-087: only time Hackatime files under coding counts, and accounts that share a repo count once (their time adds up).
+  # D-087: only time Hackatime files under coding counts. D-090: accounts that share a repo each count.
   def dau_24h
     builders_24h.count { |_, counted, _| counted >= Growth::ACTIVE_SECONDS }
   end
@@ -83,11 +83,10 @@ class AdminSummary
   end
 
   private
-    # Per builder (a group of accounts that share a repo is one): [id, coding seconds that count, coding seconds held].
+    # Per builder (D-090: accounts that share a repo each count): [id, coding seconds that count, coding seconds held].
     def builders_24h
       @builders_24h ||= begin
-        canonical = SharedGames.canonical_ids(user_ids: participants.select(:id))
-        CodedBucket.totals_since(24.hours.ago, participants.select(:id)).group_by { |user_id, _, _| canonical.fetch(user_id, user_id) }
+        CodedBucket.totals_since(24.hours.ago, participants.select(:id)).group_by { |user_id, _, _| user_id }
                    .map { |id, rows| [ id, rows.sum { |row| row[1].to_i }, rows.sum { |row| row[2].to_i } ] }
       end
     end

@@ -109,13 +109,12 @@ class Growth
   private
     # The days each builder built ACTIVE_SECONDS or more, sorted.
     def active_dates_by_user
-      # D-087: only coding counts, and accounts that share a repo are one builder.
+      # D-087: only coding counts. D-090: accounts that share a repo each count.
       activities = StreakActivity.where(activity_date: Program::HACKATIME_START.., coded_seconds: 1..).where("coalesce(coding_seconds, coded_seconds) >= ?", ACTIVE_SECONDS)
       activities = activities.where(user_id: User.participants.select(:id)) if @participants_only
       @active_dates_by_user ||= begin
-        shared = SharedGames.canonical_ids(user_ids: (User.participants.select(:id) if @participants_only))
         activities.order(:activity_date).pluck(:user_id, :activity_date)
-                  .group_by { |user_id, _| shared.fetch(user_id, user_id) }.transform_values { |rows| rows.map(&:last).uniq.sort }
+                  .group_by { |user_id, _| user_id }.transform_values { |rows| rows.map(&:last).uniq.sort }
       end
     end
 

@@ -67,7 +67,7 @@
               <% else %><span class="admin__muted">none yet</span><% end %>
             </dd>
             <% SharedGames.sharing_with(@project).each do |other| %>
-              <dt>Shared game</dt><dd>Shares a repo with <%= link_to other.user.public_name, admin_user_path(other.user) %> <small class="admin__muted">(<%= link_to other.title, admin_project_path(other) %>, counted once in DAU)</small></dd>
+              <dt>Shared game</dt><dd>Shares a repo with <%= link_to other.user.public_name, admin_user_path(other.user) %> <small class="admin__muted">(<%= link_to other.title, admin_project_path(other) %>)</small></dd>
             <% end %>
             <dt>Hackatime</dt>
             <dd>

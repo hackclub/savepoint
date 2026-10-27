@@ -128,7 +128,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin-chart", text: /Also on the site/
   end
 
-  test "D-087: the admin home lists each pair of accounts that share a repo, counted once" do
+  test "D-087: the admin home lists each pair of accounts that share a repo, and each counts in DAU (D-090)" do
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee", slack_display_name: "dee-builds")
     Project.create!(user: dee, idea: "martian", prize_key: "micro", pace_minutes: 45, build_time: "evening", signed_on: "2026-09-30", repo_url: "https://example.com/hdhmhf/Minimum-Wage-Martian")
     projects(:ana).update_columns(repo_url: "https://example.com/hdhmhf/minimum-wage-martian")
@@ -137,8 +137,9 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     get admin_root_path
 
-    assert_select ".admin__readout", text: /DAU\s*1\s*built in the last 24 hours/
+    assert_select ".admin__readout", text: /DAU\s*2\s*built in the last 24 hours/
     assert_select "ul[aria-label='Accounts that share a game'] li", text: /shares a repo with/
+    assert_select "ul[aria-label='Accounts that share a game'] li", text: /counted once/, count: 0
   end
 
   test "the DAU tile says built in the last 24 hours, and the charts end on a partial column for today with the averages on finished days" do

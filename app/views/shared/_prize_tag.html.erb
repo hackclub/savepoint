@@ -1,10 +1,16 @@
 <%# What a prize tag shows, for the landing page's shop (pages/landing/_prize_card) and /shop (shop/show). The wrapper is
     each page's own: it carries the .shop-card, .shop-card--<tier> and .is-goal classes. The tag shape is drawn in
     pages/landing/_shop_shapes, which the page renders once. `live_pace` marks the pace so the goal controller can update it. %>
-<%# `pace` replaces the standard pace line (the project page shows what this person still needs for the prize). %>
+<%# `rect` draws the same card without the hook and clip, as a rectangle (onboarding's prize step, with .shop-card--rect).
+    `pace` replaces the standard pace line (the project page shows what this person still needs for the prize). %>
 <% live_pace = local_assigns.fetch(:live_pace, false) %>
 <% pace = local_assigns.fetch(:pace, nil) %>
+<% rect = local_assigns.fetch(:rect, false) %>
+<% if rect %>
+<svg class="shop-card__shape" viewBox="0 0 400 479" aria-hidden="true" focusable="false"><use href="#sp-shop-card-rect"/></svg>
+<% else %>
 <svg class="shop-card__shape" viewBox="0 0 400 594" aria-hidden="true" focusable="false"><use href="#sp-shop-card"/><use href="#sp-shop-clip"/></svg>
+<% end %>
 <span class="shop-card__art"><%= render "pages/landing/prize_art", prize: %></span>
 <span class="shop-card__label">
   <span class="shop-card__name"><%= prize.name %></span>
@@ -17,6 +23,8 @@
     <span class="shop-card__total"><%= prize_hours(prize.hours) %> hrs total</span>
   </span>
 </span>
+<% unless rect %>
 <%# The glint twice: in soft light, to sheen the colours, and laid on faintly, to tint the white parts. %>
 <svg class="shop-card__glint" viewBox="0 0 400 594" aria-hidden="true" focusable="false"><use href="#sp-shop-glint"/></svg>
 <svg class="shop-card__glint shop-card__glint--tint" viewBox="0 0 400 594" aria-hidden="true" focusable="false"><use href="#sp-shop-glint"/></svg>
+<% end %>

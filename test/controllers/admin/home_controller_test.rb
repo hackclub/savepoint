@@ -112,18 +112,19 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "DAU shows how many of today's builders also opened the site, and a dash before it was recorded" do
+  test "the DAU tile no longer carries site visits; the Also on the site chart does" do
     sign_in_as(users(:orpheus))
     travel_to Program::DATES.begin + 4
     get admin_root_path
-    assert_select ".admin__readout", text: /DAU.*site visits: –/m
+    assert_select ".admin__readout", text: /DAU.*also opened the site/m, count: 0
+    assert_select ".admin-chart", text: /Not recorded yet/
 
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 4, coded_seconds: 30 * 60)
     CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 600)
     SiteDay.create!(user: users(:ana), date: Program::DATES.begin + 4)
     Rails.cache.clear
     get admin_root_path
-    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
+    assert_select ".admin__readout", text: /DAU.*also opened the site/m, count: 0
     assert_select ".admin-chart", text: /Also on the site/
   end
 
@@ -148,7 +149,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 120)
     get admin_root_path
 
-    assert_select ".admin__readout", text: /DAU\s*1\s*built in the last 24 hours\s*plus 0 unconfirmed/
+    assert_select ".admin__readout", text: /DAU\s*1\s*built in the last 24 hours/
     assert_select ".pg-admin-home__sub", text: /today so far, then finished days/
     assert_select ".admin-chart--daily .admin-chart__day.is-partial", 5, "one for each of the five charts"
     assert_select ".admin-chart--daily .admin-chart__axis span:last-child", text: "Today", minimum: 5
@@ -166,7 +167,6 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
     assert_select ".admin-chart--daily", text: /Also on the site.*Today so far: 1 of 1 builder also opened the site/m
     assert_select ".admin-chart--daily", text: /Not recorded yet/, count: 0
-    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
     assert_select ".admin-chart--daily:has(.admin__readout-name):has(.admin-chart__day.is-partial .admin-chart__column)", minimum: 1
   end
 

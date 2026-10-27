@@ -66,10 +66,13 @@
               <% elsif @project.repo_later %><span class="admin__muted">said they'd add one before shipping</span>
               <% else %><span class="admin__muted">none yet</span><% end %>
             </dd>
+            <% SharedGames.sharing_with(@project).each do |other| %>
+              <dt>Shared game</dt><dd>Shares a repo with <%= link_to other.user.public_name, admin_user_path(other.user) %> <small class="admin__muted">(<%= link_to other.title, admin_project_path(other) %>, counted once in DAU)</small></dd>
+            <% end %>
             <dt>Hackatime</dt>
             <dd>
               <% if @project.tracking? %>
-                <%= @project.hackatime_projects.join(", ") %><% if @project.hackatime_auto_linked %> <small class="admin__muted">(linked itself)</small><% end %>
+                <%= @project.hackatime_projects.join(", ") %><% if @project.hackatime_auto_linked %> <small class="admin__muted">(linked itself)</small><% end %><% if !@project.hackatime_auto_linked && !@project.hackatime_confirmed? %> <small class="admin__muted">(looks like another game, not confirmed)</small><% end %>
               <% elsif @project.hackatime_linked? %><span class="admin__muted">linked, no project picked yet</span>
               <% else %><span class="admin__muted">not linked</span><% end %>
             </dd>

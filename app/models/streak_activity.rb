@@ -11,7 +11,8 @@ class StreakActivity < ApplicationRecord
 
   scope :completed, -> { where(coded_seconds: DAILY_GOAL_SECONDS..) }
   # D-084: a day's time on a link that linked itself and isn't confirmed yet (unconfirmed_seconds) is kept apart from
-  # coded_seconds, which is all that counts anywhere (hours, streaks, DAU).
+  # coded_seconds, which is all that counts anywhere (hours, streaks, DAU). D-087: coding_seconds is how much of the day's
+  # time (held or not) Hackatime files under coding, and the DAU counts that; nil is not asked yet, and reads as all of it.
   scope :for_range, ->(range) { where(activity_date: range) }
 
   def completed?
@@ -43,15 +44,17 @@ class StreakActivity < ApplicationRecord
       counted = clip_to_start(spans, project.hours_start)
       daily_seconds = bucket_spans_by_streak_day(counted, user.timezone)
       note_first_coded(project, counted)
-      CodedBucket.rewrite_for(user, counted, held: project.hackatime_auto_linked?)
+      # D-084, D-087: a link nobody has confirmed (it linked itself, or looks like another game) is still synced, but its
+      # time is held, not counted.
+      held = !project.hackatime_confirmed?
+      CodedBucket.rewrite_for(user, counted, held:, coding_share: coding_share_for_pieces(user, project, counted))
 
-      # D-084: an unconfirmed auto-link is still synced, but its time is held, not counted.
-      held = project.hackatime_auto_linked?
       just_completed = []
       (start_date..today).each do |date|
         seconds = daily_seconds.fetch(date, 0)
         counted_seconds, held_seconds = held ? [ 0, seconds ] : [ seconds, 0 ]
-        just_completed << date if write_day(user, date, counted_seconds, held_seconds) && date >= today - 1
+        coding = (seconds * coding_ratio(user, project, counted, *streak_day_window(date, user.timezone))).round if seconds.positive?
+        just_completed << date if write_day(user, date, counted_seconds, held_seconds, coding) && date >= today - 1
       end
 
       user.update_column(:streak_synced_at, Time.current)
@@ -71,6 +74,36 @@ class StreakActivity < ApplicationRecord
     end
 
     private
+      # D-087: what share (0 to 1) of the time in `spans` between two moments Hackatime files under coding, from its stats
+      # (Hackatime.coding_seconds), capped at 1 because its stats and its spans count a gap or two differently. 1 when it
+      # can't say, so nothing vanishes while Hackatime is slow. One request, and none for a window with no time in it.
+      def coding_ratio(user, project, spans, from, to)
+        from = [ from, project.hours_start, Program::STARTS_AT ].max
+        return 1.0 if from >= to
+
+        total = spans.sum { |span| [ [ span["end_time"].to_f, to.to_f ].min - [ span["start_time"].to_f, from.to_f ].max, 0 ].max }
+        return 1.0 if total < 1
+
+        coding = Hackatime.coding_seconds(user, project.hackatime_projects, from:, to:)
+        coding ? [ coding.fdiv(total), 1.0 ].min : 1.0
+      end
+
+      # The coding share of the 5-minute pieces CodedBucket keeps: asked for the last 24 hours (what the DAU counts) and the
+      # stretch before it, so two requests.
+      def coding_share_for_pieces(user, project, spans, now: Time.current)
+        from = CodedBucket.floor(now - CodedBucket::REWRITE)
+        split = now - 24.hours
+        before = coding_ratio(user, project, spans, from, split)
+        since = coding_ratio(user, project, spans, split, now + 1.minute)
+        ->(at) { at < split ? before : since }
+      end
+
+      # A streak day runs 2am to 2am in the person's timezone.
+      def streak_day_window(date, timezone)
+        zone = ActiveSupport::TimeZone[timezone.presence || "UTC"]
+        [ zone.local(date.year, date.month, date.day, 2), zone.local((date + 1).year, (date + 1).month, (date + 1).day, 2) ]
+      end
+
       # The start of the first counted span, kept once (projects.first_coded_at). The sync reads every day since the
       # last one, so a person's first minute is in the first sync that finds time.
       def note_first_coded(project, counted)
@@ -90,14 +123,14 @@ class StreakActivity < ApplicationRecord
       # (the sweep and an on-demand sync), and both may find no row for a day. The loser hits the unique index or
       # the uniqueness validation, so it looks the row up again and writes onto the winner's. A day the winner
       # completed counts as completed before, so only one sync cheers.
-      def write_day(user, date, seconds, held_seconds = 0)
+      def write_day(user, date, seconds, held_seconds = 0, coding_seconds = nil)
         attempts = 0
         begin
           record = find_or_initialize_by(user_id: user.id, activity_date: date)
-          return false if record.persisted? && record.coded_seconds == seconds && record.unconfirmed_seconds == held_seconds
+          return false if record.persisted? && record.coded_seconds == seconds && record.unconfirmed_seconds == held_seconds && record.coding_seconds == coding_seconds
 
           completed_before = record.persisted? && record.completed?
-          record.update!(coded_seconds: seconds, unconfirmed_seconds: held_seconds)
+          record.update!(coded_seconds: seconds, unconfirmed_seconds: held_seconds, coding_seconds:)
           record.completed? && !completed_before
         rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => error
           raise if error.is_a?(ActiveRecord::RecordInvalid) && !error.record.errors.of_kind?(:activity_date, :taken)

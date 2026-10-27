@@ -132,7 +132,7 @@ class ProjectsController < ApplicationController
     # signed id is public in the leaderboard's image URLs.
     def setup_params
       @setup_params ||= params.expect(project: [ :name, :prize_key, :screenshot, :repo_url, :repo_later, :pace_minutes, :build_time, :party_queued,
-                                                 :buddy_invited, :buddy_skipped, :hackatime_auto_linked, hackatime_project_names: [] ]).tap do |permitted|
+                                                 :buddy_invited, :buddy_skipped, :hackatime_auto_linked, :hackatime_link_confirmed, hackatime_project_names: [] ]).tap do |permitted|
         permitted.delete(:screenshot) unless permitted[:screenshot].respond_to?(:tempfile)
       end
     end

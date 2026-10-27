@@ -10,7 +10,7 @@
     <p class="project__auto-linked-note">Its time on Hackatime counts once you say yes.</p>
   </div>
   <div class="project__auto-linked-actions">
-    <%= button_to "Yes", project_path, method: :patch, params: { project: { hackatime_auto_linked: false } },
+    <%= button_to "Yes", project_path, method: :patch, params: { project: { hackatime_auto_linked: false, hackatime_link_confirmed: true } },
           class: "sp-btn sp-btn--gold sp-btn--sm project__step-button" %>
     <%= link_to "Pick another", project_path(step: "hackatime_project"), class: "sp-btn sp-btn--sm project__step-button" %>
   </div>

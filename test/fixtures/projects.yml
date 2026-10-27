@@ -5,6 +5,7 @@ orpheus:
   pace_minutes: 45
   build_time: evening
   signed_on: 2026-09-30
+  hackatime_link_confirmed: true
 
 ana:
   user: ana
@@ -13,4 +14,5 @@ ana:
   pace_minutes: 20
   build_time: after school
   signed_on: 2026-09-30
+  hackatime_link_confirmed: true
   buddy_code: k3j9x2qa

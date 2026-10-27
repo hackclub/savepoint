@@ -7,7 +7,7 @@ class AdminSummary
   CACHE_FOR = 2.minutes
 
   def self.cached
-    Rails.cache.fetch("admin_summary/v8", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("admin_summary/v9", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h
@@ -16,23 +16,31 @@ class AdminSummary
     dates = growth.days.map(&:date)
     sign_up_days = AdminInsights::SignUpDay.call(dates: Program::DATES.cover?(Date.current) ? [ *dates, Date.current ] : dates)
     { signups: User.participants.count, signups_today: User.participants.where(created_at: Time.current.all_day).count,
-      dau: dau_24h, dau_unconfirmed: dau_unconfirmed_24h, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
+      dau: dau_24h, dau_unconfirmed: dau_unconfirmed_24h, shared_games: shared_games, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
       pace:, prize_spend: AdminInsights::PrizeSpend.call(pace), sign_up_day: sign_up_days.first(dates.size), sign_up_today: (sign_up_days[dates.size]&.merge(partial: true)),
       ship_flow: AdminInsights::ShipFlow.call(dates:), nudge_results: AdminInsights::NudgeResults.call }
   end
 
   # D-086: participants who built Growth::ACTIVE_SECONDS or more in the last 24 hours, a rolling window (CodedBucket), counting
-  # confirmed links only (D-084). Not today's date: that mixed midnight UTC with everyone's own streak day.
+  # confirmed links only (D-084, D-087). Not today's date: that mixed midnight UTC with everyone's own streak day.
+  # D-087: only time Hackatime files under coding counts, and accounts that share a repo count once (their time adds up).
   def dau_24h
-    @builders_24h ||= CodedBucket.totals_since(24.hours.ago, participants.select(:id))
-    @builders_24h.count { |_, counted, _| counted >= Growth::ACTIVE_SECONDS }
+    builders_24h.count { |_, counted, _| counted >= Growth::ACTIVE_SECONDS }
   end
 
-  # D-084: participants whose only time in the last 24 hours is on a Hackatime link that linked itself and isn't confirmed.
-  # They aren't in dau_24h.
+  # D-084, D-087: participants whose only time in the last 24 hours is on a Hackatime link nobody has confirmed (it linked
+  # itself, or looks like another game). They aren't in dau_24h.
   def dau_unconfirmed_24h
-    dau_24h
-    @builders_24h.count { |_, counted, held| counted < Growth::ACTIVE_SECONDS && held >= Growth::ACTIVE_SECONDS }
+    builders_24h.count { |_, counted, held| counted < Growth::ACTIVE_SECONDS && held >= Growth::ACTIVE_SECONDS }
+  end
+
+  # D-087: each pair of participants' projects that share a repo, for the admin to judge: one person on two accounts, or a team.
+  # { project_id:, user_id:, title:, name: (their public name), other_* the same for the other }.
+  def shared_games
+    SharedGames.pairs(user_ids: participants.select(:id)).map do |pair|
+      { project_id: pair.project.id, user_id: pair.project.user_id, name: pair.project.user.public_name, title: pair.project.title,
+        other_project_id: pair.other.id, other_user_id: pair.other.user_id, other_name: pair.other.user.public_name, other_title: pair.other.title }
+    end
   end
 
   # Of today's builders, how many also opened the site; nil until any visit has been recorded.
@@ -75,6 +83,15 @@ class AdminSummary
   end
 
   private
+    # Per builder (a group of accounts that share a repo is one): [id, coding seconds that count, coding seconds held].
+    def builders_24h
+      @builders_24h ||= begin
+        canonical = SharedGames.canonical_ids(user_ids: participants.select(:id))
+        CodedBucket.totals_since(24.hours.ago, participants.select(:id)).group_by { |user_id, _, _| canonical.fetch(user_id, user_id) }
+                   .map { |id, rows| [ id, rows.sum { |row| row[1].to_i }, rows.sum { |row| row[2].to_i } ] }
+      end
+    end
+
     def rows_for(days)
       signed_up = participants.where(created_at: Program::HACKATIME_START.beginning_of_day..).group("created_at::date").count
       seconds = StreakActivity.where(user_id: participants.select(:id), activity_date: Program::HACKATIME_START..).group(:activity_date).sum(:coded_seconds)

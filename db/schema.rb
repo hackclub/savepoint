@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -94,6 +94,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_200000) do
     t.datetime "bucket_at", null: false
     t.integer "seconds", default: 0, null: false
     t.integer "unconfirmed_seconds", default: 0, null: false
+    t.integer "coding_seconds"
     t.index ["bucket_at"], name: "index_coded_buckets_on_bucket_at"
     t.index ["user_id", "bucket_at"], name: "index_coded_buckets_on_user_id_and_bucket_at", unique: true
     t.index ["user_id"], name: "index_coded_buckets_on_user_id"
@@ -234,6 +235,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_200000) do
     t.string "jame_gam_review_status"
     t.datetime "first_coded_at"
     t.datetime "hackatime_picked_at"
+    t.boolean "hackatime_link_confirmed", default: false, null: false
     t.index ["buddy_code"], name: "index_projects_on_buddy_code", unique: true
     t.index ["user_id"], name: "index_projects_on_user_id", unique: true
   end
@@ -497,6 +499,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_200000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "unconfirmed_seconds", default: 0, null: false
+    t.integer "coding_seconds"
     t.index ["user_id", "activity_date"], name: "index_streak_activities_on_user_id_and_activity_date", unique: true
     t.index ["user_id"], name: "index_streak_activities_on_user_id"
   end

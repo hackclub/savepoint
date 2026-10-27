@@ -176,6 +176,30 @@ class StreakActivityTest < ActiveSupport::TestCase
     end
   end
 
+  # D-089: the picker lists projects you worked on long before Save Point. Picking one must count nothing from before the start.
+  test "picking an old Hackatime project counts none of its earlier time, in days, hours, pieces or the first moment" do
+    project = @user.project
+    start = Time.utc(2026, 10, 27, 12)
+    project.update_columns(first_coded_at: nil, hours_start_override: start, hackatime_projects: [ "old-jam" ], hackatime_auto_linked: false, hackatime_link_confirmed: true)
+    travel_to Time.utc(2026, 10, 28, 12) do
+      Hackatime.stubbed_spans = { "1001" => [
+        span(Time.utc(2026, 10, 1, 10), 600),        # months before Save Point
+        span(Time.utc(2026, 10, 24, 10), 120),       # after the launch, before the start
+        span(Time.utc(2026, 10, 27, 6), 60),         # inside the last 36 hours, before the start
+        span(Time.utc(2026, 10, 27, 11, 50), 20),    # across the start: only its last 10 minutes
+        span(Time.utc(2026, 10, 27, 15), 30)         # counts
+      ] }
+      StreakActivity.sync_for_user!(@user, from_start: true)
+
+      days = @user.streak_activities.where("coded_seconds > 0").pluck(:activity_date, :coded_seconds).to_h
+      assert_equal({ Date.new(2026, 10, 27) => 40 * 60 }, days, "ten minutes after the start and the thirty after it, nothing earlier")
+      assert_equal 40 * 60, @user.coded_buckets.sum(:seconds)
+      assert_operator @user.coded_buckets.minimum(:bucket_at), :>=, start - 5.minutes
+      assert_equal start, project.reload.first_coded_at
+      assert_in_delta 0.7, project.hours_logged(refresh: false), 0.1
+    end
+  end
+
   test "no time yet leaves the first coded moment empty" do
     @user.project.update_columns(first_coded_at: nil)
     Hackatime.stubbed_spans = { "1001" => [] }

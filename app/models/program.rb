@@ -39,8 +39,6 @@ module Program
   # for someone at UTC-12. West of UTC it is the day before HACKATIME_START (21:14 to 02:00 EDT on Oct 22 is after a
   # 01:14 UTC launch). Spans before STARTS_AT are clipped, so earlier days are zero. Queries over hours start here.
   FIRST_STREAK_DATE = (STARTS_AT - 14.hours).utc.to_date
-  # The project picker lists only projects with time on or after this day (D-013). It doesn't change which hours count.
-  HACKATIME_PICK_SINCE = Date.new(2026, 10, 22)
   # Where shoutouts post (D-018): #savepoint, the same public channel as below (RewardNotifier). The bot joins it itself.
   SHOUTOUT_CHANNEL_ID = "C0CBHCHK469"
   # D-028: everyone whose Slack is linked is added to Save Point's channel (JoinSlackChannelsJob). The channel is public,

@@ -70,12 +70,15 @@ module ProjectsHelper
   # D-064: a project that Hackatime links to another repo than this project's goes last, with `other_repo` set for the
   # warning line. It stays pickable, and a linked one stays ticked.
   def project_hackatime_choices(project, refresh: false)
-    projects = Hackatime.pickable_projects(project.user, refresh:)
+    projects = Hackatime.pickable_projects(project.user, refresh:, since: project.hours_start)
     missing = project.hackatime_projects - projects.map(&:name)
     hours = ->(hackatime) { "#{hackatime.hours.to_s.delete_suffix(".0")} hrs" }
     known = missing.any? ? Hackatime.projects(project.user).index_by(&:name) : {}
     choices = missing.map { |name| { name:, note: known[name] ? hours.(known[name]) : "not on Hackatime now", linked: true } } +
-      projects.map { |hackatime| { name: hackatime.name, note: hours.(hackatime), linked: project.hackatime_projects.include?(hackatime.name) } }
+      projects.map do |hackatime|
+        { name: hackatime.name, note: hours.(hackatime), linked: project.hackatime_projects.include?(hackatime.name),
+          earlier: project_earlier_label(hackatime, project.hours_start_source) }
+      end
     repos = project.hackatime_repo_links
     choices = choices.map { |choice| choice.merge(other_repo: project.other_repo?(choice[:name], repos)) }
     { projects: choices.partition { |choice| !choice[:other_repo] }.flatten }
@@ -83,6 +86,20 @@ module ProjectsHelper
     { projects: [], problem: "Your Hackatime link expired.", relink: true }
   rescue Hackatime::Unavailable
     { projects: [], problem: "Couldn't reach Hackatime just now. Try refreshing." }
+  end
+
+  # D-089: "12 hrs before Save Point", the time on a Hackatime project that never counts, or nil when there's none. Someone
+  # who joined after the launch (or whose start a reviewer moved) hasn't "before Save Point" to go by, so it says "before
+  # your start".
+  def project_earlier_label(hackatime, source)
+    return unless hackatime.earlier_seconds.positive?
+
+    "#{project_hours(hackatime.earlier_hours)} hrs before #{source == :launch ? "Save Point" : "your start"}"
+  end
+
+  # D-089: the line above the picker.
+  def project_hackatime_pick_intro(start)
+    "Pick your game, even if you've worked on it before. Only time from #{project_date(start)} on counts."
   end
 
   # "Link project", "Link 2 projects", or "Pick a project" with none ticked.

@@ -47,7 +47,8 @@ module OnboardingHelper
     return { state: :signed_out } unless user
     return { state: :unlinked } unless user.hackatime_linked?
 
-    { state: :ready, projects: Hackatime.pickable_projects(user), repo: Ship.with_scheme(repo) }
+    { state: :ready, projects: Hackatime.pickable_projects(user), repo: Ship.with_scheme(repo), start: Hackatime.default_start(user),
+      source: user.created_at > Program::STARTS_AT ? :sign_up : :launch }
   rescue Hackatime::NotLinked
     { state: :unlinked }
   rescue Hackatime::Expired
@@ -60,7 +61,7 @@ module OnboardingHelper
   def onboarding_hackatime_choices(user, hackatime)
     repos = Project.hackatime_repo_links(user, hackatime[:repo])
     choices = hackatime[:projects].map do |choice|
-      { name: choice.name, note: "#{project_hours(choice.hours)} hrs", linked: false,
+      { name: choice.name, note: "#{project_hours(choice.hours)} hrs", linked: false, earlier: project_earlier_label(choice, hackatime[:source]),
         other_repo: Project.other_repo?(hackatime[:repo], choice.name, repos) }
     end
     choices.partition { |choice| !choice[:other_repo] }.flatten

@@ -5,20 +5,22 @@ class HackatimeTest < ActiveSupport::TestCase
     assert_equal "/api/v1/users/my/stats?features=projects&start_date=2026-10-23", Hackatime.stats_path
   end
 
-  test "the picker's stats start on the day D-013 names, apart from the hours' start" do
-    assert_equal "/api/v1/users/my/stats?features=projects&start_date=2026-10-22", Hackatime.recent_stats_path
-    assert_not_equal Program::HACKATIME_START, Program::HACKATIME_PICK_SINCE
+  test "the picker's stats go back to before Hackatime existed, apart from the hours' start (D-089)" do
+    assert_equal "/api/v1/users/my/stats?features=projects&start_date=2020-01-01", Hackatime.projects_path(Hackatime::ALL_TIME_FROM)
+    assert_not_equal Program::HACKATIME_START, Hackatime::ALL_TIME_FROM
   end
 
-  test "pickable projects keep only those with recent time, and their time since the start" do
+  test "pickable projects list every project with the time since the start and the time before it" do
     user = users(:orpheus)
     link_hackatime(user)
-    before = Hackatime.stubbed_recent_projects
-    Hackatime.stubbed_recent_projects = { "1001" => [ "rhythm-game" ] }
-    assert_equal [ Hackatime::Project.new("rhythm-game", 5400) ], Hackatime.pickable_projects(user)
-    assert_equal 3, Hackatime.projects(user).size, "the full list still has everything, for hours and nudges"
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { "1001" => [ Hackatime::Project.new("old-jam", 36_000), Hackatime::Project.new("rhythm-game", 5400 + 7200),
+                                                    Hackatime::Project.new("empty", 0), Hackatime::Project.new("older-jam", 72_000) ] }
+    assert_equal [ Hackatime::Project.new("rhythm-game", 5400, 7200), Hackatime::Project.new("older-jam", 0, 72_000), Hackatime::Project.new("old-jam", 0, 36_000) ],
+                 Hackatime.pickable_projects(user)
+    assert_equal 3, Hackatime.projects(user).size, "the full list still has what counts, for hours and nudges"
   ensure
-    Hackatime.stubbed_recent_projects = before
+    Hackatime.stubbed_all_projects = before
   end
 
   test "pickable projects need Hackatime linked" do
@@ -77,9 +79,8 @@ class HackatimeTest < ActiveSupport::TestCase
   test "the projects and picker stats answers store the trust level too" do
     user = users(:orpheus)
     link_hackatime(user)
-    before = [ Hackatime.stubbed_projects, Hackatime.stubbed_recent_projects ]
+    before = Hackatime.stubbed_projects
     Hackatime.stubbed_projects = nil
-    Hackatime.stubbed_recent_projects = nil
     body = { data: { projects: [ { name: "rhythm-game", total_seconds: 60 } ] }, trust_factor: { trust_level: "yellow" } }.to_json
     with_hackatime_answer(body) do
       assert_equal [ Hackatime::Project.new("rhythm-game", 60) ], Hackatime.projects(user)
@@ -90,7 +91,7 @@ class HackatimeTest < ActiveSupport::TestCase
       assert_equal "yellow", user.reload.hackatime_trust_level
     end
   ensure
-    Hackatime.stubbed_projects, Hackatime.stubbed_recent_projects = before
+    Hackatime.stubbed_projects = before
   end
 
   test "an unlinked account has no trust level to refresh" do

@@ -1,6 +1,6 @@
 <%# locals: (project:, url:, mode: "page", swap: nil, refresh: false) %>
-<%# Which Hackatime projects this build's hours come from (D-013). Always open, one row for each project with time since
-    the program began (your linked ones stay listed so you can untick them). A tick or an untick saves at once, through url:
+<%# Which Hackatime projects this build's hours come from (D-013). Always open, one row for each project you have on Hackatime, old ones too (D-089),
+    with the time that never counts shown as earlier time (your linked ones stay listed so you can untick them). A tick or an untick saves at once, through url:
     mode "swap" stays and swaps the page parts named in swap (selectors) for the saved page's, mode "page" goes back to the project page after saving, "json" tells the page what it saved (the ship page).
     The states are Hackatime not linked or expired (a button to link it again), not reachable, and nothing there yet. %>
 <% choices = project_hackatime_choices(project, refresh:) %>
@@ -10,11 +10,12 @@
     <p class="hkp__text" role="alert"><%= choices[:problem] %></p>
     <% if choices[:relink] %><%= render "projects/hackatime_link_button", label: "Link Hackatime again" %><% end %>
   <% elsif choices[:projects].none? %>
-    <p class="hkp__text" role="status">No Hackatime projects with time since <%= project_date(Program::HACKATIME_PICK_SINCE) %> yet. Start coding and they'll appear here.</p>
+    <p class="hkp__text" role="status">No Hackatime projects yet. Start coding and they'll appear here.</p>
     <p class="hkp__actions">
       <%= link_to project_path(step: "hackatime_project", refresh: 1), class: "sp-btn" do %><%= sp_icon "refresh-2-fill" %>Refresh<% end %>
     </p>
   <% else %>
+    <p class="hkp__text"><%= project_hackatime_pick_intro(project.hours_start) %></p>
     <%= render "shared/hackatime_rows", choices: choices[:projects] %>
     <p class="hkp__status sp-help" role="status" aria-live="polite" data-hackatime-picker-target="status"><%= project_hackatime_refresh_hint(project) %>
       <% if project.hackatime_projects.none? %>The first new project you log time on links itself.<% end %></p>

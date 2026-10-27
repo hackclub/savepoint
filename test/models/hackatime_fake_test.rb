@@ -11,7 +11,8 @@ class HackatimeFakeTest < ActiveSupport::TestCase
     Hackatime.fake = true
     names = Hackatime.pickable_projects(user).map(&:name)
     assert_includes names, "moonlit-platformer"
-    assert_not_includes names, "dotfiles", "no time since the picker's start day"
+    assert_includes names, "dotfiles", "old projects are listed too (D-089)"
+    assert_equal 0, Hackatime.pickable_projects(user).find { |pick| pick.name == "dotfiles" }.seconds, "with no time that counts"
 
     travel_to Program::STARTS_AT + 3.days
     spans = Hackatime.heartbeat_spans(user, [ "moonlit-platformer" ], start_date: Program::HACKATIME_START, end_date: Program.today + 1)

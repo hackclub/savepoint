@@ -2,12 +2,20 @@ require "net/http"
 
 # Hackatime, where hours come from. Once you've linked it (OAuth, see HackatimeLinksController), your token gets an
 # API key that reads your own stats, private or not: the projects you've logged time on since
-# Program::HACKATIME_START (to pick from; cached for a while, and Refresh on the project page asks again) and the
+# Program::HACKATIME_START (for hours and nudges) and all your projects ever (to pick from, D-089; both cached for a while, and Refresh on the project page asks again) and the
 # spans of time you built on them (for your streak days, which every number of hours comes from: StreakActivity).
 module Hackatime
-  Project = Data.define(:name, :seconds) do
+  # `seconds` is the time that counts (since the start asked for); `earlier_seconds` is the time before it, which never
+  # counts (D-089). Only the picker's list carries earlier time.
+  Project = Data.define(:name, :seconds, :earlier_seconds) do
+    def initialize(name:, seconds:, earlier_seconds: 0) = super
+
     def hours = (seconds / 3600.0).round(1)
+    def earlier_hours = (earlier_seconds / 3600.0).round(1)
   end
+
+  # D-089: the picker lists every project you have, so its stats go back to before Hackatime existed.
+  ALL_TIME_FROM = Date.new(2020, 1, 1)
 
   # You haven't linked Hackatime, or it stopped accepting the token you linked with (link it again).
   class NotLinked < StandardError; end
@@ -17,14 +25,14 @@ module Hackatime
 
   # Tests set these instead of asking the real Hackatime: { token => Hackatime user ID },
   # { Hackatime user ID => [ Project, ... ] } and { Hackatime user ID => [ span, ... ] }.
-  # Tests may also set { Hackatime user ID => [ name, ... ] }: the projects with time since Program::HACKATIME_PICK_SINCE
-  # (every stubbed project counts as recent when it isn't set).
+  # Tests may also set { Hackatime user ID => [ Project, ... ] } for every project you ever had (the picker's list, D-089);
+  # when it isn't set, the stubbed projects are all there is, with no earlier time.
   # Tests may set { Hackatime user ID => { category => seconds } } for category_seconds (:unavailable acts out a failure).
   # Tests may set { Hackatime user ID => { project name => repo link } } for repo_urls (:unavailable acts out a failure;
   # a user it doesn't name has no repo links).
   # Tests may set { Hackatime user ID => "red" } for the trust level a stats answer carries (:unavailable acts out a failure;
   # a user it doesn't name has no trust level in the answer).
-  mattr_accessor :stubbed_users, :stubbed_projects, :stubbed_spans, :stubbed_recent_projects, :stubbed_category_seconds,
+  mattr_accessor :stubbed_users, :stubbed_projects, :stubbed_spans, :stubbed_all_projects, :stubbed_category_seconds,
                  :stubbed_trust_levels, :stubbed_repo_urls
 
   # Development only: made-up projects and hours for anyone (Hackatime::Fake), so nothing asks the real API. On by
@@ -43,15 +51,33 @@ module Hackatime
   end
 
   def self.projects(user, refresh: false)
+    projects_from(user, Program::HACKATIME_START, refresh:)
+  end
+
+  # Your projects with the time on each since a day (Program::HACKATIME_START for every number of hours). Cached.
+  def self.projects_from(user, date, refresh: false)
     raise NotLinked unless user.hackatime_linked?
     return Fake.projects(user) if fake
     return stubbed_projects.fetch(user.hackatime_uid) { raise Expired } if stubbed_projects
 
-    Rails.cache.fetch([ "hackatime/projects", user.hackatime_uid, Program::HACKATIME_START ], expires_in: 5.minutes, force: refresh) do
-      response = stats(user)
+    fetch_projects(user, "hackatime/projects", date, refresh:)
+  end
+
+  # Every project you ever logged time on, with its whole time (D-089). Cached.
+  def self.all_projects(user, refresh: false)
+    return stubbed_all_projects.fetch(user.hackatime_uid) { raise Expired } if stubbed_all_projects&.key?(user.hackatime_uid)
+    return stubbed_projects.fetch(user.hackatime_uid) { raise Expired } if stubbed_projects
+
+    fetch_projects(user, "hackatime/all-projects", ALL_TIME_FROM, refresh:)
+  end
+
+  def self.fetch_projects(user, cache_name, date, refresh:)
+    path = projects_path(date)
+    Rails.cache.fetch([ cache_name, user.hackatime_uid, date ], expires_in: 5.minutes, force: refresh) do
+      response = stats(user, path)
       if response.is_a?(Net::HTTPUnauthorized) # a stale API key: get a fresh one and try once more
         Rails.cache.delete([ "hackatime/api_key", user.hackatime_uid ])
-        response = stats(user)
+        response = stats(user, path)
       end
       raise Expired if response.is_a?(Net::HTTPUnauthorized)
       raise Unavailable, "Hackatime answered #{response.code}" unless response.is_a?(Net::HTTPSuccess)
@@ -63,6 +89,7 @@ module Hackatime
   rescue JSON::ParserError => error
     raise Unavailable, error.message
   end
+  private_class_method :fetch_projects
 
   # The repo each of your projects is linked to on Hackatime, { name => repo link }, for the projects that have one (D-064:
   # auto-link skips a project whose repo isn't the Save Point project's). Hackatime sets the link itself when a project's
@@ -102,14 +129,28 @@ module Hackatime
     "/api/v1/users/my/projects/details?#{{ start_date: Program::HACKATIME_START.iso8601 }.to_query}"
   end
 
-  # The projects to pick from: those of `projects` with time since Program::HACKATIME_PICK_SINCE (D-013), with their
-  # time since Program::HACKATIME_START. Hackatime leaves out projects with no heartbeat in a window, so one request
-  # from that day tells which are recent. A project with heartbeats but no seconds there isn't counted as recent
-  # (that's how the empty scan folders stay out).
-  def self.pickable_projects(user, refresh: false)
-    all = projects(user, refresh:)
-    recent = recent_project_names(user, refresh:)
-    all.select { |project| recent.include?(project.name) }
+  # The projects to pick from (D-089): every project you have on Hackatime, with its time since `since` (the moment your
+  # hours start, D-065) and its earlier time, which never counts. Projects with time that counts come first, in
+  # Hackatime's order (most time first), then the older ones, most earlier time first. Two requests, both cached: your whole history, and the time
+  # since your start (the same request as `projects` when you started with Save Point, so then it costs nothing extra).
+  # A project with heartbeats but no seconds isn't listed (that's how the empty scan folders stay out).
+  def self.pickable_projects(user, refresh: false, since: default_start(user))
+    raise NotLinked unless user.hackatime_linked?
+    return Fake.pickable_projects(user) if fake
+
+    counted = projects_from(user, [ since.to_date, Program::HACKATIME_START ].max, refresh:).index_by(&:name)
+    everything = all_projects(user, refresh:)
+    picks = everything.filter_map do |project|
+      seconds = [ counted[project.name]&.seconds.to_i, project.seconds ].min
+      Project.new(project.name, seconds, project.seconds - seconds) if project.seconds.positive?
+    end
+    active, older = picks.partition { |pick| pick.seconds.positive? }
+    active + older.sort_by { |pick| -pick.earlier_seconds }
+  end
+
+  # When a person's hours start before a project exists to say (onboarding): the later of the launch and their sign-up.
+  def self.default_start(user)
+    [ Program::STARTS_AT, user.created_at ].compact.max
   end
 
   # When you were building on these projects between two dates (end exclusive), as Hackatime's heartbeat spans:
@@ -205,47 +246,24 @@ module Hackatime
 
   # After linking (again), so nothing cached from before sticks around.
   def self.forget(user)
-    Rails.cache.delete([ "hackatime/recent-projects", user.hackatime_uid, Program::HACKATIME_PICK_SINCE ])
-    Rails.cache.delete([ "hackatime/projects", user.hackatime_uid, Program::HACKATIME_START ])
+    Rails.cache.delete([ "hackatime/all-projects", user.hackatime_uid, ALL_TIME_FROM ])
+    (Program::HACKATIME_START..Program::DATES.end).each { |date| Rails.cache.delete([ "hackatime/projects", user.hackatime_uid, date ]) }
     Rails.cache.delete([ "hackatime/repo-urls", user.hackatime_uid, Program::HACKATIME_START ])
     Rails.cache.delete([ "hackatime/api_key", user.hackatime_uid ])
   end
 
   # Your projects, with only the time since Hackatime time started counting (so projects you haven't touched since
   # then aren't listed).
-  def self.stats_path
-    "/api/v1/users/my/stats?#{{ features: "projects", start_date: Program::HACKATIME_START.iso8601 }.to_query}"
+  def self.stats_path = projects_path(Program::HACKATIME_START)
+
+  def self.projects_path(date)
+    "/api/v1/users/my/stats?#{{ features: "projects", start_date: date.iso8601 }.to_query}"
   end
 
   # Spans on these projects between two dates. Each project goes as its own `project[]`, which Hackatime matches
   # whole: its `filter_by_project` splits on commas, so a project called "Game 26, Snake, GS" would match nothing.
   def self.spans_path(project_names, start_date:, end_date:)
     "/api/v1/users/my/heartbeats/spans?#{{ start_date: start_date.iso8601, end_date: end_date.iso8601, project: project_names }.to_query}"
-  end
-
-  def self.recent_stats_path
-    "/api/v1/users/my/stats?#{{ features: "projects", start_date: Program::HACKATIME_PICK_SINCE.iso8601 }.to_query}"
-  end
-
-  def self.recent_project_names(user, refresh: false)
-    return Fake.recent_project_names(user) if fake
-    return (stubbed_recent_projects&.fetch(user.hackatime_uid, nil) || stubbed_projects.fetch(user.hackatime_uid).map(&:name)) if stubbed_projects
-
-    Rails.cache.fetch([ "hackatime/recent-projects", user.hackatime_uid, Program::HACKATIME_PICK_SINCE ], expires_in: 5.minutes, force: refresh) do
-      response = stats(user, recent_stats_path)
-      if response.is_a?(Net::HTTPUnauthorized)
-        Rails.cache.delete([ "hackatime/api_key", user.hackatime_uid ])
-        response = stats(user, recent_stats_path)
-      end
-      raise Expired if response.is_a?(Net::HTTPUnauthorized)
-      raise Unavailable, "Hackatime answered #{response.code}" unless response.is_a?(Net::HTTPSuccess)
-
-      body = JSON.parse(response.body)
-      remember_trust_level(user, body)
-      body.dig("data", "projects").to_a.select { |project| project["total_seconds"].to_i.positive? }.map { |project| project["name"] }
-    end
-  rescue JSON::ParserError => error
-    raise Unavailable, error.message
   end
 
   # Hackatime's trust level for them ("blue", "green", "yellow", "red"), asked afresh with one small stats request, and
@@ -309,5 +327,5 @@ module Hackatime
   rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError => error
     raise Unavailable, error.message
   end
-  private_class_method :stats, :recent_project_names, :api_key, :get, :remember_trust_level
+  private_class_method :stats, :api_key, :get, :remember_trust_level
 end

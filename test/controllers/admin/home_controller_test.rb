@@ -200,7 +200,6 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
       assert_select ".admin-chart__steps", 1, "only the streak bars: the funnel is on the home page"
     end
     assert_select ".admin-bar", 0, "a frame request is just the frame"
-
   end
 
   test "who's stuck lists people who stopped by step, linking to their admin page, and not admins" do

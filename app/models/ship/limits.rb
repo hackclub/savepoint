@@ -12,13 +12,17 @@ class Ship::Limits
   # Under this many hours apart is form rounding, not a cut.
   TOLERANCE = BigDecimal("0.01")
 
-  attr_reader :claimed, :ai_coding, :art, :lapse, :lapse_coding
+  attr_reader :claimed, :ai_coding, :hackatime_ai, :reviewer_ai, :art, :lapse, :lapse_coding
 
-  def initialize(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds: nil, lapse_coding_hours: 0)
+  # D-102: reviewer_ai_hours is the AI coding time the reviewer set (nil when none). The limits use the larger of that and
+  # Hackatime's figure, never more than the claimed hours.
+  def initialize(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds: nil, lapse_coding_hours: 0, reviewer_ai_hours: nil)
     @claimed = [ claimed.to_d, 0 ].max
-    @ai_known = !ai_coding_seconds.nil?
+    @reviewer_ai = reviewer_ai_hours&.to_d
+    @ai_known = !ai_coding_seconds.nil? || !@reviewer_ai.nil?
     @art_known = !art_seconds.nil?
-    @ai_coding = [ hours(ai_coding_seconds), @claimed ].min
+    @hackatime_ai = [ hours(ai_coding_seconds), @claimed ].min
+    @ai_coding = [ [ hours(ai_coding_seconds), @reviewer_ai || 0 ].max, @claimed ].min
     # Lapse time is part of the art time. Unknown (nil) Lapse time can't be split, so nothing moves.
     @lapse = lapse_seconds.nil? || !@art_known ? 0.to_d : [ hours(lapse_seconds), hours(art_seconds) ].min
     @lapse_coding = [ lapse_coding_hours.to_d, 0, @lapse ].sort[1]
@@ -28,6 +32,9 @@ class Ship::Limits
   def lapse_known? = @art_known && @lapse.positive?
 
   def ai_known? = @ai_known
+
+  # D-102: the reviewer's figure is above Hackatime's, so it is the one in force.
+  def ai_raised? = ai_coding - hackatime_ai >= TOLERANCE
   def art_known? = @art_known
   def known? = ai_known? && art_known?
 
@@ -62,6 +69,25 @@ class Ship::Limits
     [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
   end
 
+  # D-097: a later ship's review judges only the new hours, with the limits read on the whole project. These hold what the
+  # earlier approval (its cumulative coding and art) already used. The most new coding is the cumulative coding cap less the
+  # earlier coding, and the most new art is the art hold on the cumulative coding less the earlier art. Never below 0.
+  def new_coding_top(earlier_coding) = [ coding_cap.floor(2) - earlier_coding.to_d, 0 ].max
+  def new_art_top(earlier_coding, earlier_art, new_coding) = [ art_allowed_for(earlier_coding.to_d + new_coding.to_d).floor(2) - earlier_art.to_d, 0 ].max
+  def new_art_claimed(earlier_art) = [ art - earlier_art.to_d, 0 ].max
+  def new_coding_claimed(earlier_coding) = [ coding - earlier_coding.to_d, 0 ].max
+
+  # approve, for the new hours of a later ship. Returns [new coding, new art, below].
+  def approve_new(earlier_coding, earlier_art, coding_hours, art_hours)
+    top_coding = new_coding_top(earlier_coding)
+    coding = coding_hours.nil? ? top_coding : coding_hours.to_d.clamp(0, top_coding)
+    coding = top_coding if top_coding - coding < TOLERANCE
+    top_art = new_art_top(earlier_coding, earlier_art, coding)
+    art = art_hours.nil? ? top_art : art_hours.to_d.clamp(0, top_art)
+    art = top_art if top_art - art < TOLERANCE
+    [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
+  end
+
   def ai_cut = coding - coding_cap
   def art_cut = art - art_allowed
   def cut? = claimed - most >= TOLERANCE
@@ -70,8 +96,13 @@ class Ship::Limits
   def reason
     parts = []
     if ai_cut >= TOLERANCE
-      parts << "Hackatime has #{self.class.hrs(ai_coding)} of AI coding on this game, which counts at a third " \
-               "(#{self.class.hrs(ai_coding / 3)})."
+      parts << if ai_raised?
+        "Hackatime has #{self.class.hrs(hackatime_ai)} of AI coding on this game, and the reviewer raised it to #{self.class.hrs(ai_coding)}, " \
+          "which counts at a third (#{self.class.hrs(ai_coding / 3)})."
+      else
+        "Hackatime has #{self.class.hrs(ai_coding)} of AI coding on this game, which counts at a third " \
+          "(#{self.class.hrs(ai_coding / 3)})."
+      end
     end
     if art_cut >= TOLERANCE
       parts << "Hackatime has #{self.class.hrs(art)} of art (designing and Lapse#{", not counting the Lapse coding" if lapse_coding.positive?}), " \

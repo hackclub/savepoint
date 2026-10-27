@@ -152,10 +152,10 @@ class ShipTest < ActiveSupport::TestCase
     assert_equal 6, @project.reload.hours_approved
 
     second = ship_now(hours: 11)
-    approve(second, coding_hours: "10.5", technical_features: "A combo meter and beat timing.",
+    approve(second, coding_hours: "4.5", technical_features: "A combo meter and beat timing.",
                                                          deflation_reason: "Half an hour was a broken build.")
-    assert_equal 10.5, second.approved_hours
-    assert_equal 10.5, @project.reload.hours_approved, "each ship counts every hour up to it, so the most, not the sum"
+    assert_equal 10.5, second.approved_hours, "the earlier 6 plus 4.5 new hours (D-097)"
+    assert_equal 10.5, @project.reload.hours_approved, "each ship's total is cumulative, so the latest is the project's"
 
     approve(ship_now(hours: 2), coding_hours: "-4", technical_features: "A combo meter and beat timing.", deflation_reason: "None of it shows.")
     assert_equal 10.5, @project.reload.hours_approved
@@ -335,6 +335,86 @@ class ShipTest < ActiveSupport::TestCase
       assert_not ship.set_lapse_coding!("abc")
       assert_equal BigDecimal("1.25"), ship.reload.lapse_coding_hours
       assert ship.set_lapse_coding!("1.5"), "all of it"
+    end
+  end
+
+  test "the reviewer raises the AI coding hours: not below Hackatime's, not above the coding claimed, with a reason (D-102)" do
+    travel_to(Program::STARTS_AT + 2.days) do
+      @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 10 * 3600)
+      ship = ship_now(hours: 10)
+      ship.update_columns(ai_coding_seconds: 1800, art_seconds: 2 * 3600)
+      assert_equal BigDecimal("0.5"), ship.limits.ai_coding
+
+      assert_not ship.set_reviewer_ai!("0.4", "Looks generated")
+      assert_match "Hackatime has 0.5 hrs of AI coding, so it can't be less", ship.errors.messages_for(:reviewer_ai_coding_hours).first
+      assert_not ship.set_reviewer_ai!("8.01", "Looks generated")
+      assert_match "Only 8 hrs of coding was claimed", ship.errors.messages_for(:reviewer_ai_coding_hours).first
+      assert_not ship.set_reviewer_ai!("abc", "x")
+      assert_not ship.set_reviewer_ai!("3", " ")
+      assert_equal [ "Say what looked AI-generated" ], ship.errors.messages_for(:reviewer_ai_reason)
+      assert_nil ship.reload.reviewer_ai_coding_hours
+
+      assert ship.set_reviewer_ai!("3", "The repo is one huge pasted dump")
+      ship.reload
+      assert_equal [ BigDecimal("3"), "The repo is one huge pasted dump" ], [ ship.reviewer_ai_coding_hours, ship.reviewer_ai_reason ]
+      assert_equal 3, ship.limits.ai_coding
+      assert_equal BigDecimal("0.5"), ship.limits.hackatime_ai
+      assert ship.limits.ai_raised?
+      assert_equal 6, ship.limits.coding_cap, "coding 8 less two thirds of 3"
+
+      assert ship.set_reviewer_ai!("8", "All of it")
+      assert_equal 8, ship.limits.ai_coding
+
+      assert ship.set_reviewer_ai!("", "")
+      ship.reload
+      assert_nil ship.reviewer_ai_coding_hours
+      assert_nil ship.reviewer_ai_reason
+      assert_equal BigDecimal("0.5"), ship.limits.ai_coding, "back to Hackatime's figure"
+      assert ship.set_reviewer_ai!("3", "Pasted")
+      assert ship.set_reviewer_ai!("0.5", ""), "Hackatime's own figure clears it"
+      assert_nil ship.reload.reviewer_ai_coding_hours
+
+      ship.update_columns(status: "awaiting_fraud")
+      assert_not ship.set_reviewer_ai!("3", "Pasted")
+      assert_match "Only a ship in review", ship.errors.messages_for(:reviewer_ai_coding_hours).first
+    end
+  end
+
+  test "the limits use the larger of Hackatime's and the reviewer's AI coding hours, and 0 when Hackatime is unknown (D-102)" do
+    travel_to(Program::STARTS_AT + 2.days) do
+      @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 10 * 3600)
+      ship = ship_now(hours: 10)
+      ship.update_columns(ai_coding_seconds: nil, art_seconds: 0)
+      assert_not ship.limits.ai_known?
+      assert ship.set_reviewer_ai!("1.5", "Pasted in")
+      assert ship.limits.ai_known?
+      assert_equal 9, ship.limits.coding_cap, "10 less two thirds of 1.5"
+      ship.update_columns(ai_coding_seconds: 5 * 3600)
+      assert_equal 5, ship.limits.ai_coding, "Hackatime's figure is larger"
+      assert_not ship.limits.ai_raised?
+    end
+  end
+
+  test "on a later ship the reviewer's AI figure is the project's and can't go below the earlier approval's (D-102, D-097)" do
+    travel_to(Program::STARTS_AT + 2.days) do
+      @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 10 * 3600)
+      earlier = ship_now(hours: 6)
+      earlier.update_columns(status: "approved", approved_hours: 6, review_hours: 6, review_coding_hours: 6, review_art_hours: 0,
+                             ai_coding_seconds: 1800, art_seconds: 0, reviewer_ai_coding_hours: 3, reviewer_ai_reason: "Pasted in")
+    end
+    travel_to(Program::STARTS_AT + 3.days) do
+      @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
+      ship = ship_now(hours: 10)
+      ship.update_columns(ai_coding_seconds: 2400, art_seconds: 0)
+      assert_equal 3, ship.limits.ai_coding, "the earlier 3 holds with none of its own"
+      assert_not ship.set_reviewer_ai!("2", "Less")
+      assert_match "The earlier approval already counted 3 hrs", ship.errors.messages_for(:reviewer_ai_coding_hours).first
+      assert ship.set_reviewer_ai!("4", "More pasted code")
+      assert_equal 4, ship.limits.ai_coding
+      assert ship.set_reviewer_ai!("", "")
+      assert_nil ship.reload.reviewer_ai_coding_hours
+      assert_equal 3, ship.limits.ai_coding, "clearing goes back to the project's floor"
+      assert ship.set_reviewer_ai!("3", ""), "the floor itself needs no reason"
     end
   end
 

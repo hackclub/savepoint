@@ -276,6 +276,56 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_match "coding can't be more", flash[:alert]
   end
 
+  test "the reviewer's AI coding hours save with a reason, move the limits, clear, and are refused below Hackatime's (D-102)" do
+    @ship.update_columns(ai_coding_seconds: 1800, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "form#reviewer-ai input[name=reviewer_ai_coding_hours][min='0.5']"
+    assert_select "form#reviewer-ai textarea[name=reviewer_ai_reason]"
+    assert_select "#admin-ship-ai-coding", /\A\s*0\.5 hrs/
+    assert_select "input[name=coding_hours][max='7.16']" # 7.5 less two thirds of 0.5
+
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "3", reviewer_ai_reason: "One pasted dump" }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal [ BigDecimal("3"), "One pasted dump" ], @ship.reload.values_at(:reviewer_ai_coding_hours, :reviewer_ai_reason)
+    assert_equal 1, AdminAuditEvent.where(tool: "set_reviewer_ai").count
+    follow_redirect!
+    assert_select "#admin-ship-ai-coding", /Hackatime 0\.5 hrs, raised to 3 hrs/
+    assert_select "input[name=coding_hours][max='5.5']" # 7.5 less two thirds of 3
+    assert_select "form#reviewer-ai textarea", /One pasted dump/
+    assert_select "button[name=decision][value=approved][data-shortcut=a]"
+
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "0.2", reviewer_ai_reason: "x" }
+    assert_equal BigDecimal("3"), @ship.reload.reviewer_ai_coding_hours
+    assert_match "so it can't be less", flash[:alert]
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "4", reviewer_ai_reason: "" }
+    assert_equal "Say what looked AI-generated", flash[:alert]
+
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "", reviewer_ai_reason: "" }
+    assert_nil @ship.reload.reviewer_ai_coding_hours
+    follow_redirect!
+    assert_select "input[name=coding_hours][max='7.16']"
+  end
+
+  test "the decided view and the fraud stage show the raised AI figure and its reason (D-102)" do
+    @ship.update_columns(ai_coding_seconds: 1800, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "3", reviewer_ai_reason: "One pasted dump" }
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball and bounce physics." }
+    assert @ship.reload.awaiting_fraud?
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-ai-raised", /3 hrs, above Hackatime's 0\.5 hrs\. One pasted dump/
+    @ship.update_columns(status: "approved", fraud_status: "passed", decided_by_id: users(:ana).id, decided_at: Time.current, approved_hours: @ship.review_hours)
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-ai-raised", /One pasted dump/
+  end
+
+  test "a reviewer can't set the AI hours on their own ship" do
+    sign_in_as(@ship.project.user)
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "3", reviewer_ai_reason: "x" }
+    assert_nil @ship.reload.reviewer_ai_coding_hours
+  end
+
   test "a reviewer can't set the Lapse split on their own ship" do
     @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
     sign_in_as(@ship.project.user)
@@ -824,6 +874,128 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
   ensure
     Ship::Evidence.alias_method :stardance_shipped?, :original_stardance_shipped?
     Ship::Evidence.remove_method :original_stardance_shipped?
+  end
+
+  # D-097, D-101: a ship of a project with an earlier approved ship. The earlier one holds 3 hrs (3 coding), made a day and a half in.
+  def make_later_ship
+    travel_to(Program::STARTS_AT + 1.5.days) do
+      @earlier = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.",
+                                              changes_made: "First version.", repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong",
+                                              hackatime_projects: [ "pong" ], hours: 3, screenshot: screenshot_upload, screenshot_shows_game: true)
+    end
+    @earlier.update_columns(status: "approved", approved_hours: 3, review_hours: 3, review_coding_hours: 3, review_art_hours: 0, decided_by_id: users(:ana).id, decided_at: Time.current)
+    @ship.update_columns(ai_coding_seconds: 90 * 60, art_seconds: 2 * 3600)
+  end
+
+  test "a later ship's form shows the earlier approval as fixed and takes only the new hours (D-097)" do
+    make_later_ship
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+
+    assert_response :success
+    assert_select "#admin-ship-already-approved", "Already approved: 3 hrs (#{@earlier.created_at.strftime("%b %-d")} ship)"
+    # 7.5 counted, art 2, AI 1.5: the project's coding cap is 4.5, so 1.5 more than the 3 used; art held at 1.92 beside 4.5 coding.
+    assert_select "label[for=coding_hours]", "New coding hours"
+    assert_select "label[for=art_hours]", "New art hours"
+    assert_select "input[name=coding_hours][value='1.5'][max='1.5']"
+    assert_select "input[name=art_hours][value='1.92']"
+    assert_select "[data-deflate-target=total]", "6.42"
+    assert_select ".ash__total", /Total approved:\s*6\.42 hrs/
+    assert_select "form#verdict[data-deflate-earlier-coding-value='3.0'][data-deflate-earlier-art-value='0.0']"
+  end
+
+  test "a first ship's form has no already-approved line, and keeps its labels (D-097)" do
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+
+    assert_select "#admin-ship-already-approved", 0
+    assert_select "label[for=coding_hours]", "Coding hours"
+    assert_select "#admin-ship-last-approved", 0
+    assert_select "#admin-ship-commits-toggle", 0
+  end
+
+  test "approving a later ship adds the new hours to the earlier approval, and a pass spends the total (D-097)" do
+    make_later_ship
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "1", art_hours: "0.5", technical_features: "A second ball.",
+                                                  deflation_reason: "Less than allowed." }
+    assert_redirected_to admin_ship_path(@ship)
+    @ship.reload
+    assert @ship.awaiting_fraud?
+    assert_equal [ 4, BigDecimal("0.5"), BigDecimal("4.5") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
+
+    follow_redirect!
+    assert_select "#admin-ship-review-already", /Already approved.*3 hrs/m
+    assert_select "#admin-ship-review-new", /New hours from review.*1\.5 hrs/m
+    assert_select "#admin-ship-review-said .ash__limits-total", /4\.5 hrs/
+    assert_select "input[name=deduct_hours][max='1.5']"
+
+    post fraud_admin_ship_path(@ship), params: { verdict: "pass" }
+    assert_equal BigDecimal("4.5"), @ship.reload.approved_hours
+    assert_equal 4.5, projects(:ana).reload.hours_approved
+
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-decided-already", /3 hrs/
+    assert_select "#admin-ship-decided-new", /1\.5 hrs/
+    assert_select "#admin-ship-review-hours", /Review approved, total.*4\.5 hrs/m
+  end
+
+  test "a send-back of a later ship refills the new hours from the earlier review (D-097)" do
+    make_later_ship
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "1", art_hours: "0.5", technical_features: "A second ball.",
+                                                  deflation_reason: "Less than allowed." }
+    post send_back_admin_ship_path(@ship), params: { reason: "Check the art hours." }
+    assert @ship.reload.in_review?
+
+    get admin_ship_path(@ship)
+    assert_select "input[name=coding_hours][value='1.0']"
+    assert_select "input[name=art_hours][value='0.5']"
+    assert_select "[data-deflate-target=total]", "4.5"
+  end
+
+  test "a later ship lists the commits since the last approved ship, with a link to all, and shows both screenshots (D-101)" do
+    make_later_ship
+    sign_in_as(users(:orpheus))
+    before = (Program::STARTS_AT + 1.day).utc.iso8601
+    after = (Program::STARTS_AT + 1.75.days).utc.iso8601
+    Web.adapter = lambda do |_method, url, _headers|
+      if URI(url).host == "api.github.com" && url.include?("/commits?")
+        Web::Response.new(status: 200, headers: {}, body: [
+          { sha: "bbbbbbb1111", html_url: "https://github.com/ana/pong/commit/bbbbbbb", commit: { message: "Newer work", author: { name: "Ana", date: after } } },
+          { sha: "aaaaaaa1111", html_url: "https://github.com/ana/pong/commit/aaaaaaa", commit: { message: "Older work", author: { name: "Ana", date: before } } }
+        ].to_json)
+      else
+        Web::Response.new(status: 404, headers: {}, body: "{}")
+      end
+    end
+    get admin_ship_path(@ship)
+
+    assert_select "#admin-ship-commits", /Commits since the last approved ship/
+    assert_select ".ash__commit", 1
+    assert_select ".ash__commit", /Newer work/
+    assert_select ".ash__commits-note", /1 from #{@earlier.created_at.utc.strftime("%b %-d")}/
+    assert_select "a#admin-ship-commits-toggle[href=?]", admin_ship_path(@ship, commits: "all"), /Show all commits since/
+    assert_select "#admin-ship-last-approved figcaption", /Last approved ship\s*#{@earlier.created_at.utc.strftime("%b %-d")}/
+    assert_select "#admin-ship-last-approved figcaption", /This ship\s*#{@ship.created_at.utc.strftime("%b %-d")}/
+    assert_select "#admin-ship-last-approved img[alt^='Screenshot of the last approved ship']"
+    assert_select "#admin-ship-last-approved img[alt^='Screenshot of this ship']"
+
+    get admin_ship_path(@ship, commits: "all")
+    assert_select "#admin-ship-commits", /Commits since Save Point began/
+    assert_select ".ash__commit", 2
+    assert_select "a#admin-ship-commits-toggle", "Show only since the last approved ship"
+  end
+
+  test "the review queue labels a later ship as an update with its new hours, and leaves a first ship alone (D-101)" do
+    sign_in_as(users(:orpheus))
+    get admin_ships_path
+    assert_select "tr##{dom_id(@ship)} [data-update]", 0
+
+    make_later_ship
+    get admin_ships_path
+    assert_select "tr##{dom_id(@ship)} [data-update]", "Update · +4.5 hrs"
+    assert_select "tr##{dom_id(@earlier)} [data-update]", 0
   end
 
   private

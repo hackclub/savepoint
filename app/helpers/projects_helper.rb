@@ -227,7 +227,7 @@ module ProjectsHelper
 
     order = shop_order_for(project, prize)
     state = shop_state(project, prize, order)
-    ship = { label: "Ship it", icon: "rocket-fill", path: project_ship_path } if project.may_ship?
+    ship = { label: "Ship it", icon: "rocket-fill", path: project_ship_path } if project.may_ship? && !project.ship_waiting?
     if state == "claimed"
       { state: "claimed", text: order.ordered? ? "Your #{prize.name} is ordered and on its way." : "You've claimed the #{prize.name}. It's in the queue to be ordered." }
     elsif state == "ready"

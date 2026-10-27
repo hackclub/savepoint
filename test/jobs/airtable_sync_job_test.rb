@@ -217,7 +217,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     third = @orpheus.ships.create!(title: "Beat Sheet 3", description: "A rhythm game where every beat is a cell lighting up in time, thrice.",
                                    repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/play",
                                    hours: 4, screenshot: upload, screenshot_shows_game: true)
-    third.update!(status: "approved", approved_hours: 4)
+    third.update_columns(status: "approved", approved_hours: 4) # older data: the model now refuses a total below the earlier approval (D-097)
     assert_equal 10.0, AirtableFields.ship(first)["Optional - Override Hours Spent"]
     row = AirtableFields.ship(second)
     assert_equal 5.0, row["Optional - Override Hours Spent"]

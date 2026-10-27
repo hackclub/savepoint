@@ -89,6 +89,8 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     NpsResponse.create!(user: users(:orpheus), project: projects(:orpheus), source: "ship", score: 9, doing_well: "a", improve: "b")
     get project_ship_path
     assert_select "form.ship__form"
+    get project_path
+    assert_select ".project__ship", /Ship/
     assert_difference -> { Ship.count }, 1 do
       post project_ship_path, params: { ship: ship_params }
     end
@@ -271,6 +273,9 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
                                  demo_url: "https://example.com/beat", screenshot: fixture_file_upload("screenshot.png", "image/png"),
                                  screenshot_shows_game: true)
     approve_through_fraud(ship)
+    Hackatime.stubbed_spans = { "1001" => [ hackatime_span(Program::STARTS_AT + 3.hours, 360) ] } # 6 new hours since that ship
+    users(:orpheus).update_column(:streak_synced_at, nil)
+    StreakActivity.sync_for_user!(users(:orpheus).reload)
     sign_in_as_orpheus
     get project_ship_path
 
@@ -479,7 +484,123 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_equal signed_id, Ship.last.screenshot.blob.signed_id
   end
 
+  test "after an approved ship the form asks what changed since it and lists the commits since, newest first (D-100)" do
+    later_ship_project
+    stub_commits([ { "sha" => "abc1234567", "html_url" => "https://github.com/orpheus/beat-sheet/commit/abc", "commit" => { "message" => "Add a combo meter\n\nbody", "author" => { "name" => "Orpheus", "date" => 2.days.ago.iso8601 } } },
+                   { "sha" => "def1234567", "html_url" => "https://github.com/orpheus/beat-sheet/commit/def", "commit" => { "message" => "Fix the late hit", "author" => { "name" => "Orpheus", "date" => 3.days.ago.iso8601 } } } ])
+    get project_ship_path
+
+    assert_select "label[for=ship_changes_made]", "What changed since your last ship?"
+    assert_select "textarea#ship_changes_made[placeholder*='different from the version you last shipped']", text: ""
+    assert_select ".ship__commits .ship__commit", 2
+    assert_select ".ship__commits .ship__commit:first-child .ship__commit-message", "Add a combo meter"
+    assert_select ".ship__commits-more", 0
+    assert_select ".ship__check[data-check=changes] .sp-item__title", "Say what changed since your last ship"
+  ensure
+    Web.adapter = nil
+  end
+
+  test "more than twenty commits are cut to twenty with a count of the rest" do
+    later_ship_project
+    stub_commits(Array.new(25) { |n| { "sha" => "a#{n}", "html_url" => "https://x", "commit" => { "message" => "Commit #{n}", "author" => { "name" => "O", "date" => 1.day.ago.iso8601 } } } })
+    get project_ship_path
+
+    assert_select ".ship__commit", 20
+    assert_select ".ship__commits-more", "+5 more"
+  ensure
+    Web.adapter = nil
+  end
+
+  test "when the commits can't be fetched the later form shows no list and still ships" do
+    later_ship_project
+    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 503, headers: {}, body: "{}") }
+    get project_ship_path
+
+    assert_select "label[for=ship_changes_made]", "What changed since your last ship?"
+    assert_select ".ship__commits", 0
+    assert_difference -> { Ship.count }, 1 do
+      post project_ship_path, params: { ship: ship_params.merge(repo_url: "https://github.com/orpheus/beat-sheet") }
+    end
+  ensure
+    Web.adapter = nil
+  end
+
+  test "a first ship's form is unchanged: no commit list and the old label" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
+    sign_in_as_orpheus
+    get project_ship_path
+
+    assert_select "label[for=ship_changes_made]", "What did you change since last time?"
+    assert_select ".ship__commits", 0
+  end
+
+  test "with under an hour of new time since an approved ship, the page says how much is left and create refuses (D-099)" do
+    project = later_ship_project(ship_hours: -0.4)
+    get project_ship_path
+    assert_select ".ship__done[data-state=waiting]"
+    assert_select ".ship__done-title", "Build a little more first."
+    assert_select ".ship__done-text", /Ship again once you have 1 new hour since your last ship\.\s+Log 0\.6 more hrs on/
+    assert_select "form.ship__form", 0
+
+    assert_no_difference -> { Ship.count } do
+      post project_ship_path, params: { ship: ship_params }
+    end
+    assert_redirected_to project_ship_path
+    get project_path
+    assert_select ".project__ship", 0, "no ship button while waiting"
+    assert project.reload.ship_waiting?
+  end
+
+  test "an hour of new time opens the ship page and create works" do
+    later_ship_project(ship_hours: -1)
+    get project_ship_path
+    assert_select "form.ship__form"
+    assert_difference -> { Ship.count }, 1 do
+      post project_ship_path, params: { ship: ship_params }
+    end
+  end
+
+  test "changes needed on the newest ship is exempt from the minimum" do
+    project = later_ship_project(ship_hours: 0)
+    project.ships.new(title: "Beat Sheet 2", description: "x" * 50, repo_url: "https://github.com/orpheus/beat-sheet",
+                      demo_url: "https://example.com/beat2", hours: project.hours_logged, status: "changes_needed").save!(validate: false)
+    get project_ship_path
+    assert_select "form.ship__form"
+    assert_select ".ship__changes-needed"
+    get project_path
+    assert_select ".project__ship", /Ship/
+  end
+
+  test "a pending ship still shows in review, not the wait" do
+    later_ship_project(ship_hours: -1)
+    post project_ship_path, params: { ship: ship_params }
+    get project_ship_path
+    assert_select ".ship__done[data-state=shipped]"
+  end
+
   private
+    # An approved earlier ship, then signed in. ship_hours: the hours that ship stored, as an offset from the hours counted now
+    # (-1 leaves exactly one new hour). The default leaves two.
+    def later_ship_project(ship_hours: -2)
+      link_hackatime(users(:orpheus))
+      project = projects(:orpheus)
+      project.update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true, repo_url: "https://github.com/orpheus/beat-sheet")
+      Hackatime.stubbed_spans = { "1001" => [ hackatime_span(Program::STARTS_AT + 3.hours, 360) ] }
+      users(:orpheus).update_column(:streak_synced_at, nil)
+      StreakActivity.sync_for_user!(users(:orpheus).reload)
+      project = Project.find(project.id)
+      project.ships.new(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
+                        repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat", status: "approved",
+                        hours: project.hours_logged.to_f + ship_hours, created_at: 3.days.ago).save!(validate: false)
+      sign_in_as_orpheus
+      Project.find(project.id)
+    end
+
+    def stub_commits(items)
+      Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: items.to_json) }
+    end
+
     def sign_in_as_orpheus
       mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS")
       post "/auth/hackclub"

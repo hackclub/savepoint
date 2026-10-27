@@ -6,10 +6,37 @@ import { Controller } from "@hotwired/stimulus"
 //
 // One question is open at a time (D-094): opening one tells the others, with a window event, to close. A read is the
 // time a question stays open. It ends when the question closes, another opens, the page is hidden or the page goes
-// away, and is sent to the server then: the question's key and the whole seconds, nothing about the person.
+// away, and is sent to the server then: the question's key, the whole seconds and a random reader ID (D-095), nothing else about the person.
 // A hash in the URL opens the question it names (its key, or the old #faq-N). A group's anchor just scrolls there.
 const MIN_READ_MS = 1000
 const MAX_READ_SECONDS = 600
+const READER_KEY = "sp_faq_reader"
+
+// A random ID this browser makes once and keeps in localStorage (D-095), so the admin can count people. It is linked to
+// no user, cookie or IP address. Without localStorage, one ID lasts for the page load.
+let pageReaderId = null
+
+function randomId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID()
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16)
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
+function readerId() {
+  if (pageReaderId) return pageReaderId
+  try {
+    pageReaderId = localStorage.getItem(READER_KEY)
+    if (!pageReaderId) {
+      pageReaderId = randomId()
+      localStorage.setItem(READER_KEY, pageReaderId)
+    }
+  } catch {
+    pageReaderId = pageReaderId || randomId()
+  }
+  return pageReaderId
+}
 
 export default class extends Controller {
   static targets = [ "summary", "content" ]
@@ -162,6 +189,7 @@ export default class extends Controller {
     const body = new FormData()
     body.append("key", this.keyValue)
     body.append("seconds", Math.min(Math.round(elapsed / 1000), MAX_READ_SECONDS))
+    body.append("reader_id", readerId())
     navigator.sendBeacon(this.urlValue, body)
   }
 }

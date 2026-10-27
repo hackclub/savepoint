@@ -18,7 +18,7 @@ module AdminMcp::Tools::Analytics
     "ships" => "Each ship: status in_review (also while it waits for its fraud check), approved or rejected (changes needed, or rejected for good), hours, approved_hours and the dates. stage is the stored status: in_review, awaiting_fraud, approved, changes_needed or rejected.",
     "orders" => "Each prize claim: status waiting or ordered, hours, prize_key.",
     "visits" => "Each HTML page view (D-047): the UTM tags, empty when the link had none, the path and the time. No person.",
-    "faq_reads" => "Each stay with a landing FAQ question open (D-094): question_key, whole seconds open (1 to 600) and the time. No person."
+    "faq_reads" => "Each stay with a landing FAQ question open (D-094, D-095): question_key, whole seconds open (1 to 600), the time and reader_id, a random ID the browser made (null for older reads). No person."
   }.freeze
 
   # The table of what's there to ask, and how.

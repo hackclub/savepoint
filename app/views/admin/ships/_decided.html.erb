@@ -2,6 +2,7 @@
 <%# What was decided, once the ship is: the verdict and who made it, the hours split, the reviewer's two notes, the fraud check,
     and (approved) what goes to Airtable. %>
 <% format = Ship::Limits.method(:format) %>
+<% prior = ship.earlier_approval %>
 <div class="ash__verdict">
   <span class="ash__verdict-icon"><%= sp_icon status_icon %></span>
   <p class="leaderboard__note ash__verdict-text" data-decision="<%= ship.status %>">
@@ -10,7 +11,11 @@
 </div>
 <% if ship.review_hours %>
   <dl class="ash__limits" id="admin-ship-review-hours">
-    <div><dt>Review approved <small>by <%= ship.reviewer&.first_name.presence || "someone" %></small></dt><dd><%= format.(ship.review_hours) %> hrs</dd></div>
+    <div><dt><%= prior ? "Review approved, total" : "Review approved" %> <small>by <%= ship.reviewer&.first_name.presence || "someone" %></small></dt><dd><%= format.(ship.review_hours) %> hrs</dd></div>
+    <% if prior && ship.approved? && ship.approved_hours %>
+      <div id="admin-ship-decided-already"><dt>Already approved <small><%= prior.on.strftime("%b %-d") %> ship</small></dt><dd><%= format.(prior.hours) %> hrs</dd></div>
+      <div id="admin-ship-decided-new"><dt>New hours approved</dt><dd><%= format.([ ship.approved_hours - prior.hours, 0 ].max) %> hrs</dd></div>
+    <% end %>
     <% if ship.review_coding_hours %>
       <div><dt>Coding</dt><dd><%= format.(ship.review_coding_hours) %> hrs</dd></div>
       <div><dt>Art</dt><dd><%= format.(ship.review_art_hours.to_d) %> hrs</dd></div>
@@ -24,6 +29,10 @@
     <%= { "passed" => "Passed", "deducted" => "Passed with a deduction", "banned" => "Banned" }.fetch(ship.fraud_status) %>
     by <%= ship.fraud_reviewer&.first_name.presence || "someone" %>.<%= " #{ship.fraud_notes}" if ship.fraud_notes.present? %>
   </p>
+<% end %>
+<% if ship.reviewer_ai_coding_hours %>
+  <p class="sp-label ash__justify-label">AI coding raised</p>
+  <p class="ash__description" id="admin-ship-ai-raised"><%= format.(ship.reviewer_ai_coding_hours) %> hrs, above Hackatime's <%= format.(ship.ai_coding_seconds.to_i.to_d / 3600) %> hrs. <%= ship.reviewer_ai_reason %></p>
 <% end %>
 <% if ship.technical_features.present? %>
   <p class="sp-label ash__justify-label">Specific technical features</p>

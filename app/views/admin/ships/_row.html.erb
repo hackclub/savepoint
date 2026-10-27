@@ -11,6 +11,10 @@
   </th>
   <td>
     <%= link_to ship.title, admin_ship_path(ship) %>
+    <% if ship.earlier_approval %>
+      <% new_hours = ship.update_hours %>
+      <small class="admin__muted" data-update="true"><%= new_hours ? "Update · +#{Ship::Limits.hrs(new_hours)}" : "Update" %></small>
+    <% end %>
     <small class="admin__muted"><%= ship.hackatime_projects.join(", ").presence || "no Hackatime project" %></small>
   </td>
   <td class="leaderboard__number"><%= project_hours(ship.hours) %></td>

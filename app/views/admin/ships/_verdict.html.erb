@@ -5,11 +5,22 @@
     four verdicts, each key pressed twice (shortcuts_controller.js). A ship sent back from its fraud check opens with its earlier
     review. What was typed before an error wins, then that review, then the defaults. %>
 <% earlier = send_backs.last&.earlier_review || {} %>
-<% art = limits.art_known? && limits.art.positive? %>
-<% coding_top = limits.coding_cap.floor(2) %>
-<% coding_now = params[:coding_hours].presence || (earlier["coding_hours"] ? [ earlier["coding_hours"].to_d, coding_top ].min : coding_top) %>
-<% art_top = limits.art_allowed_for(coding_now.to_d).floor(2) %>
-<% art_now = params[:art_hours].presence || (earlier["art_hours"] ? [ earlier["art_hours"].to_d, art_top ].min : art_top) %>
+<%# D-097: a later ship judges only the new hours. The earlier approval is fixed, and the coding and art boxes take the hours
+    since it. The limits are read on the whole project (Ship::Limits#new_coding_top, #new_art_top). %>
+<% prior = ship.earlier_approval %>
+<% prior_coding = prior ? prior.coding : 0.to_d %>
+<% prior_art = prior ? prior.art : 0.to_d %>
+<% coding_claimed = prior ? limits.new_coding_claimed(prior_coding) : limits.coding %>
+<% art_claimed = prior ? limits.new_art_claimed(prior_art) : limits.art %>
+<% art = limits.art_known? && art_claimed.positive? %>
+<% coding_top = prior ? limits.new_coding_top(prior_coding) : limits.coding_cap.floor(2) %>
+<%# A send-back keeps the earlier review's cumulative figures, so a later ship takes the earlier approval off them. %>
+<% earlier_coding = earlier["coding_hours"] && [ earlier["coding_hours"].to_d - prior_coding, 0 ].max %>
+<% earlier_art = earlier["art_hours"] && [ earlier["art_hours"].to_d - prior_art, 0 ].max %>
+<% coding_now = params[:coding_hours].presence || (earlier_coding ? [ earlier_coding, coding_top ].min : coding_top) %>
+<% art_top = prior ? limits.new_art_top(prior_coding, prior_art, coding_now.to_d) : limits.art_allowed_for(coding_now.to_d).floor(2) %>
+<% art_now = params[:art_hours].presence || (earlier_art ? [ earlier_art, art_top ].min : art_top) %>
+<% art_max_now = prior ? [ limits.art_max_for(prior_coding + coding_now.to_d) - prior_art, 0 ].max : limits.art_max_for(coding_now.to_d) %>
 <% format = Ship::Limits.method(:format) %>
 <%# D-063 item 9: when the repo is shipped on Stardance, Stardance reviews it, so Approve is off (the evidence panel says why). %>
 <% approve_off = @evidence&.stardance_shipped? %>
@@ -18,7 +29,7 @@
   <div><dt>Hackatime counted</dt><dd><%= format.(limits.claimed) %> hrs</dd></div>
   <div>
     <dt>AI coding <small>counts at a third</small></dt>
-    <dd><% if limits.ai_known? %><%= format.(limits.ai_coding) %> hrs<% if limits.ai_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
+    <dd id="admin-ship-ai-coding"><% if limits.ai_known? %><% if limits.ai_raised? %>Hackatime <%= format.(limits.hackatime_ai) %> hrs, raised to <%= format.(limits.ai_coding) %> hrs<% else %><%= format.(limits.ai_coding) %> hrs<% end %><% if limits.ai_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
   </div>
   <div>
     <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
@@ -33,6 +44,30 @@
   <div class="ash__limits-total"><dt>Most to approve</dt><dd><%= format.(limits.most) %> hrs</dd></div>
 </dl>
 
+<% if ship.in_review? && !ship.by?(current_user) %>
+  <%# D-102: the reviewer's AI coding hours, above Hackatime's only. Saved on its own like the Lapse split (D-085), then the page draws again. %>
+  <% ai_low = [ limits.hackatime_ai, ship.earlier_approval&.ship&.reviewer_ai_in_force.to_d ].max.floor(2) %>
+  <%= form_with url: reviewer_ai_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "reviewer-ai", data: { turbo: false } do |ai_form| %>
+    <%= ai_form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
+    <div class="sp-field">
+      <%= ai_form.label :reviewer_ai_coding_hours, "AI coding hours", class: "sp-label" %>
+      <span class="ash__hours-box">
+        <%= ai_form.number_field :reviewer_ai_coding_hours, value: (limits.ai_coding.to_f if limits.ai_raised?), placeholder: ai_low.to_f, min: ai_low.to_f, step: 0.01,
+              class: "sp-input admin__hours ash__hours", aria: { describedby: "admin-ship-ai-help" } %>
+        <span class="ash__hours-unit" aria-hidden="true">hrs</span>
+      </span>
+    </div>
+    <div class="sp-field">
+      <%= ai_form.label :reviewer_ai_reason, "Why (what looked AI-generated)", class: "sp-label" %>
+      <%= ai_form.text_area :reviewer_ai_reason, value: ship.reviewer_ai_reason, rows: 2, class: "sp-input ash__textarea" %>
+    </div>
+    <div class="ash__hours-start-actions">
+      <%= ai_form.button type: "submit", class: "sp-btn sp-btn--royal sp-btn--sm" do %><%= sp_icon "save-2-fill" %>Set AI coding<% end %>
+    </div>
+  <% end %>
+  <p class="admin__muted ash__hours-start-note" id="admin-ship-ai-help">Hackatime counts <%= format.(limits.hackatime_ai) %> hrs. Raise it when the code looks AI-generated, never lower it. Leave it empty to use Hackatime's figure. The coding maximum below updates when you set it.</p>
+<% end %>
+
 <p class="leaderboard__note ash__note">
   Approved, it goes to the fraud check, and the hours are theirs to spend once that passes. Changes needed, they fix the
   ship and send it again without losing hours. Reject is final. Nobody's told either way from here.
@@ -45,43 +80,49 @@
 <% end %>
 
 <%= form_with url: review_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "verdict", html: { novalidate: true },
-      data: { turbo: false, controller: "deflate", deflate_claimed_value: limits.coding.to_f, deflate_cap_value: coding_top.to_f,
-              deflate_art_claimed_value: (art ? limits.art.to_f : 0), deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT } do |form| %>
+      data: { turbo: false, controller: "deflate", deflate_claimed_value: coding_claimed.to_f, deflate_cap_value: coding_top.to_f,
+              deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT,
+              deflate_earlier_coding_value: prior_coding.to_f, deflate_earlier_art_value: prior_art.to_f } do |form| %>
   <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
 
-  <p class="ash__total">Total <strong data-deflate-target="total"><%= (coding_now.to_d + (art ? art_now.to_d : 0)).round(2).to_f %></strong> hrs</p>
+  <% if prior %>
+    <p class="ash__already" id="admin-ship-already-approved">Already approved: <strong><%= Ship::Limits.hrs(prior.hours) %></strong> (<%= prior.on.strftime("%b %-d") %> ship)</p>
+    <p class="ash__total">Total approved: <strong data-deflate-target="total"><%= (prior.hours + coding_now.to_d + (art ? art_now.to_d : 0)).round(2).to_f %></strong> hrs</p>
+  <% else %>
+    <p class="ash__total">Total <strong data-deflate-target="total"><%= (coding_now.to_d + (art ? art_now.to_d : 0)).round(2).to_f %></strong> hrs</p>
+  <% end %>
 
   <div class="sp-field">
-    <%= form.label :coding_hours, "Coding hours", class: "sp-label" %>
+    <%= form.label :coding_hours, (prior ? "New coding hours" : "Coding hours"), class: "sp-label" %>
     <span class="ash__hours-box">
       <%= form.number_field :coding_hours, value: coding_now.to_f, min: 0, max: coding_top.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
             data: { shortcut: "h", deflate_target: "coding", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-coding-help" } %>
       <span class="ash__hours-unit" aria-hidden="true">hrs</span>
     </span>
-    <span class="sp-help" id="admin-ship-coding-help">Claimed <%= format.(limits.coding) %>. Up to <%= format.(coding_top) %> with the AI cut. Deflate when the evidence says less.</span>
+    <span class="sp-help" id="admin-ship-coding-help"><%= prior ? "New since the earlier approval: claimed" : "Claimed" %> <%= format.(coding_claimed) %>. Up to <%= format.(coding_top) %> with the AI cut<%= " on the whole project" if prior %>. Deflate when the evidence says less.</span>
     <div class="ash__presets" role="group" aria-label="Deflate coding to a share of the claimed coding hours">
       <% [ 15, 30, 50, 75 ].each do |percent| %>
-        <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setCoding"><%= percent %>% <small><%= format.(limits.coding * percent / 100) %>h</small></button>
+        <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setCoding"><%= percent %>% <small><%= format.(coding_claimed * percent / 100) %>h</small></button>
       <% end %>
     </div>
   </div>
 
   <% if art %>
     <div class="sp-field">
-      <%= form.label :art_hours, "Art hours", class: "sp-label" %>
+      <%= form.label :art_hours, (prior ? "New art hours" : "Art hours"), class: "sp-label" %>
       <span class="ash__hours-box">
-        <%= form.number_field :art_hours, value: art_now.to_f, min: 0, max: limits.art.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
+        <%= form.number_field :art_hours, value: art_now.to_f, min: 0, max: art_claimed.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
               data: { deflate_target: "art", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-art-help" } %>
         <span class="ash__hours-unit" aria-hidden="true">hrs</span>
       </span>
       <span class="sp-help" id="admin-ship-art-help">
-        Claimed <%= format.(limits.art) %>. At most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total, so up to
-        <strong data-deflate-target="artMax"><%= format.(limits.art_max_for(coding_now.to_d)) %></strong> hrs with this coding.
+        <%= prior ? "New since the earlier approval: claimed" : "Claimed" %> <%= format.(art_claimed) %>. At most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total<%= " approved" if prior %>, so up to
+        <strong data-deflate-target="artMax"><%= format.(art_max_now) %></strong> hrs with this coding.
       </span>
-      <p class="ash__problem" data-deflate-target="hold" <%= "hidden" unless limits.art > limits.art_max_for(coding_now.to_d) %>><%= sp_icon "warning-fill" %>Art held at <%= Ship::Limits::ART_CAP_PERCENT %>% of the total. No reason needed.</p>
+      <p class="ash__problem" data-deflate-target="hold" <%= "hidden" unless art_claimed > art_max_now %>><%= sp_icon "warning-fill" %>Art held at <%= Ship::Limits::ART_CAP_PERCENT %>% of the total. No reason needed.</p>
       <div class="ash__presets" role="group" aria-label="Deflate art to a share of the claimed art hours">
         <% [ 15, 30, 50, 75 ].each do |percent| %>
-          <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setArt"><%= percent %>% <small><%= format.(limits.art * percent / 100) %>h</small></button>
+          <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setArt"><%= percent %>% <small><%= format.(art_claimed * percent / 100) %>h</small></button>
         <% end %>
       </div>
     </div>

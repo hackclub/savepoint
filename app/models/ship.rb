@@ -56,6 +56,8 @@ class Ship < ApplicationRecord
   normalizes :repo_url, :demo_url, with: ->(url) { Ship.with_scheme(url) }
 
   validates :status, inclusion: { in: STATUSES }
+  # D-097: a later ship's approval is the earlier approval plus the new hours, so it never falls below the earlier one.
+  validate :hours_hold_earlier_approval
   validates :title, presence: { message: "Set the title" }, length: { maximum: 80, too_long: "Make the title %{count} characters or fewer" }
   validates :description, presence: { message: "Write a description" }
   validates :description, length: { minimum: DESCRIPTION_MIN, too_short: "Make the description %{count}+ characters" }, allow_blank: true
@@ -122,8 +124,79 @@ class Ship < ApplicationRecord
     nil
   end
 
+  # D-097: the approval a later ship builds on: the latest approved ship of the project made before this one. `hours` is its
+  # cumulative approved total, `coding` and `art` that total split as the review stored it (all coding when none was stored,
+  # and a fraud deduction comes off coding first), and `on` the date of that ship. nil for a first ship.
+  EarlierApproval = Data.define(:ship, :hours, :coding, :art, :on)
+
+  def earlier_approval
+    return unless project && created_at
+
+    prior = project.ships.approved.where.not(id: id)
+                   .where("ships.created_at < :at OR (ships.created_at = :at AND ships.id < :id)", at: created_at, id: id || 0)
+                   .order(:created_at, :id).last
+    return unless prior
+
+    hours = (prior.approved_hours || prior.hours).to_d
+    art = [ prior.review_art_hours.to_d, hours ].min
+    EarlierApproval.new(ship: prior, hours:, coding: hours - art, art:, on: prior.created_at.to_date)
+  end
+
+  # D-101: the new hours of a later ship, for the review queue's "Update" label: the hours the ship would add, or added, to the
+  # earlier approval. nil for a first ship, and for a ship that was turned down (it has no total).
+  def update_hours
+    prior = earlier_approval
+    total = if approved? then approved_hours
+    elsif awaiting_fraud? then review_hours
+    elsif in_review? then counted_hours
+    end
+    [ total.to_d - prior.hours, 0 ].max if prior && total
+  end
+
   # The most the handbook allows for the hours that count (D-030): AI coding at a third, art at most 30%.
-  def limits(claimed = counted_hours) = Ship::Limits.new(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:)
+  def limits(claimed = counted_hours)
+    Ship::Limits.new(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:, reviewer_ai_hours: reviewer_ai_in_force)
+  end
+
+  # D-102, D-097: the AI coding hours the reviewer set that the limits use. On a later ship the figure is the project's, so the
+  # earlier approval's figure holds when this ship has none or less. nil when neither ship has one.
+  def reviewer_ai_in_force
+    [ reviewer_ai_coding_hours, earlier_approval&.ship&.reviewer_ai_in_force ].compact.max
+  end
+
+  # D-102: the reviewer's AI coding hours for a ship in review, with why. Never below Hackatime's figure (0 if it is unknown) or
+  # the earlier approval's, and never above the coding hours claimed. A figure above the one in force needs a reason. A blank
+  # value, or one at the lowest allowed, clears it. False, with errors on the ship, when it can't be set.
+  def set_reviewer_ai!(value, reason)
+    errors.clear
+    text = value.to_s.strip
+    why = reason.to_s.strip
+    hackatime = (ai_coding_seconds.to_i.to_d / 3600)
+    held = earlier_approval&.ship&.reviewer_ai_in_force
+    low = [ hackatime, held.to_d ].max
+    baseline = Ship::Limits.new(claimed: counted_hours, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:)
+    top = baseline.coding.floor(2)
+    hours = (BigDecimal(text) if text.match?(/\A\d+(\.\d+)?\z/))
+    if !in_review?
+      errors.add(:reviewer_ai_coding_hours, "Only a ship in review takes this")
+    elsif text.present? && hours.nil?
+      errors.add(:reviewer_ai_coding_hours, "Enter the AI coding hours, like 3.5")
+    elsif hours && hours < low.floor(2)
+      errors.add(:reviewer_ai_coding_hours, held && held > hackatime ? "The earlier approval already counted #{Ship::Limits.hrs(held)} of AI coding, so it can't be less" : "Hackatime has #{Ship::Limits.hrs(hackatime)} of AI coding, so it can't be less")
+    elsif hours && hours > top
+      errors.add(:reviewer_ai_coding_hours, "Only #{Ship::Limits.hrs(top)} of coding was claimed, so AI coding can't be more")
+    elsif hours && hours - low >= Ship::Limits::TOLERANCE && why.empty?
+      errors.add(:reviewer_ai_reason, "Say what looked AI-generated")
+    end
+    return false if errors.any?
+
+    if hours.nil? || hours - low < Ship::Limits::TOLERANCE
+      update!(reviewer_ai_coding_hours: nil, reviewer_ai_reason: nil)
+    else
+      update!(reviewer_ai_coding_hours: hours.round(2), reviewer_ai_reason: why)
+    end
+    true
+  end
 
   # D-085: the hours of the Lapse time the reviewer calls coding, from the review page. Held between 0 and the Lapse hours
   # Hackatime counted. False, with an error on the ship, when it isn't a number in that range or the ship isn't in review.
@@ -238,7 +311,9 @@ class Ship < ApplicationRecord
     return false unless awaiting_fraud?
 
     errors.clear
-    deduction = deduction.to_d.clamp(0, review_hours.to_d).floor(2)
+    # D-097: a deduction comes off the new hours only; the earlier approval stands.
+    held = earlier_approval&.hours.to_d
+    deduction = deduction.to_d.clamp(0, [ review_hours.to_d - held, 0 ].max).floor(2)
     self.fraud_notes = notes.to_s.strip.presence
     errors.add(:fraud_notes, "Say why you deduct hours") if deduction.positive? && fraud_notes.nil?
     return false if errors.any?
@@ -294,10 +369,29 @@ class Ship < ApplicationRecord
   end
 
   private
+    def hours_hold_earlier_approval
+      return unless (approved? && will_save_change_to_approved_hours?) || (awaiting_fraud? && will_save_change_to_review_hours?)
+
+      total = approved? ? approved_hours : review_hours
+      held = earlier_approval&.hours
+      return if total.nil? || held.nil? || total.to_d >= held
+
+      errors.add(:approved_hours, "Approved hours can't be below the #{Ship::Limits.hrs(held)} already approved")
+    end
+
     def approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen)
       claimed = counted_hours
       limits = limits(claimed)
-      coding, art, below = limits.approve(coding_hours.presence&.to_d, art_hours.presence&.to_d)
+      # D-097: on a later ship the figures typed are the new hours. The limits are read on the whole project, and the
+      # earlier approval's coding and art are added back, so the ship keeps cumulative totals.
+      earlier = earlier_approval
+      if earlier
+        coding, art, below = limits.approve_new(earlier.coding, earlier.art, coding_hours.presence&.to_d, art_hours.presence&.to_d)
+        coding += earlier.coding
+        art += earlier.art
+      else
+        coding, art, below = limits.approve(coding_hours.presence&.to_d, art_hours.presence&.to_d)
+      end
       self.technical_features = technical_features.to_s.strip.presence
       reason = deflation_reason.to_s.strip.presence
       errors.add(:technical_features, "Name the specific technical features that explain the hours") if self.technical_features.nil?

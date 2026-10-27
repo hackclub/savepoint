@@ -64,6 +64,15 @@ class AirtableFieldsTest < ActiveSupport::TestCase
     assert_includes AirtableSchema.field_names(:ships), "Justification - Alternate Tracking Method"
   end
 
+  test "a raised AI figure is told in the additional justification with the reviewer's reason (D-102)" do
+    assert_not AirtableFields.ship(first_ship).key?("Justification - Additional Justification")
+    ship = approved(at: Program::STARTS_AT + 2.days, hours: 6, claimed: 8, ai_coding_seconds: 1800,
+                    reviewer_ai_coding_hours: BigDecimal("3"), reviewer_ai_reason: "One pasted dump holds the whole game.")
+    assert_equal "The reviewer raised the AI coding time from Hackatime's 0.5 hours to 3 hours because the code looked AI-generated: " \
+                 "One pasted dump holds the whole game.",
+                 AirtableFields.ship(ship)["Justification - Additional Justification"]
+  end
+
   test "a deflated ship states the hours deflated to, then the reviewer's reason" do
     ship = approved(at: Program::STARTS_AT + 2.days, hours: BigDecimal("5.71"), claimed: 10,
                     deflation_reason: "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr).")

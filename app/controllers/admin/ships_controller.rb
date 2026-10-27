@@ -10,7 +10,7 @@
 # admins off the same ship. The queues (Admin::QueuesController) hand out the oldest ship waiting.
 class Admin::ShipsController < Admin::BaseController
   before_action :set_ship, except: :index
-  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split]
+  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split reviewer_ai]
 
   def index
     @stage = params[:stage].presence_in(Ship::STAGES.keys)
@@ -120,6 +120,21 @@ class Admin::ShipsController < Admin::BaseController
     end
   end
 
+  # D-102: the AI coding hours the reviewer sets above Hackatime's, with why. Saved on its own, like the Lapse split, so the
+  # review page draws again with the coding maximum worked from it. A blank figure clears it. Logged like an admin tool call.
+  def reviewer_ai
+    return redirect_to(admin_ship_path(@ship), alert: "This ship isn't in review.") unless @ship.in_review?
+
+    if @ship.set_reviewer_ai!(params[:reviewer_ai_coding_hours], params[:reviewer_ai_reason])
+      AdminAuditEvent.create!(user: current_user, tool: "set_reviewer_ai", ids: { "ship_id" => @ship.id })
+      notice = @ship.reviewer_ai_coding_hours ? "AI coding set to #{Ship::Limits.hrs(@ship.reviewer_ai_coding_hours)}." : "AI coding back to Hackatime's figure."
+      redirect_to admin_ship_path(@ship, queue: params[:queue].presence), notice:
+    else
+      alert = @ship.errors.messages_for(:reviewer_ai_coding_hours).first || @ship.errors.messages_for(:reviewer_ai_reason).first
+      redirect_to admin_ship_path(@ship, queue: params[:queue].presence), alert:
+    end
+  end
+
   # The checklist saves on every tick, while the ship is in review (D-049).
   def checklist
     return head(:unprocessable_entity) unless @ship.in_review?
@@ -135,6 +150,11 @@ class Admin::ShipsController < Admin::BaseController
     def load_review
       review = @ship.review
       @others, @commits, @earlier_ship, @limits = review.others, review.commits, review.earlier_ship, review.limits
+      # D-101: a later ship lists the commits since the last approved ship. `?commits=all` lists all since the hours start. The
+      # evidence keeps the full result, since the release check needs the earliest commit.
+      @earlier_approval = @ship.earlier_approval
+      @all_commits = params[:commits] == "all"
+      @listed_commits = @earlier_approval && !@all_commits ? @commits.since(@earlier_approval.ship.created_at) : @commits
       @snapshot ||= Ship::Snapshot.new(@ship)
       @readme = Ship::Readme.for(@ship)
       # D-063: the evidence panels. Each part is looked up as the page draws it and shows its own problem line.

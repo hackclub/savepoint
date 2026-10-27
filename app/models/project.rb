@@ -177,7 +177,8 @@ class Project < ApplicationRecord
   end
 
   # The hours your ships got approved with: the most of any approved ship, since each counts every hour logged up to
-  # it (Ship#hours), and an admin can approve fewer (Ship#approved_hours). The shop spends them like money (Order).
+  # it (Ship#hours), and an admin can approve fewer (Ship#approved_hours). A later ship's approval is the earlier one
+  # plus the new hours (D-097), so the latest is also the largest. The shop spends them like money (Order).
   def hours_approved
     ships.select(&:approved?).map { |ship| ship.approved_hours || ship.hours }.max.to_f
   end

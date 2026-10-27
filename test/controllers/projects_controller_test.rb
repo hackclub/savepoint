@@ -353,19 +353,13 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "save-point-game" ], projects(:orpheus).hackatime_projects
   end
 
-  test "D-087: a hand-picked link that shares nothing with the game asks the same question, and a Yes stays" do
+  test "D-091: a hand-picked link that shares nothing with the game is not asked about" do
     link_hackatime(users(:orpheus))
-    projects(:orpheus).update_columns(hackatime_projects: [ "Other" ], hackatime_link_confirmed: false)
+    projects(:orpheus).update_columns(hackatime_projects: [ "life-2" ], hackatime_auto_linked: false)
     sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
 
     get project_path
-    assert_select ".project__auto-linked-title", "Is Other your game?"
-    assert_select ".project__auto-linked-note", "Its time on Hackatime counts once you say yes."
-
-    patch project_path, params: { project: { hackatime_auto_linked: false, hackatime_link_confirmed: true } }
-    get project_path
     assert_select ".project__auto-linked", count: 0
-    assert projects(:orpheus).reload.hackatime_link_confirmed?
   end
 
   test "D-086: linked to Hackatime with projects on it but none picked, you're asked to pick one" do

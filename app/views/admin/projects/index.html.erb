@@ -79,7 +79,7 @@
                 <td data-label="Hackatime">
                   <% if project.tracking? %>
                     <%= project.hackatime_projects.join(", ") %>
-                    <% if project.hackatime_auto_linked %><small class="pg-admin-projects__muted">linked itself</small><% elsif !project.hackatime_confirmed? %><small class="pg-admin-projects__muted">looks like another game</small><% end %>
+                    <% if project.hackatime_auto_linked %><small class="pg-admin-projects__muted">linked itself</small><% end %>
                   <% elsif project.hackatime_linked? %>
                     <span class="pg-admin-projects__chip pg-admin-projects__chip--gold">linked, no project yet</span>
                   <% else %>

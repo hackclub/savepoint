@@ -194,16 +194,13 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
       assert_select ".admin__readout-name", text: /CURR/
       assert_select "body", text: /WAU|MAU|weekly|monthly/i, count: 0
       assert_select ".stats__lines", minimum: 2
-      assert_select ".stats__toggle a[href^=?]", admin_growth_path, minimum: 2
-      assert_select ".stats__toggle a[href*=?]", "signups=flat"
-      assert_select ".stats__levers, .admin__table--wide th", text: /Rate/
+      assert_select ".stats__toggle", 0, "word of mouth needs a few steady days before it is offered"
+      assert_select ".admin-chart__takeaway", text: /Word of mouth needs a few days of steady building first\./
       assert_select ".admin__readout-name", text: /On a streak/
       assert_select ".admin-chart__steps", 1, "only the streak bars: the funnel is on the home page"
     end
     assert_select ".admin-bar", 0, "a frame request is just the frame"
 
-    get admin_growth_path(signups: "flat"), headers: { "Turbo-Frame" => "admin-growth" }
-    assert_select ".stats__toggle-option--active", "Flat"
   end
 
   test "who's stuck lists people who stopped by step, linking to their admin page, and not admins" do

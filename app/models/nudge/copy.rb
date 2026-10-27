@@ -91,7 +91,7 @@ module Nudge::Copy
     # D-098: a ship's been approved (Nudge::Approved), as progress to the goal. %{added} is what this ship added, %{approved}
     # all they can spend, %{still} what the goal still needs. Short of the goal, covering it, and no goal to speak of.
     "approved_short" => [
-      "approved!! this ship added %{added} %{added_word}, so you have %{approved} approved. %{still} more %{still_word} and %{goal} is yours :)",
+      "approved!! this ship added %{added} %{added_word}, so you have %{approved} %{approved_word} approved. %{still} more %{still_word} and %{goal} is yours :)",
       "%{added} %{added_word} approved! you're at %{approved} of %{goal_hours} hours toward %{goal}, %{still} to go :yay:",
       "your ship is approved! you have %{approved} of %{goal_hours} hours toward %{goal}, %{still} %{still_word} to go :)"
     ],

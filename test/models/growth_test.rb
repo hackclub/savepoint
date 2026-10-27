@@ -56,7 +56,8 @@ class GrowthTest < ActiveSupport::TestCase
     assert_equal 1, stats[:today][:at_risk]
     assert_nil stats[:projections]["word_of_mouth"], "nobody's been current a day yet, so there's nothing to project from"
     built("regular", 2, 1, 0)
-    assert_equal Program::DATES.end - DAY, Growth.new(today: DAY + 1).to_h[:projections]["word_of_mouth"][:horizon_days]
+    assert_equal Program::DATES.end - DAY, Growth.new(today: DAY + 1).to_h[:projections]["flat"][:horizon_days]
+    assert_nil Growth.new(today: DAY + 1).to_h[:projections]["word_of_mouth"], "a few days of builders aren't a word-of-mouth rate"
     assert_nil Growth.new(today: Program::DATES.begin).latest, "nothing's finished on the first day"
     assert_nil Growth.new(today: Program::DATES.end + 1).to_h[:projections]["flat"], "nothing left to project"
   end

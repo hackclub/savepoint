@@ -151,6 +151,8 @@ class Growth
       return unless days.last(Simulator::WINDOW).any? { |day| day.users_leaving("current") }
 
       simulator = Simulator.new(days, signups:, horizon: (Program::DATES.end - latest.date).to_i)
+      return if signups == "word_of_mouth" && !simulator.word_of_mouth?
+
       levers = simulator.levers
       shown = levers.first(Simulator::PROJECTED_LEVERS)
       history = days.map { |day| { date: day.date, actual: day.dau } }

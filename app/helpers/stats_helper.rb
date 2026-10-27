@@ -19,6 +19,12 @@ module StatsHelper
   GROWTH_SIGNUP_LABELS = { "word_of_mouth" => "Word of mouth", "flat" => "Flat" }.freeze
   GROWTH_PROJECTION_COLORS = %w[series-2 series-3 series-4].freeze
 
+  # Which way new builders are projected: what was asked for (or word of mouth, the default), unless word of
+  # mouth hasn't had enough days to go on yet, when it's flat.
+  def growth_signups(growth, requested)
+    growth[:projections]["word_of_mouth"] ? (requested || "word_of_mouth") : "flat"
+  end
+
   # DAU so far solid, then dashed projections: nothing changed, and each of the levers shown.
   def growth_projection_series(levers)
     [

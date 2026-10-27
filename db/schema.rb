@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_27_160100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -173,6 +173,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_160100) do
     t.date "built_on"
     t.boolean "stickers_promised", default: false, null: false
     t.datetime "stickers_earned_at"
+    t.integer "ship_id"
+    t.index ["ship_id"], name: "index_nudges_on_ship_id"
     t.index ["token"], name: "index_nudges_on_token", unique: true
     t.index ["user_id", "built_on"], name: "index_nudges_on_user_id_and_built_on"
     t.index ["user_id", "sent_at"], name: "index_nudges_on_user_id_and_sent_at"

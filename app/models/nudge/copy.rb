@@ -88,6 +88,22 @@ module Nudge::Copy
 
   # Nudges that always send when they apply (see Nudge::Fixed).
   FIXED = {
+    # D-098: a ship's been approved (Nudge::Approved), as progress to the goal. %{added} is what this ship added, %{approved}
+    # all they can spend, %{still} what the goal still needs. Short of the goal, covering it, and no goal to speak of.
+    "approved_short" => [
+      "approved!! this ship added %{added} %{added_word}, so you have %{approved} approved. %{still} more %{still_word} and %{goal} is yours :)",
+      "%{added} %{added_word} approved! you're at %{approved} of %{goal_hours} hours toward %{goal}, %{still} to go :yay:",
+      "your ship is approved! you have %{approved} of %{goal_hours} hours toward %{goal}, %{still} %{still_word} to go :)"
+    ],
+    "approved_reached" => [
+      "approved!! you have %{approved} %{approved_word} now, and that covers %{goal}. go claim it :yayayayayay:",
+      "%{added} %{added_word} approved, and %{goal} is yours!! go claim it :yay:",
+      "your ship is approved and you've earned %{goal}! it's waiting in the shop :yay:"
+    ],
+    "approved_no_goal" => [
+      "approved! you have %{approved} %{approved_word} to spend in the shop :yay:",
+      "%{added} %{added_word} approved! that's %{approved} %{approved_word} to spend in the shop now :)"
+    ],
     # D-096: five hours or more since their last ship (Nudge::ShipPrompt). %{since} is "since your last ship", or
     # "and haven't shipped yet" before a first ship.
     "ship_prompt" => [
@@ -151,6 +167,9 @@ module Nudge::Copy
     "repo" => [ "add your repo", :project ],
     "pledge_setup" => [ "pledge your game", :onboarding ],
     "ship_prompt" => [ "ship it", :ship ],
+    "approved_short" => [ "see the shop", :shop ],
+    "approved_reached" => [ "claim your prize", :shop ],
+    "approved_no_goal" => [ "open the shop", :shop ],
     "first_session" => [ "see your progress", :project ],
     "halfway" => [ "see your progress", :project ],
     "done" => [ "claim your prize", :project ],

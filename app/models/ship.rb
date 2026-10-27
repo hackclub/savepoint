@@ -16,6 +16,8 @@ class Ship < ApplicationRecord
   AIRTABLE_COLUMNS = %w[status title description repo_url demo_url hours approved_hours hackatime_projects claimed_hours
                         technical_features deflation_reason review_judgement].freeze
   after_update -> { Project.where(id: project_id).update_all(synced_at: nil, updated_at: Time.current) }, if: -> { saved_change_to_status? || saved_change_to_approved_hours? }
+  # D-098: the participant gets a DM once the fraud check passes (Nudge::Approved).
+  after_update_commit -> { Nudge::Approved.queue(self) }, if: -> { saved_change_to_status?(to: "approved") }
   STATUSES = %w[in_review awaiting_fraud approved changes_needed rejected].freeze
   # The verdicts of a review (decide!): approved moves the ship to its fraud check, banned is fraud found at review.
   DECISIONS = %w[approved changes_needed rejected banned].freeze

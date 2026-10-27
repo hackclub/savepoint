@@ -139,3 +139,6 @@ nudge.three_days_left:
     alt: "White rabbit holding up a pocket watch"
 nudge.streak_saver: *celebration
 nudge.ship_prompt: *celebration
+nudge.approved_short: *celebration
+nudge.approved_reached: *celebration
+nudge.approved_no_goal: *celebration

@@ -258,15 +258,37 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr", text: /No tags\s*2\s*#{untagged}\s*#{(100.0 * untagged / 2).round}%/
   end
 
-  test "sign-ups: the FAQ table lists every question, most opens first" do
+  test "sign-ups: the FAQ table lists every question, most people first, with opens and the average per person" do
     key = "prizes.can-i-get-more-than-one-prize"
-    FaqRead.record(key, 30)
-    FaqRead.record(key, 90)
+    other = "basics.can-i-start-a-new-game"
+    ana = "3f2b8c1e-5a4d-4e7f-9b6a-1c2d3e4f5a6b"
+    ben = "9a8b7c6d-1e2f-4a3b-8c4d-5e6f7a8b9c0d"
+    FaqRead.record(key, 30, ana)
+    FaqRead.record(key, 35, ana)
+    FaqRead.record(key, 45, ben)
+    FaqRead.record(other, 90, ana)
+    FaqRead.record(other, 60)
     sign_in_as(users(:orpheus))
     get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }
 
-    assert_select "[aria-label='FAQ questions by opens'] tbody tr", Faq.keys.size
-    assert_select "[aria-label='FAQ questions by opens'] tbody tr:first-child", text: /Can I get more than one prize\?\s*2\s*60\s*2/
+    table = "[aria-label='FAQ questions by opens']"
+    assert_equal [ "Question", "People", "Opens", "Avg time per person", "Total minutes" ], css_select("#{table} thead th").map { it.text.strip }
+    assert_select "#{table} tbody tr", Faq.keys.size
+    # Two people, three opens, (30 + 35 + 45) / 2 = 55 seconds each, 110 seconds in all.
+    assert_select "#{table} tbody tr:first-child", text: /Can I get more than one prize\?\s*2\s*3\s*55s\s*1\.8/
+    # One person, two opens; the older read with no ID is an open only: 90 seconds is "1m 30s".
+    assert_select "#{table} tbody tr:nth-child(2)", text: /Can I start a new game\?\s*1\s*2\s*1m 30s\s*2\.5/
+    assert_select "#{table} tbody tr:last-child", text: /0\s*0\s*—\s*0/
+    assert_select ".admin-chart__takeaway", text: /random ID.*before Oct 27.*only as opens/
+  end
+
+  test "the FAQ average shows seconds under a minute and zero-padded seconds after it" do
+    helper = Class.new { include AdminHomePageHelper }.new
+
+    assert_equal "42s", helper.faq_average_time(42.0)
+    assert_equal "1m 05s", helper.faq_average_time(65.0)
+    assert_equal "10m 00s", helper.faq_average_time(600)
+    assert_equal "—", helper.faq_average_time(nil)
   end
 
   test "with no NPS answers the sign-ups section says so" do

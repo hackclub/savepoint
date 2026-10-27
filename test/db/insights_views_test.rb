@@ -7,6 +7,7 @@ require Rails.root.join("db/migrate/20261024110100_add_hackatime_seen_to_insight
 require Rails.root.join("db/migrate/20261026100100_update_insights_ships_for_fraud_stage")
 require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
 require Rails.root.join("db/migrate/20261027140100_add_faq_reads_to_insights_views")
+require Rails.root.join("db/migrate/20261027160100_add_reader_id_to_insights_faq_reads")
 
 # The views the analytics service reads (hackclub/save-point-analytics). The test database loads from schema.rb,
 # which doesn't dump views, so the migration runs here when they're absent. The test's transaction rolls it back.
@@ -28,6 +29,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
       UpdateInsightsShipsForFraudStage.new.up
       AddRetentionDataToInsightsViews.new.up
       AddFaqReadsToInsightsViews.new.up
+      AddReaderIdToInsightsFaqReads.new.up
     end
   end
 

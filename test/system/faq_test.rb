@@ -23,6 +23,10 @@ class FaqTest < ApplicationSystemTestCase
     assert_no_selector "details[open]"
     assert_equal 1, wait_for_reads(SECOND)
     assert_operator FaqRead.find_by(key: SECOND).seconds, :>=, 1
+    # The beacon carries the browser's random reader ID (D-095), which the page keeps in localStorage.
+    reader_id = FaqRead.find_by(key: SECOND).reader_id
+    assert_match(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/, reader_id)
+    assert_equal reader_id, evaluate_script("localStorage.getItem('sp_faq_reader')")
   end
 
   test "a group's anchor scrolls to it, and a question's key or the old position opens it" do

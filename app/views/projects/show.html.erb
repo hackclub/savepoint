@@ -26,9 +26,10 @@
             <div class="project__day-row">
               <span class="project__day"><%= sp_icon "flag-1-fill" %><%= Program.day_label %></span>
               <% if set_up && @project.tracking? && (@project.ship_in_review || @project.may_ship?) %>
-                <%= link_to project_ship_path, class: [ "project__ship", "sp-btn", "sp-btn--sm", ("sp-btn--gold" unless @project.ship_in_review) ] do %>
-                  <%= sp_icon(@project.ship_in_review ? "time-fill" : "rocket-fill") %>
-                  <%= @project.ship_in_review ? "In review" : "Ship" %>
+                <%= link_to project_ship_path, class: [ "project__ship", "sp-btn", "sp-btn--sm", ("sp-btn--gold" unless @project.ship_in_review || @project.ship_waiting?) ] do %>
+                  <%# D-099: after an approved ship, the button says how many hours stand between you and the next. %>
+                  <%= sp_icon(@project.ship_in_review || @project.ship_waiting? ? "time-fill" : "rocket-fill") %>
+                  <%= @project.ship_in_review ? "In review" : (@project.ship_waiting? ? "Ship in #{project_hours(@project.ship_hours_needed)} hrs" : "Ship") %>
                 <% end %>
               <% end %>
             </div>

@@ -40,6 +40,21 @@
           <% end %>
         </div>
       <% end %>
+    <% elsif @waiting %>
+      <%# D-099: an approved ship needs a new hour before the next one. Nothing to fill in yet. %>
+      <% needed = @project.ship_hours_needed %>
+      <%= render "ships/result", state: "waiting", badge: "Not yet", icon: "time-fill", tone: "gold",
+            title: "Build a little more first.", project: @project do %>
+        <p class="ship__done-text">
+          Ship again once you have <%= Project::SHIP_MINIMUM_NEW_HOURS %> new hour since your last ship.
+          Log <strong><%= project_hours(needed) %> more hrs</strong> on <%= @project.title %> and this page opens.
+        </p>
+        <div class="ship__done-actions">
+          <%= link_to project_path, class: "sp-btn sp-btn--royal sp-btn--lg ship__button" do %>
+            <%= sp_icon "left-fill" %>Back to project
+          <% end %>
+        </div>
+      <% end %>
     <% elsif @needs_nps %>
       <%# A ship needs an answer to the NPS questions from a participant who is due (NpsResponse.due?). The form is its own page and comes back here. %>
       <%= render "ships/result", state: "nps", badge: "Before you ship", icon: "heart-fill", tone: "violet",
@@ -80,6 +95,7 @@
       <% errors = @ship.errors %>
       <%# D-016: the box starts empty. After a failed submit it keeps the screenshot just sent (stored, carried by its signed id),
           unless the screenshot itself was the problem. %>
+      <% later = @project.latest_approved_ship.present? %>
       <% carried = @ship.screenshot.blob if @ship.screenshot.attached? && @ship.screenshot.blob.persisted? && errors[:screenshot].none? %>
       <% if @changes_needed %>
         <p class="sp-toast sp-toast--gold ship__changes-needed" role="status">
@@ -108,9 +124,29 @@
                       placeholder: "What is it, and how do you play it?",
                       data: { ship_target: "description" }, aria: { invalid: errors[:description].any? } %>
               <% end %>
-              <%= render "ships/field", form:, ship: @ship, attribute: :changes_made, label: "What did you change since last time?" do %>
+              <%= render "ships/field", form:, ship: @ship, attribute: :changes_made,
+                    label: later ? "What changed since your last ship?" : "What did you change since last time?" do %>
+                <% if @commits %>
+                  <%# D-100: the commits since your last approved ship, to help write the note. It never fills the box in. %>
+                  <% shown = @commits.commits.first(Ship::Commits::PARTICIPANT_LIMIT) %>
+                  <% extra = @commits.commits.size - shown.size %>
+                  <div class="ship__commits" aria-label="Your commits since your last ship">
+                    <p class="ship__commits-title">Your commits since your last ship</p>
+                    <ol class="ship__commit-list">
+                      <% shown.each do |commit| %>
+                        <li class="ship__commit">
+                          <span class="ship__commit-message"><%= commit.message.presence || "(no message)" %></span>
+                          <time class="ship__commit-date" datetime="<%= commit.date.iso8601 %>"><%= commit.date.strftime("%b %-d") %></time>
+                        </li>
+                      <% end %>
+                    </ol>
+                    <% if extra.positive? %>
+                      <p class="ship__commits-more">+<%= extra %><%= "+" if @commits.more %> more</p>
+                    <% end %>
+                  </div>
+                <% end %>
                 <%= form.text_area :changes_made, required: true, rows: 4, class: "ship__input ship__textarea ship__textarea--short sp-input",
-                      placeholder: "New levels, a fixed bug, a new look. The reviewer reads this next to your commits.",
+                      placeholder: later ? "New levels, a fixed bug, a new look. Say what is different from the version you last shipped." : "New levels, a fixed bug, a new look. The reviewer reads this next to your commits.",
                       data: { ship_target: "changes" }, aria: { invalid: errors[:changes_made].any? } %>
               <% end %>
               <div class="ship__pair">
@@ -192,7 +228,7 @@
             <% checks = [ [ "title", :title, "Set the title", "ship_title", true, true ],
                           [ "description", :description, "Write a description", "ship_description", true, true ],
                           [ "descmin", nil, "Make the description #{Ship::DESCRIPTION_MIN}+ characters", "ship_description", true, @ship.description.to_s.strip.present? ],
-                          [ "changes", :changes_made, "Say what you changed since last time", "ship_changes_made", true, true ],
+                          [ "changes", :changes_made, (later ? "Say what changed since your last ship" : "Say what you changed since last time"), "ship_changes_made", true, true ],
                           [ "repolink", :repo_url, "Add a repository link", "ship_repo_url", true, true ],
                           [ "demolink", :demo_url, "Add a playable link", "ship_demo_url", true, true ],
                           [ "screenshot", :screenshot, "Set a new screenshot", "ship_screenshot", true, true ],

@@ -533,6 +533,26 @@ class Project < ApplicationRecord
 
   def ship_prompt_due? = unshipped_hours >= SHIP_PROMPT_HOURS
 
+  # D-099: the hours a participant with an approved ship needs since it before they can ship again.
+  SHIP_MINIMUM_NEW_HOURS = 1
+
+  # The newest approved ship: "your last ship" for the new-hours minimum (D-099) and the what-changed commit list (D-100).
+  def latest_approved_ship
+    ships.select(&:approved?).max_by(&:id)
+  end
+
+  # D-099: the hours still needed before the next ship, 0 when it can go now. New hours are the hours_logged a ship stores
+  # (Ship#hours) less the latest approved ship's. No approved ship yet (the first ship) means no minimum, and a newest ship
+  # sent back for changes is always free to go again: that is the fix, not a new ship (D-049).
+  def ship_hours_needed
+    approved = latest_approved_ship
+    return 0 if approved.nil? || ships.select(&:persisted?).max_by(&:id).changes_needed?
+
+    [ (SHIP_MINIMUM_NEW_HOURS - (hours_logged.to_f - approved.hours.to_f)).round(1), 0 ].max
+  end
+
+  def ship_waiting? = ship_hours_needed.positive?
+
   # Once a ship's approved (which is once it has passed its fraud check, D-063).
   def shipped?
     ships.any? { |ship| ship.status == "approved" }

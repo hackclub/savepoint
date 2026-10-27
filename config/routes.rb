@@ -80,6 +80,7 @@ Rails.application.routes.draw do
         patch :snapshot
         patch :hours_start
         patch :lapse_split
+        patch :reviewer_ai
         post :review
         post :fraud
         post :send_back

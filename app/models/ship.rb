@@ -154,7 +154,49 @@ class Ship < ApplicationRecord
   end
 
   # The most the handbook allows for the hours that count (D-030): AI coding at a third, art at most 30%.
-  def limits(claimed = counted_hours) = Ship::Limits.new(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:)
+  def limits(claimed = counted_hours)
+    Ship::Limits.new(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:, reviewer_ai_hours: reviewer_ai_in_force)
+  end
+
+  # D-102, D-097: the AI coding hours the reviewer set that the limits use. On a later ship the figure is the project's, so the
+  # earlier approval's figure holds when this ship has none or less. nil when neither ship has one.
+  def reviewer_ai_in_force
+    [ reviewer_ai_coding_hours, earlier_approval&.ship&.reviewer_ai_in_force ].compact.max
+  end
+
+  # D-102: the reviewer's AI coding hours for a ship in review, with why. Never below Hackatime's figure (0 if it is unknown) or
+  # the earlier approval's, and never above the coding hours claimed. A figure above the one in force needs a reason. A blank
+  # value, or one at the lowest allowed, clears it. False, with errors on the ship, when it can't be set.
+  def set_reviewer_ai!(value, reason)
+    errors.clear
+    text = value.to_s.strip
+    why = reason.to_s.strip
+    hackatime = (ai_coding_seconds.to_i.to_d / 3600)
+    held = earlier_approval&.ship&.reviewer_ai_in_force
+    low = [ hackatime, held.to_d ].max
+    baseline = Ship::Limits.new(claimed: counted_hours, ai_coding_seconds:, art_seconds:, lapse_seconds:, lapse_coding_hours:)
+    top = baseline.coding.floor(2)
+    hours = (BigDecimal(text) if text.match?(/\A\d+(\.\d+)?\z/))
+    if !in_review?
+      errors.add(:reviewer_ai_coding_hours, "Only a ship in review takes this")
+    elsif text.present? && hours.nil?
+      errors.add(:reviewer_ai_coding_hours, "Enter the AI coding hours, like 3.5")
+    elsif hours && hours < low.floor(2)
+      errors.add(:reviewer_ai_coding_hours, held && held > hackatime ? "The earlier approval already counted #{Ship::Limits.hrs(held)} of AI coding, so it can't be less" : "Hackatime has #{Ship::Limits.hrs(hackatime)} of AI coding, so it can't be less")
+    elsif hours && hours > top
+      errors.add(:reviewer_ai_coding_hours, "Only #{Ship::Limits.hrs(top)} of coding was claimed, so AI coding can't be more")
+    elsif hours && hours - low >= Ship::Limits::TOLERANCE && why.empty?
+      errors.add(:reviewer_ai_reason, "Say what looked AI-generated")
+    end
+    return false if errors.any?
+
+    if hours.nil? || hours - low < Ship::Limits::TOLERANCE
+      update!(reviewer_ai_coding_hours: nil, reviewer_ai_reason: nil)
+    else
+      update!(reviewer_ai_coding_hours: hours.round(2), reviewer_ai_reason: why)
+    end
+    true
+  end
 
   # D-085: the hours of the Lapse time the reviewer calls coding, from the review page. Held between 0 and the Lapse hours
   # Hackatime counted. False, with an error on the ship, when it isn't a number in that range or the ship isn't in review.

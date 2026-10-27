@@ -10,7 +10,7 @@
 # admins off the same ship. The queues (Admin::QueuesController) hand out the oldest ship waiting.
 class Admin::ShipsController < Admin::BaseController
   before_action :set_ship, except: :index
-  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split]
+  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split reviewer_ai]
 
   def index
     @stage = params[:stage].presence_in(Ship::STAGES.keys)
@@ -117,6 +117,21 @@ class Admin::ShipsController < Admin::BaseController
       redirect_to admin_ship_path(@ship, queue: params[:queue].presence), notice: "Lapse coding set to #{Ship::Limits.hrs(@ship.lapse_coding_hours)}."
     else
       redirect_to admin_ship_path(@ship, queue: params[:queue].presence), alert: @ship.errors.messages_for(:lapse_coding_hours).first
+    end
+  end
+
+  # D-102: the AI coding hours the reviewer sets above Hackatime's, with why. Saved on its own, like the Lapse split, so the
+  # review page draws again with the coding maximum worked from it. A blank figure clears it. Logged like an admin tool call.
+  def reviewer_ai
+    return redirect_to(admin_ship_path(@ship), alert: "This ship isn't in review.") unless @ship.in_review?
+
+    if @ship.set_reviewer_ai!(params[:reviewer_ai_coding_hours], params[:reviewer_ai_reason])
+      AdminAuditEvent.create!(user: current_user, tool: "set_reviewer_ai", ids: { "ship_id" => @ship.id })
+      notice = @ship.reviewer_ai_coding_hours ? "AI coding set to #{Ship::Limits.hrs(@ship.reviewer_ai_coding_hours)}." : "AI coding back to Hackatime's figure."
+      redirect_to admin_ship_path(@ship, queue: params[:queue].presence), notice:
+    else
+      alert = @ship.errors.messages_for(:reviewer_ai_coding_hours).first || @ship.errors.messages_for(:reviewer_ai_reason).first
+      redirect_to admin_ship_path(@ship, queue: params[:queue].presence), alert:
     end
   end
 

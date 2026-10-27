@@ -42,6 +42,16 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_equal "0.83", find("input[name=coding_hours]").value
   end
 
+  test "raising the AI coding hours lowers the coding maximum on the page (D-102)" do
+    visit admin_ship_path(@ship)
+    assert_equal "4.5", find("input[name=coding_hours]").value, "coding 5.5 less two thirds of Hackatime's 1.5"
+    fill_in "AI coding hours", with: "3"
+    fill_in "Why (what looked AI-generated)", with: "One pasted dump holds the game"
+    click_on "Set AI coding"
+    assert_selector "#admin-ship-ai-coding", text: "Hackatime 1.5 hrs, raised to 3 hrs"
+    assert_equal "3.5", find("input[name=coding_hours]").value, "coding 5.5 less two thirds of 3 is 3.5"
+  end
+
   test "on a later ship the presets and the total work on the new hours, with the earlier approval added back (D-097)" do
     travel_to(Program::STARTS_AT + 1.5.days) do
       earlier = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "First.",

@@ -159,14 +159,23 @@ module AirtableFields
       "The reviewer counted them as coding, not art, so they sit outside the #{Ship::Limits::ART_CAP_PERCENT}% art cap."
   end
 
+  # D-102: the reviewer set the AI coding time above Hackatime's. Counted at a third, so it cut the hours.
+  def ai_raised(s)
+    return unless s.reviewer_ai_coding_hours
+
+    "The reviewer raised the AI coding time from Hackatime's #{hours_text(s.ai_coding_seconds.to_i.to_d / 3600)} to #{hours_text(s.reviewer_ai_coding_hours)} " \
+      "because the code looked AI-generated: #{s.reviewer_ai_reason}"
+  end
+
   def additional(s)
     parts = []
-    parts << "Hackatime's AI coding time could not be read at review, so no AI coding cut applied." if s.claimed_hours && s.ai_coding_seconds.nil?
+    parts << "Hackatime's AI coding time could not be read at review, so no AI coding cut applied." if s.claimed_hours && s.ai_coding_seconds.nil? && s.reviewer_ai_in_force.nil?
+    parts << ai_raised(s)
     parts << "Reviewer judgement: #{s.review_judgement}" if s.review_judgement.present?
     if (host = ENV["APP_URL"].presence)
       parts << "Review in Save Point: #{Rails.application.routes.url_helpers.admin_ship_url(s, host:)}"
     end
-    parts.join(" ").presence
+    parts.compact.join(" ").presence
   end
 
   # Filled when the code URL is already on a record: in the Unified YSWS DB from another program (a Save Point game

@@ -12,13 +12,17 @@ class Ship::Limits
   # Under this many hours apart is form rounding, not a cut.
   TOLERANCE = BigDecimal("0.01")
 
-  attr_reader :claimed, :ai_coding, :art, :lapse, :lapse_coding
+  attr_reader :claimed, :ai_coding, :hackatime_ai, :reviewer_ai, :art, :lapse, :lapse_coding
 
-  def initialize(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds: nil, lapse_coding_hours: 0)
+  # D-102: reviewer_ai_hours is the AI coding time the reviewer set (nil when none). The limits use the larger of that and
+  # Hackatime's figure, never more than the claimed hours.
+  def initialize(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds: nil, lapse_coding_hours: 0, reviewer_ai_hours: nil)
     @claimed = [ claimed.to_d, 0 ].max
-    @ai_known = !ai_coding_seconds.nil?
+    @reviewer_ai = reviewer_ai_hours&.to_d
+    @ai_known = !ai_coding_seconds.nil? || !@reviewer_ai.nil?
     @art_known = !art_seconds.nil?
-    @ai_coding = [ hours(ai_coding_seconds), @claimed ].min
+    @hackatime_ai = [ hours(ai_coding_seconds), @claimed ].min
+    @ai_coding = [ [ hours(ai_coding_seconds), @reviewer_ai || 0 ].max, @claimed ].min
     # Lapse time is part of the art time. Unknown (nil) Lapse time can't be split, so nothing moves.
     @lapse = lapse_seconds.nil? || !@art_known ? 0.to_d : [ hours(lapse_seconds), hours(art_seconds) ].min
     @lapse_coding = [ lapse_coding_hours.to_d, 0, @lapse ].sort[1]
@@ -28,6 +32,9 @@ class Ship::Limits
   def lapse_known? = @art_known && @lapse.positive?
 
   def ai_known? = @ai_known
+
+  # D-102: the reviewer's figure is above Hackatime's, so it is the one in force.
+  def ai_raised? = ai_coding - hackatime_ai >= TOLERANCE
   def art_known? = @art_known
   def known? = ai_known? && art_known?
 
@@ -89,8 +96,13 @@ class Ship::Limits
   def reason
     parts = []
     if ai_cut >= TOLERANCE
-      parts << "Hackatime has #{self.class.hrs(ai_coding)} of AI coding on this game, which counts at a third " \
-               "(#{self.class.hrs(ai_coding / 3)})."
+      parts << if ai_raised?
+        "Hackatime has #{self.class.hrs(hackatime_ai)} of AI coding on this game, and the reviewer raised it to #{self.class.hrs(ai_coding)}, " \
+          "which counts at a third (#{self.class.hrs(ai_coding / 3)})."
+      else
+        "Hackatime has #{self.class.hrs(ai_coding)} of AI coding on this game, which counts at a third " \
+          "(#{self.class.hrs(ai_coding / 3)})."
+      end
     end
     if art_cut >= TOLERANCE
       parts << "Hackatime has #{self.class.hrs(art)} of art (designing and Lapse#{", not counting the Lapse coding" if lapse_coding.positive?}), " \

@@ -25,6 +25,10 @@
     <p class="sp-label ash__justify-label">Judgement</p>
     <p class="ash__description"><%= ship.review_judgement %></p>
   <% end %>
+  <% if ship.reviewer_ai_coding_hours %>
+    <p class="sp-label ash__justify-label">AI coding raised</p>
+    <p class="ash__description" id="admin-ship-ai-raised"><%= format.(ship.reviewer_ai_coding_hours) %> hrs, above Hackatime's <%= format.(ship.ai_coding_seconds.to_i.to_d / 3600) %> hrs. <%= ship.reviewer_ai_reason %></p>
+  <% end %>
   <% if ship.deflation_reason.present? %>
     <p class="sp-label ash__justify-label">Why deflated</p>
     <p class="ash__description"><%= ship.deflation_reason %></p>

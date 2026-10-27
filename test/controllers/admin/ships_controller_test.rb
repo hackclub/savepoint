@@ -276,6 +276,56 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_match "coding can't be more", flash[:alert]
   end
 
+  test "the reviewer's AI coding hours save with a reason, move the limits, clear, and are refused below Hackatime's (D-102)" do
+    @ship.update_columns(ai_coding_seconds: 1800, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "form#reviewer-ai input[name=reviewer_ai_coding_hours][min='0.5']"
+    assert_select "form#reviewer-ai textarea[name=reviewer_ai_reason]"
+    assert_select "#admin-ship-ai-coding", /\A\s*0\.5 hrs/
+    assert_select "input[name=coding_hours][max='7.16']" # 7.5 less two thirds of 0.5
+
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "3", reviewer_ai_reason: "One pasted dump" }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal [ BigDecimal("3"), "One pasted dump" ], @ship.reload.values_at(:reviewer_ai_coding_hours, :reviewer_ai_reason)
+    assert_equal 1, AdminAuditEvent.where(tool: "set_reviewer_ai").count
+    follow_redirect!
+    assert_select "#admin-ship-ai-coding", /Hackatime 0\.5 hrs, raised to 3 hrs/
+    assert_select "input[name=coding_hours][max='5.5']" # 7.5 less two thirds of 3
+    assert_select "form#reviewer-ai textarea", /One pasted dump/
+    assert_select "button[name=decision][value=approved][data-shortcut=a]"
+
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "0.2", reviewer_ai_reason: "x" }
+    assert_equal BigDecimal("3"), @ship.reload.reviewer_ai_coding_hours
+    assert_match "so it can't be less", flash[:alert]
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "4", reviewer_ai_reason: "" }
+    assert_equal "Say what looked AI-generated", flash[:alert]
+
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "", reviewer_ai_reason: "" }
+    assert_nil @ship.reload.reviewer_ai_coding_hours
+    follow_redirect!
+    assert_select "input[name=coding_hours][max='7.16']"
+  end
+
+  test "the decided view and the fraud stage show the raised AI figure and its reason (D-102)" do
+    @ship.update_columns(ai_coding_seconds: 1800, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "3", reviewer_ai_reason: "One pasted dump" }
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball and bounce physics." }
+    assert @ship.reload.awaiting_fraud?
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-ai-raised", /3 hrs, above Hackatime's 0\.5 hrs\. One pasted dump/
+    @ship.update_columns(status: "approved", fraud_status: "passed", decided_by_id: users(:ana).id, decided_at: Time.current, approved_hours: @ship.review_hours)
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-ai-raised", /One pasted dump/
+  end
+
+  test "a reviewer can't set the AI hours on their own ship" do
+    sign_in_as(@ship.project.user)
+    patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "3", reviewer_ai_reason: "x" }
+    assert_nil @ship.reload.reviewer_ai_coding_hours
+  end
+
   test "a reviewer can't set the Lapse split on their own ship" do
     @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
     sign_in_as(@ship.project.user)

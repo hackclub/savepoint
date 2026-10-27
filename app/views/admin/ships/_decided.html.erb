@@ -30,6 +30,10 @@
     by <%= ship.fraud_reviewer&.first_name.presence || "someone" %>.<%= " #{ship.fraud_notes}" if ship.fraud_notes.present? %>
   </p>
 <% end %>
+<% if ship.reviewer_ai_coding_hours %>
+  <p class="sp-label ash__justify-label">AI coding raised</p>
+  <p class="ash__description" id="admin-ship-ai-raised"><%= format.(ship.reviewer_ai_coding_hours) %> hrs, above Hackatime's <%= format.(ship.ai_coding_seconds.to_i.to_d / 3600) %> hrs. <%= ship.reviewer_ai_reason %></p>
+<% end %>
 <% if ship.technical_features.present? %>
   <p class="sp-label ash__justify-label">Specific technical features</p>
   <p class="ash__description" id="admin-ship-features"><%= ship.technical_features %></p>

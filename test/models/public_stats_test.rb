@@ -17,7 +17,7 @@ class PublicStatsTest < ActiveSupport::TestCase
     travel_to Program::DATES.begin + 1 do
       stats = PublicStats.new.to_h
 
-      assert_equal 2, stats[:totals][:builders], "the two projects in the fixtures"
+      assert_equal User.participant_count, stats[:totals][:signed_up]
       assert_equal 0.0, stats[:totals][:hours]
       assert_equal [ 2, 2 ], stats[:funnel].first(2).map { |step| step[:count] }
       assert_equal 1.0, stats[:funnel].first[:share]
@@ -31,7 +31,7 @@ class PublicStatsTest < ActiveSupport::TestCase
     travel_to Program::DATES.begin + 1 do
       stats = PublicStats.new.to_h
 
-      assert_equal 5, stats[:totals][:builders]
+      assert_equal User.participant_count, stats[:totals][:signed_up]
       assert_equal 18.0, stats[:totals][:hours]
       assert_equal 0.0, stats[:totals][:shipped_hours]
       assert_equal [ 5, 5, 3, 3, 3, 3, 0, 0 ], stats[:funnel].map { |step| step[:count] }
@@ -55,6 +55,27 @@ class PublicStatsTest < ActiveSupport::TestCase
 
       assert_equal 1, first_day[:builders]
       assert_in_delta (119 / 3600.0).round(1), first_day[:hours]
+    end
+  end
+
+  test "each day's builders are Growth's DAU for that day, coding time only, today included" do
+    coder, browser, sharer = add_builders(3, hours: 0)
+    coder.streak_activities.first.update!(coded_seconds: 3600, coding_seconds: 3600)
+    browser.streak_activities.first.update!(coded_seconds: 3600, coding_seconds: 0)
+    sharer.streak_activities.first.update!(coded_seconds: 120, coding_seconds: 120)
+
+    [ Program::DATES.begin + 1, Program::DATES.begin ].each do |now|
+      travel_to now do
+        stats = PublicStats.new.to_h
+        growth_days = stats[:growth][:days].to_h { |row| [ row[:date], row[:dau] ] }
+        growth_days[stats[:growth][:today][:date]] = stats[:growth][:today][:dau] if stats[:growth][:today]
+
+        stats[:daily].each do |day|
+          assert_equal growth_days[day[:date]].to_i, day[:builders], "builders on #{day[:date]}"
+        end
+        assert_equal 2, stats[:daily].first[:builders], "the browser-only builder isn't a DAU"
+        assert_in_delta ((3600 + 3600 + 120) / 3600.0).round(1), stats[:daily].first[:hours], 0.01, "hours still count every category"
+      end
     end
   end
 

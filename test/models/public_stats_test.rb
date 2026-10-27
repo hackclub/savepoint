@@ -58,6 +58,27 @@ class PublicStatsTest < ActiveSupport::TestCase
     end
   end
 
+  test "each day's builders are Growth's DAU for that day, coding time only, today included" do
+    coder, browser, sharer = add_builders(3, hours: 0)
+    coder.streak_activities.first.update!(coded_seconds: 3600, coding_seconds: 3600)
+    browser.streak_activities.first.update!(coded_seconds: 3600, coding_seconds: 0)
+    sharer.streak_activities.first.update!(coded_seconds: 120, coding_seconds: 120)
+
+    [ Program::DATES.begin + 1, Program::DATES.begin ].each do |now|
+      travel_to now do
+        stats = PublicStats.new.to_h
+        growth_days = stats[:growth][:days].to_h { |row| [ row[:date], row[:dau] ] }
+        growth_days[stats[:growth][:today][:date]] = stats[:growth][:today][:dau] if stats[:growth][:today]
+
+        stats[:daily].each do |day|
+          assert_equal growth_days[day[:date]].to_i, day[:builders], "builders on #{day[:date]}"
+        end
+        assert_equal 2, stats[:daily].first[:builders], "the browser-only builder isn't a DAU"
+        assert_in_delta ((3600 + 3600 + 120) / 3600.0).round(1), stats[:daily].first[:hours], 0.01, "hours still count every category"
+      end
+    end
+  end
+
   test "hours shipped are the hours on each shipped project's newest ship, as they were when it shipped" do
     ship = ->(project, hours) do
       project.ships.create!(title: "A game", description: "A game that's at least forty characters of description long.",

@@ -8,11 +8,11 @@ class PublicStats
   STREAK_GROUPS = { "1 day" => 1..1, "2 days" => 2..2, "3–4" => 3..4, "5–6" => 5..6, "7–9" => 7..9, "10+" => 10.. }.freeze
 
   def self.cached
-    Rails.cache.fetch("public_stats/v6", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("public_stats/v7", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h
-    { generated_at: Time.current, day: program_day, days: Program.day(Program::ENDS_AT - 1)[:total], totals:, funnel:, daily:, growth: Growth.new.to_h, streaks: }
+    { generated_at: Time.current, day: program_day, days: Program.day(Program::ENDS_AT - 1)[:total], totals:, funnel:, daily:, growth: growth_data, streaks: }
   end
 
   private
@@ -61,14 +61,19 @@ class PublicStats
       steps.map { |label, count| { label:, count:, share: (count.fdiv(first) if first.positive?) } }
     end
 
-    # Hours built each day of Save Point, and how many built Growth::ACTIVE_SECONDS or more that day (the day's DAU, as Growth counts it).
+    # Growth for everyone, worked out once: the page's DAU and the table's builders are the same numbers.
+    def growth_data = @growth_data ||= Growth.new.to_h
+
+    # Hours built each day of Save Point (every category, everyone), and how many built that day: Growth's DAU for the
+    # day, not a second count, so the table and the DAU can't drift apart (coding time only, D-087; accounts sharing a
+    # repo each count, D-090). Today's is as far as it's got.
     def daily
-      days = StreakActivity.where(activity_date: Program::DATES, coded_seconds: 1..).group(:activity_date)
-                           .pluck(:activity_date, Arel.sql("SUM(coded_seconds)"), Arel.sql("COUNT(DISTINCT user_id) FILTER (WHERE coded_seconds >= #{Growth::ACTIVE_SECONDS})"))
-                           .to_h { |date, seconds, builders| [ date, [ seconds, builders ] ] }
+      seconds = StreakActivity.where(activity_date: Program::DATES, coded_seconds: 1..).group(:activity_date).sum(:coded_seconds)
+      dau = growth_data[:days].to_h { |row| [ row[:date], row[:dau] ] }
+      today = growth_data[:today]
+      dau[today[:date]] = today[:dau] if today
       Program::DATES.map do |date|
-        seconds, builders = days.fetch(date, [ 0, 0 ])
-        { date:, future: date > Date.current, builders:, hours: (seconds / 3600.0).round(1) }
+        { date:, future: date > Date.current, builders: dau[date].to_i, hours: (seconds.fetch(date, 0) / 3600.0).round(1) }
       end
     end
 

@@ -1,5 +1,5 @@
 # Time someone coded, in 5-minute pieces, for the last few days only (D-086). StreakActivity keeps whole days, which can't
-# answer "who built today (UTC)?" (D-092). The Hackatime sync rewrites the recent pieces from the spans it reads.
+# answer "who built today (Eastern time)?" (D-092). The Hackatime sync rewrites the recent pieces from the spans it reads.
 # `seconds` counts; `unconfirmed_seconds` is time held on a link nobody has confirmed (D-084), like StreakActivity's.
 # `coding_seconds` (D-087) is how much of the piece Hackatime files under coding, held or not; nil is not asked yet, and reads as all of it.
 class CodedBucket < ApplicationRecord

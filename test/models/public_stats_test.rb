@@ -17,7 +17,7 @@ class PublicStatsTest < ActiveSupport::TestCase
     travel_to Program::DATES.begin + 1 do
       stats = PublicStats.new.to_h
 
-      assert_equal 2, stats[:totals][:builders], "the two projects in the fixtures"
+      assert_equal User.participant_count, stats[:totals][:signed_up]
       assert_equal 0.0, stats[:totals][:hours]
       assert_equal [ 2, 2 ], stats[:funnel].first(2).map { |step| step[:count] }
       assert_equal 1.0, stats[:funnel].first[:share]
@@ -31,7 +31,7 @@ class PublicStatsTest < ActiveSupport::TestCase
     travel_to Program::DATES.begin + 1 do
       stats = PublicStats.new.to_h
 
-      assert_equal 5, stats[:totals][:builders]
+      assert_equal User.participant_count, stats[:totals][:signed_up]
       assert_equal 18.0, stats[:totals][:hours]
       assert_equal 0.0, stats[:totals][:shipped_hours]
       assert_equal [ 5, 5, 3, 3, 3, 3, 0, 0 ], stats[:funnel].map { |step| step[:count] }

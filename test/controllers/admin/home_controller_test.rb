@@ -204,7 +204,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "turbo-frame#admin-growth" do
-      assert_select ".admin__readout-name", text: /Builders/
+      assert_select ".admin__readout-name", text: /Signed up/
       assert_select ".admin__readout-name", text: /Games shipped/
       assert_select ".admin__readout-name", text: /CURR/
       assert_select "body", text: /WAU|MAU|weekly|monthly/i, count: 0

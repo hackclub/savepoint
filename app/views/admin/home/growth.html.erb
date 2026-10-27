@@ -15,7 +15,7 @@
        data-action="pointerover->stats-tooltip#show focusin->stats-tooltip#show pointerout->stats-tooltip#hide focusout->stats-tooltip#hide">
     <h3 class="pg-admin-home__sub">Totals <span>everyone building, exact, <%= day < 1 ? "starts #{Program::DATES.begin.strftime("%b %-d")}" : (@stats[:day] > @stats[:days] ? "that's a wrap" : "day #{day} of #{@stats[:days]}") %></span></h3>
     <div class="pg-admin-home__readouts pg-admin-home__readouts--five">
-      <% { "Builders" => [ "user-3-fill", totals[:builders] ], "Hours built" => [ "time-fill", totals[:hours] ], "Games shipped" => [ "rocket-fill", totals[:shipped] ],
+      <% { "Signed up" => [ "user-3-fill", totals[:signed_up] ], "Hours built" => [ "time-fill", totals[:hours] ], "Games shipped" => [ "rocket-fill", totals[:shipped] ],
            "Hours shipped" => [ "send-plane-fill", totals[:shipped_hours] ], "Prizes earned" => [ "gift-fill", totals[:prizes] ] }.each do |name, (icon, value)| %>
         <div class="admin__readout"><span class="admin__readout-name"><%= sp_icon icon %><%= name %></span><strong><%= stat(value) %></strong></div>
       <% end %>

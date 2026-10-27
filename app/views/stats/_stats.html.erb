@@ -20,11 +20,10 @@
       </header>
 
       <section class="stats__tiles stats__tiles--totals" aria-label="Totals">
-        <div class="stats__tile stats__tile--royal"><i class="stats__coin" aria-hidden="true"><%= sp_icon "user-3-fill" %></i><span>Builders</span><strong><%= stat(totals[:builders]) %></strong></div>
+        <div class="stats__tile stats__tile--royal"><i class="stats__coin" aria-hidden="true"><%= sp_icon "user-3-fill" %></i><span>Signed up</span><strong><%= stat(totals[:signed_up]) %></strong></div>
         <div class="stats__tile stats__tile--gold"><i class="stats__coin stats__coin--hours" aria-hidden="true"><%= hours_coin %></i><span>Hours built</span><strong><%= stat(totals[:hours]) %></strong></div>
         <div class="stats__tile stats__tile--mint"><i class="stats__coin" aria-hidden="true"><%= sp_icon "rocket-fill" %></i><span>Games shipped</span><strong><%= stat(totals[:shipped]) %></strong></div>
         <div class="stats__tile stats__tile--bronze"><i class="stats__coin" aria-hidden="true"><%= sp_icon "time-fill" %></i><span>Hours shipped</span><strong><%= stat(totals[:shipped_hours]) %></strong></div>
-        <div class="stats__tile stats__tile--violet"><i class="stats__coin" aria-hidden="true"><%= sp_icon "gift-fill" %></i><span>Prizes earned</span><strong><%= stat(totals[:prizes]) %></strong></div>
       </section>
 
       <section class="stats__card sp-panel" aria-labelledby="stats-daily">

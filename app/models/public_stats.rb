@@ -8,7 +8,7 @@ class PublicStats
   STREAK_GROUPS = { "1 day" => 1..1, "2 days" => 2..2, "3–4" => 3..4, "5–6" => 5..6, "7–9" => 7..9, "10+" => 10.. }.freeze
 
   def self.cached
-    Rails.cache.fetch("public_stats/v7", expires_in: CACHE_FOR) { new.to_h }
+    Rails.cache.fetch("public_stats/v8", expires_in: CACHE_FOR) { new.to_h }
   end
 
   def to_h
@@ -31,7 +31,7 @@ class PublicStats
 
     def totals
       {
-        builders: Project.count,
+        signed_up: User.participant_count,
         hours: (seconds_by_user.values.sum / 3600.0).round(1),
         shipped: Ship.distinct.count(:project_id),
         shipped_hours: Ship.latest_per_project.sum(:hours).to_f.round(1),

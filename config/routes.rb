@@ -30,6 +30,8 @@ Rails.application.routes.draw do
   get "stats" => "stats#show", as: :stats
   # How many people have signed up, for the landing page's counter: the number and nothing else.
   get "signups" => "signups#show", as: :signups, defaults: { format: :json }
+  # How long an FAQ question was open (FaqRead, D-094): a beacon from the landing page, with nothing about the reader.
+  post "faq_reads" => "faq_reads#create", as: :faq_reads
   resource :buddy, only: :show do
     # A pomodoro together: start one, see how it's going (polled), and join your buddy's.
     resource :pomodoro, only: %i[show create], controller: "buddy_pomodoros" do

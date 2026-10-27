@@ -6,11 +6,12 @@ require Rails.root.join("db/migrate/20261024130100_add_onboarding_progress_to_in
 require Rails.root.join("db/migrate/20261024110100_add_hackatime_seen_to_insights_projects")
 require Rails.root.join("db/migrate/20261026100100_update_insights_ships_for_fraud_stage")
 require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
+require Rails.root.join("db/migrate/20261027140100_add_faq_reads_to_insights_views")
 
 # The views the analytics service reads (hackclub/save-point-analytics). The test database loads from schema.rb,
 # which doesn't dump views, so the migration runs here when they're absent. The test's transaction rolls it back.
 class InsightsViewsTest < ActiveSupport::TestCase
-  VIEWS = (CreateInsightsViews::VIEWS + %w[visits nudges site_days]).freeze
+  VIEWS = (CreateInsightsViews::VIEWS + %w[visits nudges site_days faq_reads]).freeze
   FORBIDDEN = %w[email name address phone_number birthdate slack_id hackatime_access_token].freeze
 
   setup do
@@ -26,6 +27,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
       AddHackatimeSeenToInsightsProjects.new.up
       UpdateInsightsShipsForFraudStage.new.up
       AddRetentionDataToInsightsViews.new.up
+      AddFaqReadsToInsightsViews.new.up
     end
   end
 
@@ -65,7 +67,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
   test "the UTM migration reverses" do
     ActiveRecord::Migration.suppress_messages do
       AddUtmToInsightsViews.new.down
-      assert_equal %w[nudges orders projects ships site_days streak_activities users], ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
+      assert_equal %w[faq_reads nudges orders projects ships site_days streak_activities users], ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
       AddUtmToInsightsViews.new.up
     end
   end
@@ -187,7 +189,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
     ActiveRecord::Migration.suppress_messages do
       AddRetentionDataToInsightsViews.new.down
       connection = ActiveRecord::Base.connection
-      assert_equal %w[orders projects ships streak_activities users visits], connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
+      assert_equal %w[faq_reads orders projects ships streak_activities users visits], connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
       assert_not_includes connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'projects'"), "first_coded_at"
       assert_not_includes connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'users'"), "onboarding_step_times"
       AddRetentionDataToInsightsViews.new.up

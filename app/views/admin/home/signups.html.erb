@@ -1,6 +1,6 @@
 <% content_for :title, "Admin · Save Point" %>
 <% content_for :stylesheets, " save_point/pages/admin-home" %>
-<%# The sign-ups section's lazy frame: the newest written NPS answers (NpsStats), then where sign-ups come from (UtmStats, D-043).
+<%# The sign-ups section's lazy frame: the newest written NPS answers (NpsStats), then where sign-ups come from (UtmStats, D-043), then which FAQ questions get read (FaqStats, D-094).
     Folded in from the old Numbers page (D-073). %>
 <div class="pg-admin-home"><div class="sp-container">
 <%= turbo_frame_tag "admin-signups" do %>
@@ -47,6 +47,31 @@
               <td class="admin__num"><%= @utm.untagged_visits %></td><td class="admin__num"><%= @utm.untagged %></td>
               <td class="admin__num"><%= @utm.untagged_rate ? number_to_percentage(@utm.untagged_rate, precision: 0) : "—" %></td>
             </tr>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+  <h3 class="pg-admin-home__sub">Which FAQ questions get read <span>most opens first, one question open at a time</span></h3>
+  <div class="admin-chart">
+    <% if !@faq.any? %>
+      <p class="admin-chart__empty">No FAQ question has been opened yet. The landing page records each one a reader opens, and how long it stays open.</p>
+    <% else %>
+      <p class="admin-chart__takeaway">An open is a question opened for a second or more. Time open is capped at 10 minutes for each open. Admins are left out.</p>
+      <div class="pg-admin-home__scroll" tabindex="0" role="region" aria-label="FAQ questions by opens">
+        <table class="admin__table admin__table--wide">
+          <thead>
+            <tr><th scope="col">Question</th><th class="admin__num" scope="col">Opens</th>
+              <th class="admin__num" scope="col">Median seconds open</th><th class="admin__num" scope="col">Total minutes</th></tr>
+          </thead>
+          <tbody>
+            <% @faq.rows.each do |row| %>
+              <tr>
+                <td><%= row.question %></td><td class="admin__num"><%= row.opens %></td>
+                <td class="admin__num"><%= row.median_seconds ? number_with_precision(row.median_seconds, precision: 1, strip_insignificant_zeros: true) : "—" %></td>
+                <td class="admin__num"><%= number_with_precision(row.total_minutes, precision: 1, strip_insignificant_zeros: true) %></td>
+              </tr>
+            <% end %>
           </tbody>
         </table>
       </div>

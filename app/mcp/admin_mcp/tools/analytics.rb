@@ -17,7 +17,8 @@ module AdminMcp::Tools::Analytics
     "streak_activities" => "Seconds coded on one day by one person (activity_date, coded_seconds). 1200 s or more counts for the streak.",
     "ships" => "Each ship: status in_review (also while it waits for its fraud check), approved or rejected (changes needed, or rejected for good), hours, approved_hours and the dates. stage is the stored status: in_review, awaiting_fraud, approved, changes_needed or rejected.",
     "orders" => "Each prize claim: status waiting or ordered, hours, prize_key.",
-    "visits" => "Each HTML page view (D-047): the UTM tags, empty when the link had none, the path and the time. No person."
+    "visits" => "Each HTML page view (D-047): the UTM tags, empty when the link had none, the path and the time. No person.",
+    "faq_reads" => "Each stay with a landing FAQ question open (D-094): question_key, whole seconds open (1 to 600) and the time. No person."
   }.freeze
 
   # The table of what's there to ask, and how.

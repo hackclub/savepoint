@@ -258,6 +258,17 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr", text: /No tags\s*2\s*#{untagged}\s*#{(100.0 * untagged / 2).round}%/
   end
 
+  test "sign-ups: the FAQ table lists every question, most opens first" do
+    key = "prizes.can-i-get-more-than-one-prize"
+    FaqRead.record(key, 30)
+    FaqRead.record(key, 90)
+    sign_in_as(users(:orpheus))
+    get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }
+
+    assert_select "[aria-label='FAQ questions by opens'] tbody tr", Faq.keys.size
+    assert_select "[aria-label='FAQ questions by opens'] tbody tr:first-child", text: /Can I get more than one prize\?\s*2\s*60\s*2/
+  end
+
   test "with no NPS answers the sign-ups section says so" do
     sign_in_as(users(:orpheus))
     get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }

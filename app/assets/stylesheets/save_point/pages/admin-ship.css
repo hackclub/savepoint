@@ -174,8 +174,6 @@
 .pg-admin-ship .ash__verdict-form { display: grid; gap: var(--space-4); margin: 0; }
 .pg-admin-ship .ash__already { margin: 0; font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
 .pg-admin-ship .ash__already strong { color: var(--ink); font-variant-numeric: tabular-nums; }
-.pg-admin-ship .ash__already { margin: 0; font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
-.pg-admin-ship .ash__already strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 .pg-admin-ship .ash__total { font: 700 15px/22px var(--font-body); color: var(--ink-muted); }
 .pg-admin-ship .ash__total strong { font: 900 italic 24px/28px var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
 .pg-admin-ship .ash__hours-box { position: relative; display: block; min-width: 0; }

@@ -523,8 +523,12 @@ class Project < ApplicationRecord
   # is still standing, in review or approved. A ship sent back for changes or rejected doesn't count as shipped. Before
   # any ship it's all of them. Never below 0.
   def unshipped_hours
-    shipped = ships.select { it.pending? || it.approved? }.max_by(&:id)&.hours.to_f
-    [ (hours_logged.to_f - shipped).round(1), 0 ].max
+    [ (hours_logged.to_f - latest_standing_ship&.hours.to_f).round(1), 0 ].max
+  end
+
+  # The newest ship that counts as shipped for unshipped_hours: in review, awaiting its fraud check, or approved.
+  def latest_standing_ship
+    ships.select { it.pending? || it.approved? }.max_by(&:id)
   end
 
   def ship_prompt_due? = unshipped_hours >= SHIP_PROMPT_HOURS

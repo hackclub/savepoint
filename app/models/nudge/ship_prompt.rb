@@ -36,7 +36,7 @@ module Nudge::ShipPrompt
 
   # A DM went out after their latest standing ship (or ever, if they have shipped nothing), so this crossing has had one.
   def self.told_since_last_ship?(user, project)
-    last_ship = project.ships.select { it.pending? || it.approved? }.max_by(&:id)
+    last_ship = project.latest_standing_ship
     sent = user.nudges.delivered.where(arm: ARM)
     sent = sent.where(sent_at: last_ship.created_at..) if last_ship
     sent.exists?
@@ -44,6 +44,7 @@ module Nudge::ShipPrompt
 
   def self.vars(context)
     project = context.project
-    { title: SlackText.escape(project.title.downcase_first), unshipped: ApplicationController.helpers.project_hours(project.unshipped_hours) }
+    { title: SlackText.escape(project.title.downcase_first), unshipped: ApplicationController.helpers.project_hours(project.unshipped_hours),
+      since: project.latest_standing_ship ? "since your last ship" : "and haven't shipped yet" }
   end
 end

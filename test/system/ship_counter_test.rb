@@ -1,11 +1,12 @@
 require "application_system_test_case"
 
-# D-096: the project page counts unshipped hours up to 5, then asks you to ship.
+# D-096: after a first ship, the project page counts unshipped hours up to 5, then asks you to ship.
 class ShipCounterTest < ApplicationSystemTestCase
   setup do
     @user = users(:orpheus)
     link_hackatime(@user)
-    @user.project.update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
+    @project = @user.project
+    @project.update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
     mock_hack_club_auth(uid: @user.hca_id, slack_id: "U0ORPHEUS", first_name: "Orpheus")
     visit onboarding_path
     execute_script(<<~JS)
@@ -18,20 +19,29 @@ class ShipCounterTest < ApplicationSystemTestCase
     assert_current_path onboarding_path
   end
 
-  test "below 5 hours it counts up, with no ship button" do
+  test "before a first ship there is no counter" do
+    log_hours(@user, 5.3)
+    visit project_path
+
+    assert_text "Your schedule"
+    assert_no_selector ".project__ship-counter"
+  end
+
+  test "after a ship it counts up from that ship, with no ship button below 5" do
+    ship!(1.0)
     log_hours(@user, 2.4)
     visit project_path
 
     within ".project__ship-counter" do
-      assert_text "2.4 of 5 hours since your last ship"
+      assert_text "1.4 of 5 hours since your last ship"
       assert_no_link "Ship it"
     end
     assert_selector ".project__ship-counter[data-due='false']"
-    snap "below"
   end
 
-  test "at 5 hours it asks you to ship and links to the ship page" do
-    log_hours(@user, 5.3)
+  test "at 5 unshipped hours it asks you to ship and links to the ship page" do
+    ship!(1.0)
+    log_hours(@user, 6.3)
     visit project_path
 
     within ".project__ship-counter" do
@@ -41,21 +51,9 @@ class ShipCounterTest < ApplicationSystemTestCase
     assert_current_path project_ship_path
   end
 
-  test "screenshots at 5 hours" do
-    log_hours(@user, 5.3)
-    visit project_path
-    assert_selector ".project__ship-counter[data-due='true']"
-    snap "due"
-  end
-
   private
-    def snap(name)
-      [ [ 1280, 900, "desktop" ], [ 390, 844, "mobile" ] ].each do |width, height, label|
-        page.current_window.resize_to(width, height)
-        sleep 0.4
-        execute_script('document.querySelector(".project__ship-counter").scrollIntoView({ block: "center" })')
-        sleep 0.4
-        page.save_screenshot("/tmp/shipshots/#{name}-#{label}.png")
-      end
+    def ship!(hours)
+      @project.ships.new(title: "v1", description: "x" * 50, repo_url: "https://github.com/a/b", demo_url: "https://a.itch.io/b", hours:,
+                         status: "approved", approved_hours: hours).save!(validate: false)
     end
 end

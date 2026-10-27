@@ -1,5 +1,5 @@
 <%# locals: (project:, unshipped: nil) %>
-<%# D-096: counts your unshipped hours up to Project::SHIP_PROMPT_HOURS, then asks you to ship. `unshipped` is only for /dev's gallery. %>
+<%# D-096: after a first ship, counts your unshipped hours up to Project::SHIP_PROMPT_HOURS, then asks you to ship. `unshipped` is only for /dev's gallery. %>
 <% unshipped ||= project.unshipped_hours %>
 <% limit = Project::SHIP_PROMPT_HOURS %>
 <% due = unshipped >= limit %>

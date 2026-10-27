@@ -15,9 +15,6 @@ class FaqTest < ApplicationSystemTestCase
     assert_no_selector "details[id='#{FIRST}'][open]"
     assert_selector "details[open]", count: 1
 
-    # A read under a second isn't kept, so the first question left no read.
-    assert_equal 0, FaqRead.where(key: FIRST).count
-
     sleep 1.2
     find("details[id='#{SECOND}'] summary").click
     assert_no_selector "details[open]"

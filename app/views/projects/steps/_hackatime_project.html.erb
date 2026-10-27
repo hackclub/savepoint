@@ -12,14 +12,12 @@
   <%# Nothing since Hackatime started counting: nothing to pick, and that's fine. Say how to get your first time
       there (the editor plugin): the first project you log time on links itself. %>
   <p class="project__step-text project__step-waiting" role="status"><%= project_first_time_how(project) %></p>
-  <p class="project__step-hint">Nothing on Hackatime since <%= project_date(Program::HACKATIME_PICK_SINCE) %> yet. Only time from then on counts.</p>
+  <p class="project__step-hint">Nothing on Hackatime yet. Only time from <%= project_date(project.hours_start) %> on counts.</p>
   <div class="project__step-actions">
     <%= link_to project_path(step: "hackatime_project", refresh: 1), class: "sp-btn project__step-button" do %><%= sp_icon "refresh-2-fill" %>Refresh<% end %>
   </div>
 <% else %>
-  <p class="project__step-text">
-    Which Hackatime project is this build? Only time from <%= project_date(project.hours_start) %> on counts.
-  </p>
+  <p class="project__step-text">Which Hackatime project is this build?</p>
   <%= render "shared/hackatime_picker", project:, url: project_path, mode:, swap:, refresh: %>
 <% end %>
 <% if project.errors[:hackatime_projects].any? %>

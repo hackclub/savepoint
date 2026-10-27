@@ -31,12 +31,17 @@ class OnboardingHelperTest < ActionView::TestCase
     assert_equal Hackatime.stubbed_projects["1001"].map(&:name), choices[:projects].map(&:name)
   end
 
-  test "step 2 leaves out projects with no recent time" do
+  test "step 2 lists old projects too, with their earlier time (D-089)" do
     link_hackatime(users(:orpheus))
-    before = Hackatime.stubbed_recent_projects
-    Hackatime.stubbed_recent_projects = { "1001" => [ "dotfiles" ] }
-    assert_equal [ "dotfiles" ], onboarding_hackatime(users(:orpheus))[:projects].map(&:name)
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { "1001" => [ Hackatime::Project.new("dotfiles", 11_160), Hackatime::Project.new("old-jam", 7200) ] }
+    hackatime = onboarding_hackatime(users(:orpheus))
+    assert_equal [ "dotfiles", "old-jam" ], hackatime[:projects].map(&:name)
+    choices = onboarding_hackatime_choices(users(:orpheus), hackatime)
+    assert_equal [ "3.1 hrs", "0 hrs" ], choices.map { |choice| choice[:note] }
+    assert_nil choices.first[:earlier]
+    assert_match(/\A2 hrs before (Save Point|your start)\z/, choices.last[:earlier])
   ensure
-    Hackatime.stubbed_recent_projects = before
+    Hackatime.stubbed_all_projects = before
   end
 end

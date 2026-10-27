@@ -73,14 +73,18 @@
       <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
 
-    <symbol id="sp-shop-card" viewBox="0 -40 400 594" overflow="visible">
+    <%# The tag with its hook, and the same card as a plain rectangle (shared/_prize_tag with rect: true, for onboarding's prize step): the same
+        halftone, wavy band, price panel and frame, with the hook cut off, so the card starts 75 down and has the tag's bottom corners at the top. %>
+    <% [ [ "sp-shop-card", "0 -40 400 594", "M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z" ],
+         [ "sp-shop-card-rect", "0 75 400 479", "M9 505V124A40 40 0 0 1 49 84H351A40 40 0 0 1 391 124V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z" ] ].each do |id, view, outline| %>
+    <symbol id="<%= id %>" viewBox="<%= view %>" overflow="visible">
       <%# The lip: the tag again, a hand lower and darker, so the card has thickness. %>
-      <path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z" transform="translate(0 9)"
+      <path d="<%= outline %>" transform="translate(0 9)"
             stroke-width="18" stroke-linejoin="round" style="fill: var(--sc-lip); stroke: var(--sc-lip)"/>
-      <path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z"
+      <path d="<%= outline %>"
             stroke-width="18" stroke-linejoin="round" style="fill: var(--sc-card); stroke: var(--sc-outline)"/>
       <%# A soft highlight along the rim, bright at the top and gone by the middle. %>
-      <path d="M9 505V80A71 71 0 0 1 80 9H222A17 17 0 0 1 222 43C215 43 209 37 202 37C196 37 190 41 190 52V72A12 12 0 0 0 202 84H274A12 12 0 0 0 286 72V30A21 21 0 0 1 328 30V72A12 12 0 0 0 340 84H357A34 34 0 0 1 391 118V505A40 40 0 0 1 351 545H49A40 40 0 0 1 9 505Z" fill="none" stroke="url(#sp-shop-rim-light)" stroke-width="4" stroke-linejoin="round" filter="url(#sp-soft)"/>
+      <path d="<%= outline %>" fill="none" stroke="url(#sp-shop-rim-light)" stroke-width="4" stroke-linejoin="round" filter="url(#sp-soft)"/>
       <rect x="28" y="103" width="344" height="327" rx="15" style="fill: var(--sc-panel-line)"/>
       <rect x="28" y="103" width="344" height="327" rx="15" mask="url(#sp-shop-edge-fade)" style="fill: var(--sc-light)"/>
       <rect x="38" y="113" width="324" height="317" rx="7" style="fill: var(--sc-panel)"/>
@@ -102,6 +106,7 @@
       <%# The band catches light on its top edge. The price is sunk: a shade under its top edge. %>
       <path d="M28 429.5C28 405.5 44 392 72 392H300C345 392 372 377.5 372 344.5V501H28Z" clip-path="url(#sp-shop-price-inner)" fill="url(#sp-shop-price-shade)"/>
     </symbol>
+    <% end %>
 
     <%# The silver clip the tag hangs from. It comes down from above, over the hook, and rests on the floor of the
         cranny under the hook's curl. Cards draw it after the tag, so it sits on top. %>

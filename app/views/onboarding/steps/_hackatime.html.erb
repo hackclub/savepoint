@@ -34,6 +34,7 @@
           answer waits in the tab and saves with the project at the end, so nothing saves on a pick here. The rows come
           again from the server (onboarding#hackatime) once you've typed a code link, so a project Hackatime links to a
           different repo goes last with a warning (D-064). %>
+      <p class="onboarding-hackatime__text"><%= project_hackatime_pick_intro(hackatime[:start]) %></p>
       <div data-onboarding-target="hackatimeList"><%= render "onboarding/hackatime_rows", user: current_user, hackatime: hackatime %></div>
     <% end %>
     <%# The empty picker has "Keep going" above, which does the same thing as Skip. %>

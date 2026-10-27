@@ -1,27 +1,24 @@
-<%# locals: (choices:, type: "checkbox", name: nil, input_data: {}, selected: nil, label: "Your Hackatime projects") %>
+<%# locals: (choices:, type: "checkbox", name: nil, input_data: {}, selected: nil, label: "Your Hackatime projects", limit: 8) %>
 <%# The Hackatime projects you can pick, always open: a row for each, with a coin that is ticked when the project is
     linked, the project's name and its hours. Rows are pills, and everything inside one sits 6px from its edge (the hours
     pill's 3px lip counts), so the coin, the hours pill and the gold coin in it are concentric (hackatime_picker.css).
+    D-089: it lists every project you have. Past `limit` rows the rest wait behind "Show older projects" (a linked or picked one
+    always shows), so a long history stays usable.
     selected: the one name that's picked (radios), else each choice's own linked flag. A checkbox has no name: the
     picker sends the ticked ones itself (hackatime_picker_controller.js), so a form around it never carries them. %>
+<% shown, older = choices.each_with_index.partition { |choice, index| index < limit || choice[:linked] || selected == choice[:name] }.map { |part| part.map(&:first) } %>
 <div class="hkp__list" role="<%= type == "radio" ? "radiogroup" : "group" %>" aria-label="<%= label %>">
-  <% choices.each do |choice| %>
-    <% hours = choice[:note].to_s.delete_suffix(" hrs") if choice[:note].to_s.end_with?(" hrs") %>
-    <label class="hkp__row">
-      <%= tag.input type:, name:, value: choice[:name], class: "hkp__input", checked: (selected ? selected == choice[:name] : choice[:linked]),
-            data: { hackatime_picker_target: ("box" if type == "checkbox") }.merge(input_data) %>
-      <span class="hkp__coin" aria-hidden="true"><%= sp_icon "check-fill" %></span>
-      <span class="hkp__label">
-        <span class="hkp__name"><%= choice[:name] %></span>
-        <% if choice[:other_repo] %>
-          <span class="hkp__warning"><%= sp_icon "warning-fill" %>Hackatime links this to a different repo</span>
+  <% shown.each do |choice| %>
+    <%= render "shared/hackatime_row", choice:, type:, name:, input_data:, selected: %>
+  <% end %>
+  <% if older.any? %>
+    <details class="hkp__older">
+      <summary class="hkp__more sp-btn sp-btn--ghost sp-btn--sm">Show <%= older.size == 1 ? "1 older project" : "#{older.size} older projects" %></summary>
+      <div class="hkp__list">
+        <% older.each do |choice| %>
+          <%= render "shared/hackatime_row", choice:, type:, name:, input_data:, selected: %>
         <% end %>
-      </span>
-      <% if hours %>
-        <span class="hkp__hours sp-stat"><span class="sp-stat__key"><%= sp_icon "time-fill" %></span><%= hours %><span class="sp-stat__unit">hrs</span></span>
-      <% else %>
-        <span class="hkp__note"><%= choice[:note] %></span>
-      <% end %>
-    </label>
+      </div>
+    </details>
   <% end %>
 </div>

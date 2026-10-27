@@ -21,6 +21,12 @@
 .hkp__hours .sp-stat__key { width: 28px; height: 28px; font-size: 16px; }
 .hkp__warning { display: flex; align-items: flex-start; gap: 6px; margin-top: -8px; padding-bottom: 2px; font: 700 13px/18px var(--font-body); color: var(--coral-ink); }
 .hkp__warning .sp-icon { flex: none; font-size: var(--icon-sm); margin-top: 1px; }
+.hkp__earlier { margin-top: -8px; padding-bottom: 2px; font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
+.hkp__earlier + .hkp__warning { margin-top: 0; }
+.hkp__older { display: grid; gap: var(--space-2); }
+.hkp__more { justify-self: start; cursor: pointer; list-style: none; }
+.hkp__more::-webkit-details-marker { display: none; }
+.hkp__older[open] > .hkp__more { display: none; }
 .hkp__note { display: flex; align-items: center; min-height: 36px; padding-right: var(--space-3); font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
 .hkp__text { margin: 0; font: 600 15px/22px var(--font-body); color: var(--ink-muted); }
 .hkp__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }

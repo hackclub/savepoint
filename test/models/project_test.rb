@@ -310,6 +310,30 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
     assert_equal Time.utc(2026, 10, 26, 9), project.reload.hackatime_picked_at
   end
 
+  # D-089: the picker lists old projects, but auto-link still reads the time since the program started (Hackatime.projects).
+  test "an old project the picker lists is not auto-linked until it gains time since the start (D-048, D-089)" do
+    project = auto_linkable_project
+    user = project.user
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { user.hackatime_uid => [ hackatime_project("old-jam", 36_000), hackatime_project("rhythm-game", 5400) ] }
+    available = Hackatime.projects(user)
+    assert_not_includes available.map(&:name), "old-jam"
+    assert_includes Hackatime.pickable_projects(user).map(&:name), "old-jam", "the picker lists it"
+
+    project.auto_link_hackatime_project(available)
+    assert_nil project.auto_link_hackatime_project(available), "earlier time is not gained time"
+    assert_empty project.reload.hackatime_projects
+    assert_equal "rhythm-game", project.auto_link_hackatime_project([ hackatime_project("rhythm-game", 6000) ])
+  ensure
+    Hackatime.stubbed_all_projects = before
+  end
+
+  test "a hand-picked old project counts at once, however it is named (D-091, D-089)" do
+    project = projects(:orpheus)
+    project.update_columns(name: "Rhythm Quest", repo_url: nil, hackatime_projects: [ "old-jam" ], hackatime_auto_linked: false, hackatime_link_confirmed: false)
+    assert project.hackatime_confirmed?
+  end
+
   test "a continued game links itself once its project gains time after the baseline" do
     project = auto_linkable_project
     project.auto_link_hackatime_project([ hackatime_project("old-game", 600), hackatime_project("dotfiles", 90) ])

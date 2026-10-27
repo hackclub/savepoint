@@ -1,26 +1,15 @@
 <%# Step 3: your prize, every one in Prize::ALL, fewest hours first, each with the pace a day it takes. The one you
-    claimed on the landing page starts picked (the controller). Next goes on to when you'll build. %>
+    claimed on the landing page starts picked (the controller). Next goes on to when you'll build.
+    A card is the shop's (shared/_prize_tag, drawn by _shop_shapes) as a rectangle, without the hook. %>
 <div class="onboarding-prizes">
+  <%= render "pages/landing/shop_shapes" %>
   <div class="onboarding-prizes__grid">
     <% onboarding_prizes.each do |prize| %>
-      <button type="button" class="onboarding-prize onboarding-prize--<%= prize_tier(prize) %>" aria-pressed="false"
+      <button type="button" class="onboarding-prize shop-card shop-card--rect shop-card--<%= prize_tier(prize) %>" aria-pressed="false"
               data-onboarding-target="prize" data-prize="<%= prize.key %>"
               data-action="onboarding#pickPrize" data-onboarding-prize-param="<%= prize.key %>">
-        <span class="onboarding-prize__art">
-          <%= prize.image ? image_tag("save_point/prizes/#{prize.image}", alt: "", loading: "lazy") : sp_icon(prize.icon) %>
-          <span class="onboarding-prize__tick" aria-hidden="true"><%= sp_icon "check-fill" %></span>
-          <span class="onboarding-prize__label">
-            <span class="onboarding-prize__name"><%= prize.name %></span>
-            <span class="onboarding-prize__kind"><%= prize.kind %></span>
-          </span>
-        </span>
-        <span class="onboarding-prize__price">
-          <%= hours_coin %>
-          <span class="onboarding-prize__cost">
-            <span class="onboarding-prize__pace"><%= pace_html(prize.pace_minutes) %></span>
-            <span class="onboarding-prize__total"><%= prize_hours(prize.hours) %> hrs total</span>
-          </span>
-        </span>
+        <%= render "shared/prize_tag", prize:, rect: true %>
+        <span class="onboarding-prize__tick" aria-hidden="true"><%= sp_icon "check-fill" %></span>
       </button>
     <% end %>
   </div>

@@ -29,20 +29,30 @@ class AdminSummaryTest < ActiveSupport::TestCase
     CodedBucket.create!(user:, bucket_at: CodedBucket.floor(minutes_ago.minutes.ago), seconds: held ? 0 : seconds, unconfirmed_seconds: held ? seconds : 0)
   end
 
-  test "D-086: DAU is the participants who built a minute or more in the last 24 hours" do
+  test "D-092: DAU is the participants who built a minute or more today, UTC midnight to now" do
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
     eve = User.create!(hca_id: "ident!eve", first_name: "Eve")
-    bucket(@ana, 23 * 60, Growth::ACTIVE_SECONDS)
+    bucket(@ana, 3 * 60, Growth::ACTIVE_SECONDS)
     bucket(dee, 60, Growth::ACTIVE_SECONDS - 30)
     bucket(users(:orpheus), 60, 3600)
-    bucket(eve, 25 * 60, 3600)
+    bucket(eve, 21 * 60, 3600)
     summary = AdminSummary.new.to_h
 
-    assert_equal 1, summary[:dau], "ana's 60 s counts, across the date line; dee's 30 s, the admin's hour and eve's 25 hours ago don't"
+    assert_equal 1, summary[:dau], "ana's 60 s at 17:00 counts; dee's 30 s, the admin's hour and eve's hour yesterday at 23:00 UTC don't"
     assert_nil summary[:dau_on_site], "no visit recorded yet"
   end
 
-  test "D-086: several pieces in the window add up to a minute" do
+  test "D-092: the tile resets at midnight UTC, not 24 hours on" do
+    bucket(@ana, 20 * 60 + 5, 600)
+    assert_equal 0, AdminSummary.new.to_h[:dau], "ana built at 23:55 yesterday, 20 hours ago"
+
+    travel_to Time.utc(2026, 10, 25, 0, 4) do
+      bucket(@ana, 3, 600)
+      assert_equal 1, AdminSummary.new.to_h[:dau], "00:00 to 00:04 today"
+    end
+  end
+
+  test "D-092: several pieces today add up to a minute" do
     bucket(@ana, 120, 30)
     bucket(@ana, 10, 30)
 
@@ -72,10 +82,13 @@ class AdminSummaryTest < ActiveSupport::TestCase
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee", created_at: Time.utc(2026, 10, 24, 9))
     @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 1800)
     dee.streak_activities.create!(activity_date: Date.new(2026, 10, 24), coded_seconds: 1800)
+    bucket(@ana, 30, 1800)
+    bucket(dee, 30, 1800)
     summary = AdminSummary.new.to_h
 
     assert_equal Date.new(2026, 10, 24), summary[:today_row][:date]
     assert_equal({ new: 1, current: 1, returning: 0 }, summary[:today_row][:states])
+    assert_equal summary[:dau], summary[:today_row][:dau], "D-092: the last column of the charts is the tile's number"
     assert_equal [ 1, 1.0 ], summary[:today_row].values_at(:signups, :hours)
     assert_equal Date.new(2026, 10, 23), summary[:daily].last[:date], "daily is finished days only, so averages leave today out"
     assert_equal Date.new(2026, 10, 24), summary[:sign_up_today][:date]

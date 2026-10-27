@@ -16,22 +16,21 @@ class AdminSummary
     dates = growth.days.map(&:date)
     sign_up_days = AdminInsights::SignUpDay.call(dates: Program::DATES.cover?(Date.current) ? [ *dates, Date.current ] : dates)
     { signups: User.participants.count, signups_today: User.participants.where(created_at: Time.current.all_day).count,
-      dau: dau_24h, dau_unconfirmed: dau_unconfirmed_24h, shared_games: shared_games, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
+      dau: dau_today, dau_unconfirmed: dau_unconfirmed_today, shared_games: shared_games, dau_on_site: dau_on_site(site_days), daily:, today_row:, site_days:, participant_funnel: funnel_now, participant_waiting: ParticipantFunnel.waiting(funnel_now), **funnel,
       pace:, prize_spend: AdminInsights::PrizeSpend.call(pace), sign_up_day: sign_up_days.first(dates.size), sign_up_today: (sign_up_days[dates.size]&.merge(partial: true)),
       ship_flow: AdminInsights::ShipFlow.call(dates:), nudge_results: AdminInsights::NudgeResults.call }
   end
 
-  # D-086: participants who built Growth::ACTIVE_SECONDS or more in the last 24 hours, a rolling window (CodedBucket), counting
-  # confirmed links only (D-084, D-087). Not today's date: that mixed midnight UTC with everyone's own streak day.
-  # D-087: only time Hackatime files under coding counts, and accounts that share a repo count once (their time adds up).
-  def dau_24h
-    builders_24h.count { |_, counted, _| counted >= Growth::ACTIVE_SECONDS }
+  # D-092: participants who built Growth::ACTIVE_SECONDS or more today, the UTC calendar day from midnight (CodedBucket),
+  # counting confirmed links only (D-084). D-087: only time Hackatime files under coding counts. D-090: accounts that share
+  # a repo each count. (D-086 counted a rolling 24 hours.)
+  def dau_today
+    builders_today.count { |_, counted, _| counted >= Growth::ACTIVE_SECONDS }
   end
 
-  # D-084, D-087: participants whose only time in the last 24 hours is on a Hackatime link nobody has confirmed (it linked
-  # itself, or looks like another game). They aren't in dau_24h.
-  def dau_unconfirmed_24h
-    builders_24h.count { |_, counted, held| counted < Growth::ACTIVE_SECONDS && held >= Growth::ACTIVE_SECONDS }
+  # D-084: participants whose only time today is on an auto-linked Hackatime project nobody has confirmed. They aren't in dau_today.
+  def dau_unconfirmed_today
+    builders_today.count { |_, counted, held| counted < Growth::ACTIVE_SECONDS && held >= Growth::ACTIVE_SECONDS }
   end
 
   # D-087: each pair of participants' projects that share a repo, for the admin to judge: one person on two accounts, or a team.
@@ -62,10 +61,22 @@ class AdminSummary
   def daily = rows_for(growth.days)
 
   # Today as far as it's got (D-082): the same row as a finished day's, marked partial so the charts draw it as unfinished.
-  # Nil outside the days of Save Point.
+  # D-092: its builders are the tile's (the UTC day, from the 5-minute pieces), not the streak days' (each person's own 2am
+  # to 2am), so the last column of the charts and the DAU tile are one number. Each is put in the state they'd have today
+  # given the finished days they built. Nil outside the days of Save Point.
   def today_row
-    today = Growth.new(participants_only: true, today: Date.current + 1).days.last
-    rows_for([ today ]).first&.merge(partial: true) if today&.date == Date.current
+    today = Date.current
+    return unless Program::DATES.cover?(today) && today >= Program::HACKATIME_START
+
+    states = Growth::ACTIVE_STATES.index_with(0)
+    builders_today.each do |user_id, counted, _|
+      next if counted < Growth::ACTIVE_SECONDS
+
+      state = Growth.state_on([ *growth.active_dates(user_id).select { |date| date < today }, today ], today)
+      states[state] += 1
+    end
+    row = rows_for([ Growth::Day.new(date: today, counts: states, transitions: {}) ]).first
+    row.merge(partial: true, states: states.symbolize_keys)
   end
 
   # Hours built on projects that no ship holds yet, hours in the ships in review, and hours approved. A ship holds every
@@ -83,11 +94,11 @@ class AdminSummary
   end
 
   private
-    # Per builder (a group of accounts that share a repo is one): [id, coding seconds that count, coding seconds held].
-    def builders_24h
-      @builders_24h ||= begin
-        canonical = SharedGames.canonical_ids(user_ids: participants.select(:id))
-        CodedBucket.totals_since(24.hours.ago, participants.select(:id)).group_by { |user_id, _, _| canonical.fetch(user_id, user_id) }
+    # Per builder (D-090: accounts that share a repo each count): [id, coding seconds that count, coding seconds held],
+    # since midnight UTC today (D-092).
+    def builders_today
+      @builders_today ||= begin
+        CodedBucket.totals_since(Time.current.utc.beginning_of_day, participants.select(:id)).group_by { |user_id, _, _| user_id }
                    .map { |id, rows| [ id, rows.sum { |row| row[1].to_i }, rows.sum { |row| row[2].to_i } ] }
       end
     end

@@ -112,22 +112,24 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "DAU shows how many of today's builders also opened the site, and a dash before it was recorded" do
+  test "the DAU tile no longer carries site visits; the Also on the site chart does" do
     sign_in_as(users(:orpheus))
-    travel_to Program::DATES.begin + 4
+    travel_to Program::DATES.begin.in_time_zone("UTC") + 4.days + 12.hours
     get admin_root_path
-    assert_select ".admin__readout", text: /DAU.*site visits: –/m
+    assert_select ".admin__readout", text: /DAU.*also opened the site/m, count: 0
+    assert_select ".admin-chart", text: /Not recorded yet/
 
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 4, coded_seconds: 30 * 60)
     CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 600)
     SiteDay.create!(user: users(:ana), date: Program::DATES.begin + 4)
     Rails.cache.clear
     get admin_root_path
-    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
+    assert_select ".admin__readout", text: /DAU.*also opened the site/m, count: 0
     assert_select ".admin-chart", text: /Also on the site/
   end
 
-  test "D-087: the admin home lists each pair of accounts that share a repo, counted once" do
+  test "D-087: the admin home lists each pair of accounts that share a repo, and each counts in DAU (D-090)" do
+    travel_to Time.utc(2026, 10, 25, 12)
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee", slack_display_name: "dee-builds")
     Project.create!(user: dee, idea: "martian", prize_key: "micro", pace_minutes: 45, build_time: "evening", signed_on: "2026-09-30", repo_url: "https://example.com/hdhmhf/Minimum-Wage-Martian")
     projects(:ana).update_columns(repo_url: "https://example.com/hdhmhf/minimum-wage-martian")
@@ -136,19 +138,20 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     get admin_root_path
 
-    assert_select ".admin__readout", text: /DAU\s*1\s*built in the last 24 hours/
+    assert_select ".admin__readout", text: /DAU\s*2\s*built today/
     assert_select "ul[aria-label='Accounts that share a game'] li", text: /shares a repo with/
+    assert_select "ul[aria-label='Accounts that share a game'] li", text: /counted once/, count: 0
   end
 
-  test "the DAU tile says built in the last 24 hours, and the charts end on a partial column for today with the averages on finished days" do
+  test "the DAU tile says built today, and the charts end on a partial column for today with the averages on finished days" do
     sign_in_as(users(:orpheus))
-    travel_to Program::DATES.begin + 4
+    travel_to Program::DATES.begin.in_time_zone("UTC") + 4.days + 12.hours
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 3, coded_seconds: 3600)
     users(:ana).streak_activities.create!(activity_date: Program::DATES.begin + 4, coded_seconds: 120)
     CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 120)
     get admin_root_path
 
-    assert_select ".admin__readout", text: /DAU\s*1\s*built in the last 24 hours\s*plus 0 unconfirmed/
+    assert_select ".admin__readout", text: /DAU\s*1\s*built today/
     assert_select ".pg-admin-home__sub", text: /today so far, then finished days/
     assert_select ".admin-chart--daily .admin-chart__day.is-partial", 5, "one for each of the five charts"
     assert_select ".admin-chart--daily .admin-chart__axis span:last-child", text: "Today", minimum: 5
@@ -158,7 +161,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
   test "with site visits recorded only today, the site card shows today's partial bar and says so" do
     sign_in_as(users(:orpheus))
-    travel_to Program::DATES.begin + 4
+    travel_to Program::DATES.begin.in_time_zone("UTC") + 4.days + 12.hours
     users(:ana).streak_activities.create!(activity_date: Date.current, coded_seconds: 600)
     CodedBucket.create!(user: users(:ana), bucket_at: CodedBucket.floor(1.hour.ago), seconds: 600)
     SiteDay.create!(user: users(:ana), date: Date.current)
@@ -166,13 +169,12 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
     assert_select ".admin-chart--daily", text: /Also on the site.*Today so far: 1 of 1 builder also opened the site/m
     assert_select ".admin-chart--daily", text: /Not recorded yet/, count: 0
-    assert_select ".admin__readout", text: /DAU.*1 also opened the site/m
     assert_select ".admin-chart--daily:has(.admin__readout-name):has(.admin-chart__day.is-partial .admin-chart__column)", minimum: 1
   end
 
   test "the sign-up day card reports today so far when only today has sign-ups" do
     sign_in_as(users(:orpheus))
-    travel_to Program::DATES.begin + 4
+    travel_to Program::DATES.begin.in_time_zone("UTC") + 4.days + 12.hours
     User.where.not(slack_id: "U0ORPHEUS").update_all(created_at: Program::DATES.begin - 5)
     ana = users(:ana)
     ana.update_columns(created_at: Time.current)
@@ -195,7 +197,7 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
 
   test "the growth section has the totals, the simulator on the admin page and the streaks, and no second funnel" do
     sign_in_as(users(:orpheus))
-    travel_to Program::DATES.begin + 4
+    travel_to Program::DATES.begin.in_time_zone("UTC") + 4.days + 12.hours
     user = User.create!(hca_id: "ident!daily", first_name: "Daily")
     (0..2).each { |ago| user.streak_activities.create!(activity_date: Program::DATES.begin + 3 - ago, coded_seconds: 6 * 60) }
     get admin_growth_path, headers: { "Turbo-Frame" => "admin-growth" }

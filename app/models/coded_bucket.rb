@@ -1,11 +1,11 @@
 # Time someone coded, in 5-minute pieces, for the last few days only (D-086). StreakActivity keeps whole days, which can't
-# answer "who built in the last 24 hours?". The Hackatime sync rewrites the recent pieces from the spans it reads.
-# `seconds` counts; `unconfirmed_seconds` is time held on a link nobody has confirmed (D-084, D-087), like StreakActivity's.
+# answer "who built today (UTC)?" (D-092). The Hackatime sync rewrites the recent pieces from the spans it reads.
+# `seconds` counts; `unconfirmed_seconds` is time held on a link nobody has confirmed (D-084), like StreakActivity's.
 # `coding_seconds` (D-087) is how much of the piece Hackatime files under coding, held or not; nil is not asked yet, and reads as all of it.
 class CodedBucket < ApplicationRecord
   SIZE = 5.minutes.to_i
   KEEP = 3.days
-  # The sync reads at least 2 days back, so it can rewrite every piece from here on; the tile needs only 24 hours.
+  # The sync reads at least 2 days back, so it can rewrite every piece from here on; the tile needs only today (D-092).
   REWRITE = 36.hours
 
   belongs_to :user

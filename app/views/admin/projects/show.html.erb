@@ -72,7 +72,7 @@
             <dt>Hackatime</dt>
             <dd>
               <% if @project.tracking? %>
-                <%= @project.hackatime_projects.join(", ") %><% if @project.hackatime_auto_linked %> <small class="admin__muted">(linked itself)</small><% end %><% if !@project.hackatime_auto_linked && !@project.hackatime_confirmed? %> <small class="admin__muted">(looks like another game, not confirmed)</small><% end %>
+                <%= @project.hackatime_projects.join(", ") %><% if @project.hackatime_auto_linked %> <small class="admin__muted">(linked itself)</small><% end %>
               <% elsif @project.hackatime_linked? %><span class="admin__muted">linked, no project picked yet</span>
               <% else %><span class="admin__muted">not linked</span><% end %>
             </dd>

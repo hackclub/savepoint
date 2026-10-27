@@ -93,6 +93,9 @@ class Growth
     }
   end
 
+  # The days `user_id` built ACTIVE_SECONDS or more (their streak days), sorted. Empty if none.
+  def active_dates(user_id) = active_dates_by_user.fetch(user_id, [])
+
   # A builder's state on `day`, given the days they've built (sorted), or nil before their first.
   def self.state_on(active_dates, day)
     first = active_dates.first

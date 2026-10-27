@@ -46,7 +46,7 @@ class Project < ApplicationRecord
   # D-065: a moved hours start rebuilds every day from the new moment too.
   after_update_commit :refresh_streak, if: -> { saved_change_to_hackatime_projects? || saved_change_to_hours_start_override? }
   # D-066: a new repo or Hackatime project may be a jame gam game, so look again.
-  after_update_commit :release_held_hours, if: -> { (saved_change_to_hackatime_auto_linked? || saved_change_to_hackatime_link_confirmed?) && hackatime_confirmed? }
+  after_update_commit :release_held_hours, if: -> { saved_change_to_hackatime_auto_linked? && hackatime_confirmed? }
   after_update_commit :check_jame_gam, if: -> { saved_change_to_hackatime_projects? || saved_change_to_repo_url? }
   validate :hours_start_override_in_range, if: :hours_start_override_changed?
 
@@ -59,11 +59,6 @@ class Project < ApplicationRecord
     pattern = "%#{sanitize_sql_like(query)}%"
     joins(:user).where("projects.name ILIKE :q OR projects.idea ILIKE :q OR " \
                        "users.name ILIKE :q OR users.email ILIKE :q OR users.slack_display_name ILIKE :q", q: pattern)
-  end
-
-  # The lower-case words of a title or a Hackatime project name, without the generic ones (D-087).
-  def self.name_words(text)
-    text.to_s.downcase.split(/[^a-z0-9]+/).select { |word| word.length >= 3 && GENERIC_WORDS.exclude?(word) }
   end
 
   # Your game's name, or its idea.
@@ -295,23 +290,10 @@ class Project < ApplicationRecord
     step_done?(step) || (step == "hackatime_project" && waiting_for_hackatime_project?)
   end
 
-  # D-084: a link the person picked by hand is confirmed. One that linked itself (hackatime_auto_linked) isn't until they
-  # press Yes or pick another; its time is synced but held (StreakActivity#unconfirmed_seconds).
-  # D-087: a hand-picked link that looks like another game (hackatime_link_doubtful?) isn't either, until they press Yes.
-  # A Yes stays (hackatime_link_confirmed), so the question doesn't come back.
-  def hackatime_confirmed? = !hackatime_auto_linked? && (hackatime_link_confirmed? || !hackatime_link_doubtful?)
-
-  # Words that say nothing about which game a Hackatime project is, so sharing one doesn't make a match.
-  GENERIC_WORDS = %w[game games jam jame gam project projects untitled the and for my].freeze
-
-  # D-087: none of the linked Hackatime projects shares a word with the game's title or its repo's name. Case, hyphens,
-  # underscores and spaces don't matter, generic words don't count, and "Other" is always doubtful. "Dusty Beetle" on a game
-  # called "Dust Bunny, Dusty Beetle" is fine: one name matching is enough.
-  def hackatime_link_doubtful?
-    return false if hackatime_projects.empty?
-
-    hackatime_projects.none? { |name| hackatime_name_matches?(name) }
-  end
+  # D-084: a link the person picked by hand is confirmed (D-091: however it is named). One that linked itself
+  # (hackatime_auto_linked) isn't until they press Yes or pick another; its time is synced but held
+  # (StreakActivity#unconfirmed_seconds).
+  def hackatime_confirmed? = !hackatime_auto_linked?
 
   # Hours count once Hackatime knows which project this is.
   def tracking?
@@ -409,8 +391,6 @@ class Project < ApplicationRecord
   def hackatime_project_names=(names)
     names = Array(names).map { |name| name.to_s.strip }.compact_blank.uniq
     @picked_hackatime_projects = names
-    # D-087: a Yes was for the links they had; a project they add needs its own.
-    self.hackatime_link_confirmed = false if (names - hackatime_projects).any?
     self.hackatime_projects = names
     self.hackatime_auto_linked = false
   end
@@ -593,24 +573,6 @@ class Project < ApplicationRecord
   end
 
   private
-    def hackatime_name_matches?(name)
-      return false if name.to_s.strip.casecmp?("other")
-
-      words = self.class.name_words(name)
-
-      references = [ title, repo_name ]
-      return true if (words & references.flat_map { |text| self.class.name_words(text) }).any?
-
-      # "MinimumWageMartian" and "Minimum-Wage-Martian" are one name with the hyphens gone.
-      squashed = name.to_s.downcase.gsub(/[^a-z0-9]/, "")
-      squashed.length >= 4 && references.any? { |text| (reference = text.to_s.downcase.gsub(/[^a-z0-9]/, "")).length >= 4 && (reference.include?(squashed) || squashed.include?(reference)) }
-    end
-
-    # The repo's own name: the last part of its link, without ".git".
-    def repo_name
-      repo_url.to_s.strip.sub(/[?#].*\z/, "").sub(%r{/+\z}, "").split("/").last.to_s.delete_suffix(".git").presence if repo_url.present?
-    end
-
     # The first time a Hackatime project is linked (picked, or linked by itself): a later change keeps the time.
     def note_when_first_hackatime_project_picked
       self.hackatime_picked_at ||= Time.current if hackatime_projects.present?

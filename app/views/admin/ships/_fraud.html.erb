@@ -2,11 +2,18 @@
 <%# D-063: the fraud stage of a ship whose review approved. Pass it, pass it with a deduction (notes are due), or ban. Only a
     pass makes the ship approved, with hours to spend and a row in Airtable. Below it, send it back to review with a reason. %>
 <% format = Ship::Limits.method(:format) %>
+<%# D-097: on a later ship the review's figures are cumulative. The earlier approval stands, and the new hours are what's judged. %>
+<% prior = ship.earlier_approval %>
+<% new_hours = prior ? [ ship.review_hours.to_d - prior.hours, 0 ].max : ship.review_hours %>
 <div class="ash__review-said" id="admin-ship-review-said">
   <p class="sp-label ash__justify-label">Review approved</p>
   <dl class="ash__limits">
     <div><dt>Coding</dt><dd><%= format.(ship.review_coding_hours || ship.review_hours) %> hrs</dd></div>
     <% if ship.review_art_hours&.positive? %><div><dt>Art</dt><dd><%= format.(ship.review_art_hours) %> hrs</dd></div><% end %>
+    <% if prior %>
+      <div id="admin-ship-review-already"><dt>Already approved <small><%= prior.on.strftime("%b %-d") %> ship</small></dt><dd><%= format.(prior.hours) %> hrs</dd></div>
+      <div id="admin-ship-review-new"><dt>New hours from review</dt><dd><%= format.(new_hours) %> hrs</dd></div>
+    <% end %>
     <div class="ash__limits-total"><dt>Total from review</dt><dd><%= format.(ship.review_hours) %> hrs</dd></div>
   </dl>
   <p class="leaderboard__note ash__note">By <%= ship.reviewer&.first_name.presence || "someone" %>, <%= ship.reviewed_at&.strftime("%b %-d, %H:%M") %> UTC.</p>
@@ -29,11 +36,11 @@
   <div class="sp-field">
     <%= form.label :deduct_hours, "Deduct hours", class: "sp-label" %>
     <span class="ash__hours-box">
-      <%= form.number_field :deduct_hours, value: params[:deduct_hours].presence || 0, min: 0, max: ship.review_hours.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
+      <%= form.number_field :deduct_hours, value: params[:deduct_hours].presence || 0, min: 0, max: new_hours.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
             data: { shortcut: "d" }, aria: { describedby: "admin-ship-deduct-help" } %>
       <span class="ash__hours-unit" aria-hidden="true">hrs</span>
     </span>
-    <span class="sp-help" id="admin-ship-deduct-help">Of <%= format.(ship.review_hours) %> hrs approved by review. Used by "Pass with a deduction".</span>
+    <span class="sp-help" id="admin-ship-deduct-help">Of <%= format.(new_hours) %> <%= "new " if prior %>hrs approved by review. Used by "Pass with a deduction".</span>
   </div>
   <div class="sp-field">
     <%= form.label :fraud_notes, "Notes", class: "sp-label" %>

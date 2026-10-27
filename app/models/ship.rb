@@ -56,6 +56,8 @@ class Ship < ApplicationRecord
   normalizes :repo_url, :demo_url, with: ->(url) { Ship.with_scheme(url) }
 
   validates :status, inclusion: { in: STATUSES }
+  # D-097: a later ship's approval is the earlier approval plus the new hours, so it never falls below the earlier one.
+  validate :hours_hold_earlier_approval
   validates :title, presence: { message: "Set the title" }, length: { maximum: 80, too_long: "Make the title %{count} characters or fewer" }
   validates :description, presence: { message: "Write a description" }
   validates :description, length: { minimum: DESCRIPTION_MIN, too_short: "Make the description %{count}+ characters" }, allow_blank: true
@@ -120,6 +122,35 @@ class Ship < ApplicationRecord
     self.hackatime_seconds = Hackatime.project_seconds(user, hackatime_projects, project.hours_start..Time.current)
   rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
     nil
+  end
+
+  # D-097: the approval a later ship builds on: the latest approved ship of the project made before this one. `hours` is its
+  # cumulative approved total, `coding` and `art` that total split as the review stored it (all coding when none was stored,
+  # and a fraud deduction comes off coding first), and `on` the date of that ship. nil for a first ship.
+  EarlierApproval = Data.define(:ship, :hours, :coding, :art, :on)
+
+  def earlier_approval
+    return unless project && created_at
+
+    prior = project.ships.approved.where.not(id: id)
+                   .where("ships.created_at < :at OR (ships.created_at = :at AND ships.id < :id)", at: created_at, id: id || 0)
+                   .order(:created_at, :id).last
+    return unless prior
+
+    hours = (prior.approved_hours || prior.hours).to_d
+    art = [ prior.review_art_hours.to_d, hours ].min
+    EarlierApproval.new(ship: prior, hours:, coding: hours - art, art:, on: prior.created_at.to_date)
+  end
+
+  # D-101: the new hours of a later ship, for the review queue's "Update" label: the hours the ship would add, or added, to the
+  # earlier approval. nil for a first ship, and for a ship that was turned down (it has no total).
+  def update_hours
+    prior = earlier_approval
+    total = if approved? then approved_hours
+    elsif awaiting_fraud? then review_hours
+    elsif in_review? then counted_hours
+    end
+    [ total.to_d - prior.hours, 0 ].max if prior && total
   end
 
   # The most the handbook allows for the hours that count (D-030): AI coding at a third, art at most 30%.
@@ -238,7 +269,9 @@ class Ship < ApplicationRecord
     return false unless awaiting_fraud?
 
     errors.clear
-    deduction = deduction.to_d.clamp(0, review_hours.to_d).floor(2)
+    # D-097: a deduction comes off the new hours only; the earlier approval stands.
+    held = earlier_approval&.hours.to_d
+    deduction = deduction.to_d.clamp(0, [ review_hours.to_d - held, 0 ].max).floor(2)
     self.fraud_notes = notes.to_s.strip.presence
     errors.add(:fraud_notes, "Say why you deduct hours") if deduction.positive? && fraud_notes.nil?
     return false if errors.any?
@@ -294,10 +327,29 @@ class Ship < ApplicationRecord
   end
 
   private
+    def hours_hold_earlier_approval
+      return unless (approved? && will_save_change_to_approved_hours?) || (awaiting_fraud? && will_save_change_to_review_hours?)
+
+      total = approved? ? approved_hours : review_hours
+      held = earlier_approval&.hours
+      return if total.nil? || held.nil? || total.to_d >= held
+
+      errors.add(:approved_hours, "Approved hours can't be below the #{Ship::Limits.hrs(held)} already approved")
+    end
+
     def approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen)
       claimed = counted_hours
       limits = limits(claimed)
-      coding, art, below = limits.approve(coding_hours.presence&.to_d, art_hours.presence&.to_d)
+      # D-097: on a later ship the figures typed are the new hours. The limits are read on the whole project, and the
+      # earlier approval's coding and art are added back, so the ship keeps cumulative totals.
+      earlier = earlier_approval
+      if earlier
+        coding, art, below = limits.approve_new(earlier.coding, earlier.art, coding_hours.presence&.to_d, art_hours.presence&.to_d)
+        coding += earlier.coding
+        art += earlier.art
+      else
+        coding, art, below = limits.approve(coding_hours.presence&.to_d, art_hours.presence&.to_d)
+      end
       self.technical_features = technical_features.to_s.strip.presence
       reason = deflation_reason.to_s.strip.presence
       errors.add(:technical_features, "Name the specific technical features that explain the hours") if self.technical_features.nil?

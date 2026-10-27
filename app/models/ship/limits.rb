@@ -62,6 +62,25 @@ class Ship::Limits
     [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
   end
 
+  # D-097: a later ship's review judges only the new hours, with the limits read on the whole project. These hold what the
+  # earlier approval (its cumulative coding and art) already used. The most new coding is the cumulative coding cap less the
+  # earlier coding, and the most new art is the art hold on the cumulative coding less the earlier art. Never below 0.
+  def new_coding_top(earlier_coding) = [ coding_cap.floor(2) - earlier_coding.to_d, 0 ].max
+  def new_art_top(earlier_coding, earlier_art, new_coding) = [ art_allowed_for(earlier_coding.to_d + new_coding.to_d).floor(2) - earlier_art.to_d, 0 ].max
+  def new_art_claimed(earlier_art) = [ art - earlier_art.to_d, 0 ].max
+  def new_coding_claimed(earlier_coding) = [ coding - earlier_coding.to_d, 0 ].max
+
+  # approve, for the new hours of a later ship. Returns [new coding, new art, below].
+  def approve_new(earlier_coding, earlier_art, coding_hours, art_hours)
+    top_coding = new_coding_top(earlier_coding)
+    coding = coding_hours.nil? ? top_coding : coding_hours.to_d.clamp(0, top_coding)
+    coding = top_coding if top_coding - coding < TOLERANCE
+    top_art = new_art_top(earlier_coding, earlier_art, coding)
+    art = art_hours.nil? ? top_art : art_hours.to_d.clamp(0, top_art)
+    art = top_art if top_art - art < TOLERANCE
+    [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
+  end
+
   def ai_cut = coding - coding_cap
   def art_cut = art - art_allowed
   def cut? = claimed - most >= TOLERANCE

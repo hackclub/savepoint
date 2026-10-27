@@ -135,6 +135,11 @@ class Admin::ShipsController < Admin::BaseController
     def load_review
       review = @ship.review
       @others, @commits, @earlier_ship, @limits = review.others, review.commits, review.earlier_ship, review.limits
+      # D-101: a later ship lists the commits since the last approved ship. `?commits=all` lists all since the hours start. The
+      # evidence keeps the full result, since the release check needs the earliest commit.
+      @earlier_approval = @ship.earlier_approval
+      @all_commits = params[:commits] == "all"
+      @listed_commits = @earlier_approval && !@all_commits ? @commits.since(@earlier_approval.ship.created_at) : @commits
       @snapshot ||= Ship::Snapshot.new(@ship)
       @readme = Ship::Readme.for(@ship)
       # D-063: the evidence panels. Each part is looked up as the page draws it and shows its own problem line.

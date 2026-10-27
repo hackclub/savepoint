@@ -128,7 +128,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     other.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
     other.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     other.pass_fraud!(by: @reviewer, deduction: "99", notes: "None of it.")
-    assert_equal 0, other.reload.approved_hours, "never more than the review approved"
+    assert_equal BigDecimal("4.21"), other.reload.approved_hours, "a deduction takes only the new hours: the earlier approval stands (D-097)"
   end
 
   test "a ban at the fraud check rejects the ship for good and bans the account" do

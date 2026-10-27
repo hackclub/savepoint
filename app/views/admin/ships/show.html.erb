@@ -75,13 +75,21 @@
         </section>
 
         <section class="sp-panel ash__panel ash__commits" aria-labelledby="admin-ship-commits">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-commits"><span><%= sp_icon "github-fill" %>Commits since Save Point began</span></h2>
-          <% if @commits.ok? && @commits.commits.any? %>
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-commits"><span><%= sp_icon "github-fill" %><%= @earlier_approval && !@all_commits ? "Commits since the last approved ship" : "Commits since Save Point began" %></span></h2>
+          <% from = @earlier_approval && !@all_commits ? @earlier_approval.ship.created_at : project.hours_start %>
+          <% if @listed_commits.ok? && @listed_commits.commits.any? %>
             <p class="admin__muted ash__commits-note">
-              <%= @commits.commits.size %><%= "+" if @commits.more %> from <%= project.hours_start.utc.strftime("%b %-d") %> to <%= @ship.created_at.utc.strftime("%b %-d, %H:%M") %> UTC.
+              <%= @listed_commits.commits.size %><%= "+" if @listed_commits.more %> from <%= from.utc.strftime("%b %-d") %> to <%= @ship.created_at.utc.strftime("%b %-d, %H:%M") %> UTC.
+              <% if @earlier_approval %>
+                <% if @all_commits %>
+                  <%= link_to "Show only since the last approved ship", admin_ship_path(@ship, queue: params[:queue].presence), id: "admin-ship-commits-toggle" %>
+                <% else %>
+                  <%= link_to "Show all commits since #{project.hours_start.utc.strftime("%b %-d")}", admin_ship_path(@ship, queue: params[:queue].presence, commits: "all"), id: "admin-ship-commits-toggle" %>
+                <% end %>
+              <% end %>
             </p>
             <ol class="ash__commit-list">
-              <% @commits.commits.each do |commit| %>
+              <% @listed_commits.commits.each do |commit| %>
                 <li class="ash__commit">
                   <%= link_to commit.sha, commit.url, target: "_blank", rel: "noopener", class: "ash__sha" %>
                   <span class="ash__commit-message"><%= commit.message.presence || "(no message)" %></span>
@@ -90,12 +98,43 @@
               <% end %>
             </ol>
           <% elsif @commits.ok? %>
-            <p class="ash__problem" data-commits="none"><%= sp_icon "warning-fill" %>No commits between Save Point's start and the ship.</p>
+            <p class="ash__problem" data-commits="none"><%= sp_icon "warning-fill" %><%= @earlier_approval && !@all_commits ? "No commits between the last approved ship and this one." : "No commits between Save Point's start and the ship." %></p>
+            <% if @earlier_approval && !@all_commits && @commits.commits.any? %>
+              <p class="admin__muted"><%= link_to "Show all commits since #{project.hours_start.utc.strftime("%b %-d")}", admin_ship_path(@ship, queue: params[:queue].presence, commits: "all"), id: "admin-ship-commits-toggle" %></p>
+            <% end %>
           <% else %>
             <p class="ash__problem" data-commits="<%= @commits.status %>"><%= sp_icon "warning-fill" %><%= @commits.message %></p>
           <% end %>
         </section>
       </div>
+
+      <% if @earlier_approval %>
+        <%# D-101: the last approved ship's screenshot beside this one's, each with its date. %>
+        <% last_ship = @earlier_approval.ship %>
+        <section class="sp-panel ash__panel ash__beforeafter" id="admin-ship-last-approved" aria-labelledby="admin-ship-last-approved-title">
+          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-last-approved-title"><span><%= sp_icon "pic-fill" %>Last approved ship and this one</span></h2>
+          <div class="ash__pair">
+            <figure class="admin__ship-shot ash__shot ash__before">
+              <% if last_ship.screenshot.attached? %>
+                <%= link_to url_for(last_ship.screenshot), target: "_blank", rel: "noopener" do %>
+                  <%= image_tag url_for(last_ship.screenshot), alt: "Screenshot of the last approved ship, #{last_ship.created_at.utc.strftime("%b %-d")}" %>
+                <% end %>
+              <% else %>
+                <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span>The last approved ship has no screenshot.</span></p>
+              <% end %>
+              <figcaption class="admin__muted"><strong>Last approved ship</strong> <%= last_ship.created_at.utc.strftime("%b %-d") %></figcaption>
+            </figure>
+            <figure class="admin__ship-shot ash__shot ash__after">
+              <% if @ship.screenshot.attached? %>
+                <%= link_to url_for(@ship.screenshot), target: "_blank", rel: "noopener" do %>
+                  <%= image_tag url_for(@ship.screenshot), alt: "Screenshot of this ship, #{@ship.created_at.utc.strftime("%b %-d")}" %>
+                <% end %>
+              <% end %>
+              <figcaption class="admin__muted"><strong>This ship</strong> <%= @ship.created_at.utc.strftime("%b %-d") %></figcaption>
+            </figure>
+          </div>
+        </section>
+      <% end %>
 
       <section class="sp-panel ash__panel ash__beforeafter" aria-labelledby="admin-ship-beforeafter">
         <h2 class="sp-ribbon ash__ribbon" id="admin-ship-beforeafter"><span><%= sp_icon "pic-fill" %>Before and after</span></h2>

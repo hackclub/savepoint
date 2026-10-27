@@ -302,6 +302,8 @@ class ProjectTest < ApplicationSystemTestCase
 
       assert_selector ".focus__label", text: "POMODORO DONE"
       assert_selector ".focus__title", text: "Pomodoro done."
+      assert_no_text "Nothing to submit"
+      assert_no_selector ".focus__note-text", visible: :visible
       click_on "Take a 5 min break"
       assert_selector ".focus__label", text: "BREAK"
       assert_selector ".focus__clock", text: /\A(05:00|04:5\d)\z/

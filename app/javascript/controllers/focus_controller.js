@@ -245,9 +245,8 @@ export default class extends Controller {
     this.clockTarget.textContent = clock(done ? built : left)
     this.barTarget.style.inlineSize = done ? "100%" : `${(1 - left / total) * 100}%`
     this.barTarget.toggleAttribute("data-break", onBreak)
-    this.noteTarget.textContent = done ? "Hackatime already logged it. Nothing to submit."
-      : onBreak ? "Music keeps going. The next round starts on its own." : ""
-    this.noteTarget.hidden = !done && !onBreak
+    this.noteTarget.textContent = onBreak ? "Music keeps going. The next round starts on its own." : ""
+    this.noteTarget.hidden = !onBreak
     this.toggleLabelTarget.textContent = running ? "Pause" : "Resume"
     this.toggleTarget.setAttribute("aria-pressed", String(!running))
     this.endTarget.textContent = onBreak ? "Skip break" : "End pomodoro"

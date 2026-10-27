@@ -9,9 +9,11 @@
         <span class="onboarding-prize__art">
           <%= prize.image ? image_tag("save_point/prizes/#{prize.image}", alt: "", loading: "lazy") : sp_icon(prize.icon) %>
           <span class="onboarding-prize__tick" aria-hidden="true"><%= sp_icon "check-fill" %></span>
+          <span class="onboarding-prize__label">
+            <span class="onboarding-prize__name"><%= prize.name %></span>
+            <span class="onboarding-prize__kind"><%= prize.kind %></span>
+          </span>
         </span>
-        <span class="onboarding-prize__name"><%= prize.name %></span>
-        <span class="onboarding-prize__kind"><%= prize.kind %></span>
         <span class="onboarding-prize__price">
           <%= hours_coin %>
           <span class="onboarding-prize__cost">

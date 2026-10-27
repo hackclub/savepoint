@@ -162,48 +162,74 @@
 @media (min-width: 700px) { .pg-onboarding .onboarding-prizes__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); } }
 @media (min-width: 1000px) { .pg-onboarding .onboarding-prizes__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-/* A card: its art on a panel in the tier's colour (as on the landing page: up to 5 hours, up to 10, then more),
-   then its name, kind and what it costs in hours and a day. Picked, it's gold. */
+/* A card, as on the shop but a plain rectangle (no hook or tag shape): a navy frame with a lip under it, the art on a panel in
+   the tier's colour (as on the landing page: up to 5 hours, up to 10, then more) with halftone dots, the navy band that holds the
+   name and kind, and the price on a light panel below. Picked, the frame and lip go gold.
+   Every rounded shape is concentric: each sits 6px inside the one around it, so its radius is that one's minus 6.
+     card               24px outer, 6px frame border, 6px padding, so its inside is 18px
+     art and price      12px outer (18 - 6), 3px border, so their inside is 9px
+     name band          9px at its bottom corners, flush with the art panel's inside */
 .pg-onboarding .onboarding-prize {
+  --op-gap: 6px; --op-frame: 6px; --op-border: 3px; --op-outer: var(--radius-lg);
+  --op-edge: var(--frame); --op-lip: var(--frame-lip); --op-face: var(--surface);
+  --op-panel-radius: calc(var(--op-outer) - var(--op-frame) - var(--op-gap));
   --rc-panel: color-mix(in srgb, var(--mint) 82%, #ffffff); --rc-line: var(--mint-line); --rc-light: color-mix(in srgb, var(--mint-hi) 45%, #ffffff);
-  appearance: none; display: grid; align-content: start; gap: 2px; min-width: 0; margin: 0 0 var(--lip-depth); padding: 8px 8px 12px; text-align: center;
-  background: var(--surface); border: 2px solid var(--line-strong); border-radius: var(--radius-lg);
-  box-shadow: 0 var(--lip-depth) 0 var(--line-lip), inset 0 2px 0 var(--gloss);
+  appearance: none; display: grid; align-content: start; gap: var(--op-gap); min-width: 0; margin: 0 0 calc(var(--lip-depth) + 6px); padding: var(--op-gap); text-align: center;
+  background: var(--op-face); border: var(--op-frame) solid var(--op-edge); border-radius: var(--op-outer);
+  box-shadow: 0 var(--lip-depth) 0 var(--op-lip), 0 calc(var(--lip-depth) + 6px) 14px rgba(10, 16, 56, .2), inset 0 2px 0 var(--gloss);
   font: inherit; color: var(--ink); cursor: pointer;
 }
 .pg-onboarding .onboarding-prize--rare { --rc-panel: var(--royal-hi); --rc-line: var(--royal); --rc-light: color-mix(in srgb, var(--logo-fill) 70%, #ffffff); }
 .pg-onboarding .onboarding-prize--epic { --rc-panel: color-mix(in srgb, var(--violet) 85%, #ffffff); --rc-line: color-mix(in srgb, var(--violet) 55%, var(--violet-ink)); --rc-light: color-mix(in srgb, var(--violet) 30%, #ffffff); }
-.pg-onboarding .onboarding-prize:focus-visible { outline: none; box-shadow: 0 var(--lip-depth) 0 var(--line-lip), var(--focus-ring); }
+.pg-onboarding .onboarding-prize:focus-visible { outline: none; box-shadow: 0 var(--lip-depth) 0 var(--op-lip), var(--focus-ring); }
 .pg-onboarding .onboarding-prize[data-picked] {
-  border-color: var(--gold-line); background: var(--gold-soft); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 5px var(--gold-soft);
+  --op-edge: var(--gold-line); --op-lip: var(--gold-lip); --op-face: var(--gold-soft);
+  box-shadow: 0 var(--lip-depth) 0 var(--op-lip), 0 0 0 5px var(--gold-soft), 0 0 18px 4px var(--gold-hi), inset 0 2px 0 var(--gloss);
 }
 @media (prefers-reduced-motion: no-preference) {
   .pg-onboarding .onboarding-prize { transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1); }
   .pg-onboarding .onboarding-prize:hover { transform: translateY(-3px); }
 }
 .pg-onboarding .onboarding-prize__art {
-  position: relative; display: grid; place-items: center; height: 124px; margin-bottom: 6px; overflow: hidden; isolation: isolate;
-  border: 3px solid var(--rc-line); border-radius: calc(var(--radius-lg) - 2px - 8px); font-size: 48px; color: var(--on-royal);
+  position: relative; display: grid; grid-template-rows: 1fr auto; place-items: center; min-height: 168px; overflow: hidden; isolation: isolate;
+  border: var(--op-border) solid var(--rc-line); border-radius: var(--op-panel-radius); font-size: 48px; color: var(--on-royal);
   background: linear-gradient(180deg, var(--rc-light) 0%, var(--rc-panel) 48%); box-shadow: inset 0 7px 8px -5px rgba(10, 16, 56, .35);
 }
-.pg-onboarding .onboarding-prize__art img { max-width: 88%; max-height: 100px; filter: drop-shadow(0 3px 3px rgba(10, 16, 56, .35)); }
+.pg-onboarding .onboarding-prize__art::before { /* the halftone, thinning out upward */
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle, var(--rc-line) 1.7px, transparent 2.3px) 0 0 / 9px 9px;
+  -webkit-mask-image: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 85%); mask-image: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 85%);
+}
+.pg-onboarding .onboarding-prize__art img { max-width: 88%; max-height: 104px; align-self: center; filter: drop-shadow(0 3px 3px rgba(10, 16, 56, .35)); }
 .pg-onboarding .onboarding-prize__tick {
   position: absolute; top: 6px; right: 6px; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
   color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip);
 }
 .pg-onboarding [data-picked] .onboarding-prize__tick { display: grid; }
-.pg-onboarding .onboarding-prize__name { padding-inline: 4px; font: 800 16px/20px var(--font-body); overflow-wrap: anywhere; }
-.pg-onboarding .onboarding-prize__kind { padding-inline: 4px; font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
-.pg-onboarding .onboarding-prize__price { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 6px; }
+.pg-onboarding .onboarding-prize__label {
+  align-self: end; justify-self: stretch; display: grid; gap: 2px; padding: 8px 10px 9px; text-align: left; min-width: 0;
+  background: linear-gradient(180deg, var(--frame-track), var(--frame) 60%); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .14);
+  border-radius: 0 0 calc(var(--op-panel-radius) - var(--op-border)) calc(var(--op-panel-radius) - var(--op-border));
+}
+.pg-onboarding .onboarding-prize__name { font: 700 16px/20px var(--font-display); color: var(--on-frame); overflow-wrap: anywhere; }
+.pg-onboarding .onboarding-prize__kind { font: 500 13px/16px var(--font-display); color: var(--frame-muted); }
+.pg-onboarding .onboarding-prize__price {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 8px 10px; min-width: 0;
+  border: var(--op-border) solid var(--line); border-radius: var(--op-panel-radius);
+  background: linear-gradient(180deg, var(--surface), var(--surface-sunken)); box-shadow: inset 0 3px 4px -2px rgba(27, 36, 112, .18);
+}
 .pg-onboarding .onboarding-prize__price .hours-coin { flex: none; width: auto; height: 34px; filter: drop-shadow(0 1px 0 rgba(10, 16, 56, .15)); }
 .pg-onboarding .onboarding-prize__cost { display: grid; justify-items: start; gap: 3px; min-width: 0; text-align: left; }
-.pg-onboarding .onboarding-prize__pace { font: 900 italic 19px/1 var(--font-display); white-space: nowrap; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pg-onboarding .onboarding-prize__pace { font: 900 italic 19px/1 var(--font-display); white-space: nowrap; color: var(--frame); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .pg-onboarding .onboarding-prize__pace small { font-size: .64em; font-weight: 900; }
 .pg-onboarding .onboarding-prize__total { font: 800 italic 12px/1 var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 599px) {
-  .pg-onboarding .onboarding-prize__art { height: 104px; }
+  .pg-onboarding .onboarding-prize__art { min-height: 148px; }
   .pg-onboarding .onboarding-prize__art img { max-height: 84px; }
+  .pg-onboarding .onboarding-prize__name { font-size: 14px; line-height: 18px; }
+  .pg-onboarding .onboarding-prize__kind { font-size: 12px; }
   .pg-onboarding .onboarding-prize__pace { font-size: 16px; }
+  .pg-onboarding .onboarding-prize__price { padding-inline: 8px; gap: 6px; }
   .pg-onboarding .onboarding-prize__price .hours-coin { height: 28px; }
 }
 

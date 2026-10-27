@@ -28,6 +28,8 @@ class OnboardingTest < ApplicationSystemTestCase
 
     assert_selector "h2", text: "Pick your prize.", wait: 5
     assert_selector ".onboarding-prize", count: Prize::ALL.size
+    assert_selector ".onboarding-prize .onboarding-prize__art .onboarding-prize__label .onboarding-prize__name", count: Prize::ALL.size
+    assert_selector ".onboarding-prize .onboarding-prize__price .onboarding-prize__pace", count: Prize::ALL.size
     assert_equal Prize::ALL.sort_by(&:hours).map(&:name), all(".onboarding-prize__name").map(&:text)
     assert_selector ".onboarding-prize[data-picked]", text: Prize::DEFAULT_GOAL.name, count: 1
     find(".onboarding-prize", text: "Keychron K2").click

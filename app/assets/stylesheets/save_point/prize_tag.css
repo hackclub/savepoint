@@ -39,12 +39,12 @@
 
 /* Your goal: the card goes gold, with a deeper gold edge (gradients in _shop_shapes) and a gold enchantment glint
    sliding over all of it. */
-.shop-card.is-goal { --sc-card: url(#sp-goal-fill); --sc-outline: url(#sp-goal-line); --sc-lip: var(--gold-lip); }
+.shop-card.is-goal, .shop-card[data-picked] { --sc-card: url(#sp-goal-fill); --sc-outline: url(#sp-goal-line); --sc-lip: var(--gold-lip); }
 .shop-card__glint { position: absolute; inset: 0; z-index: 1; display: none; width: 100%; height: 100%; overflow: visible; pointer-events: none; mix-blend-mode: soft-light; opacity: .55; }
 .shop-card__glint--tint { mix-blend-mode: normal; opacity: .08; }
 .shop-card.is-goal .shop-card__glint { display: block; }
 @media (prefers-reduced-motion: reduce) { .shop-card.is-goal .shop-card__glint { display: none; } }
-.shop-card.is-goal .shop-card__shape { filter: drop-shadow(0 0 6px var(--gold-hi)) drop-shadow(0 1.6cqw 1.6cqw rgba(10, 16, 56, .2)); }
+.shop-card.is-goal .shop-card__shape, .shop-card[data-picked] .shop-card__shape { filter: drop-shadow(0 0 6px var(--gold-hi)) drop-shadow(0 1.6cqw 1.6cqw rgba(10, 16, 56, .2)); }
 
 /* On /shop the tag is not a button: no hover tilt, and what you can do with it sits under it. */
 .shop-card--static { cursor: default; }
@@ -59,3 +59,10 @@
   font: 800 italic 13px/1.2 var(--font-display); color: var(--ink-muted); background: var(--surface-sunken); box-shadow: inset 0 -2px 0 var(--shade); font-variant-numeric: tabular-nums; }
 .shop-tag__status[data-state="claimed"] { color: var(--on-royal); background: linear-gradient(180deg, var(--royal-hi), var(--royal)); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--royal-lip); }
 .shop-tag__status .sp-icon { font-size: 16px; }
+
+/* The rectangle: the card without its hook (shared/_prize_tag with rect: true). The drawing is 75 units (18.75cqw) shorter at the top,
+   and everything placed in cqw was set from the tag's top 40 units above the card, so it all moves up by 28.75cqw. No tilt, swing or clip. */
+.shop-card--rect { aspect-ratio: 400 / 479; rotate: none; transform-origin: 50% 50%; }
+.shop-card--rect > span { margin-top: -28.75cqw; }
+.shop-card--rect:hover, .shop-card--rect:nth-child(even):hover { transform: translateY(-3px); }
+.shop-card--rect:active { transform: scale(.98); }

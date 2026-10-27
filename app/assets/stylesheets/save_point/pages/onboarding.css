@@ -158,54 +158,19 @@
 
 /* ---------- Step 3: the prize cards ---------- */
 .pg-onboarding .onboarding-prizes { display: grid; gap: var(--space-6); }
-.pg-onboarding .onboarding-prizes__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.pg-onboarding .onboarding-prizes__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-3); }
 @media (min-width: 700px) { .pg-onboarding .onboarding-prizes__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); } }
 @media (min-width: 1000px) { .pg-onboarding .onboarding-prizes__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-/* A card: its art on a panel in the tier's colour (as on the landing page: up to 5 hours, up to 10, then more),
-   then its name, kind and what it costs in hours and a day. Picked, it's gold. */
-.pg-onboarding .onboarding-prize {
-  --rc-panel: color-mix(in srgb, var(--mint) 82%, #ffffff); --rc-line: var(--mint-line); --rc-light: color-mix(in srgb, var(--mint-hi) 45%, #ffffff);
-  appearance: none; display: grid; align-content: start; gap: 2px; min-width: 0; margin: 0 0 var(--lip-depth); padding: 8px 8px 12px; text-align: center;
-  background: var(--surface); border: 2px solid var(--line-strong); border-radius: var(--radius-lg);
-  box-shadow: 0 var(--lip-depth) 0 var(--line-lip), inset 0 2px 0 var(--gloss);
-  font: inherit; color: var(--ink); cursor: pointer;
-}
-.pg-onboarding .onboarding-prize--rare { --rc-panel: var(--royal-hi); --rc-line: var(--royal); --rc-light: color-mix(in srgb, var(--logo-fill) 70%, #ffffff); }
-.pg-onboarding .onboarding-prize--epic { --rc-panel: color-mix(in srgb, var(--violet) 85%, #ffffff); --rc-line: color-mix(in srgb, var(--violet) 55%, var(--violet-ink)); --rc-light: color-mix(in srgb, var(--violet) 30%, #ffffff); }
-.pg-onboarding .onboarding-prize:focus-visible { outline: none; box-shadow: 0 var(--lip-depth) 0 var(--line-lip), var(--focus-ring); }
-.pg-onboarding .onboarding-prize[data-picked] {
-  border-color: var(--gold-line); background: var(--gold-soft); box-shadow: 0 var(--lip-depth) 0 var(--gold-lip), 0 0 0 5px var(--gold-soft);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .pg-onboarding .onboarding-prize { transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1); }
-  .pg-onboarding .onboarding-prize:hover { transform: translateY(-3px); }
-}
-.pg-onboarding .onboarding-prize__art {
-  position: relative; display: grid; place-items: center; height: 124px; margin-bottom: 6px; overflow: hidden; isolation: isolate;
-  border: 3px solid var(--rc-line); border-radius: calc(var(--radius-lg) - 2px - 8px); font-size: 48px; color: var(--on-royal);
-  background: linear-gradient(180deg, var(--rc-light) 0%, var(--rc-panel) 48%); box-shadow: inset 0 7px 8px -5px rgba(10, 16, 56, .35);
-}
-.pg-onboarding .onboarding-prize__art img { max-width: 88%; max-height: 100px; filter: drop-shadow(0 3px 3px rgba(10, 16, 56, .35)); }
+/* A card is the shop's own (shared/_prize_tag with rect: true, drawn by _shop_shapes, styled by save_point/prize_tag.css): the same frame,
+   halftone, wavy band and price panel, without the hook. Picked, it goes gold the way your goal does on the shop ([data-picked]), with a tick. */
+.pg-onboarding .shop-shapes { position: absolute; width: 0; height: 0; overflow: hidden; }
+.pg-onboarding .onboarding-prizes__grid { row-gap: var(--space-6); }
 .pg-onboarding .onboarding-prize__tick {
-  position: absolute; top: 6px; right: 6px; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
+  position: absolute; z-index: 2; margin-top: 0; top: 14cqw; right: 12cqw; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
   color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip);
 }
 .pg-onboarding [data-picked] .onboarding-prize__tick { display: grid; }
-.pg-onboarding .onboarding-prize__name { padding-inline: 4px; font: 800 16px/20px var(--font-body); overflow-wrap: anywhere; }
-.pg-onboarding .onboarding-prize__kind { padding-inline: 4px; font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
-.pg-onboarding .onboarding-prize__price { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 6px; }
-.pg-onboarding .onboarding-prize__price .hours-coin { flex: none; width: auto; height: 34px; filter: drop-shadow(0 1px 0 rgba(10, 16, 56, .15)); }
-.pg-onboarding .onboarding-prize__cost { display: grid; justify-items: start; gap: 3px; min-width: 0; text-align: left; }
-.pg-onboarding .onboarding-prize__pace { font: 900 italic 19px/1 var(--font-display); white-space: nowrap; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.pg-onboarding .onboarding-prize__pace small { font-size: .64em; font-weight: 900; }
-.pg-onboarding .onboarding-prize__total { font: 800 italic 12px/1 var(--font-display); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-@media (max-width: 599px) {
-  .pg-onboarding .onboarding-prize__art { height: 104px; }
-  .pg-onboarding .onboarding-prize__art img { max-height: 84px; }
-  .pg-onboarding .onboarding-prize__pace { font-size: 16px; }
-  .pg-onboarding .onboarding-prize__price .hours-coin { height: 28px; }
-}
 
 /* ---------- Step 4: when you'll build ---------- */
 .pg-onboarding .onboarding-when { display: grid; gap: var(--space-6); }
@@ -241,7 +206,7 @@
 .pg-onboarding .onboarding-time__name { font: 900 italic 20px/24px var(--font-display); letter-spacing: -0.01em; }
 .pg-onboarding .onboarding-time__hint { padding-inline: 4px; font: 700 13px/18px var(--font-body); color: var(--ink-muted); }
 .pg-onboarding .onboarding-time__tick {
-  position: absolute; top: 6px; right: 6px; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
+  position: absolute; z-index: 2; top: 6px; right: 6px; display: none; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
   color: var(--on-gold); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 2px solid var(--gold-line); box-shadow: inset 0 2px 0 var(--gloss), 0 2px 0 var(--gold-lip);
 }
 .pg-onboarding .onboarding-time:has(:checked) .onboarding-time__tick { display: grid; }

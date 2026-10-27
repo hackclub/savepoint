@@ -29,7 +29,7 @@ class AdminSummaryTest < ActiveSupport::TestCase
     CodedBucket.create!(user:, bucket_at: CodedBucket.floor(minutes_ago.minutes.ago), seconds: held ? 0 : seconds, unconfirmed_seconds: held ? seconds : 0)
   end
 
-  test "D-092: DAU is the participants who built a minute or more today, UTC midnight to now" do
+  test "D-092: DAU is the participants who built a minute or more today, Eastern midnight to now" do
     dee = User.create!(hca_id: "ident!dee", first_name: "Dee")
     eve = User.create!(hca_id: "ident!eve", first_name: "Eve")
     bucket(@ana, 3 * 60, Growth::ACTIVE_SECONDS)
@@ -38,17 +38,23 @@ class AdminSummaryTest < ActiveSupport::TestCase
     bucket(eve, 21 * 60, 3600)
     summary = AdminSummary.new.to_h
 
-    assert_equal 1, summary[:dau], "ana's 60 s at 17:00 counts; dee's 30 s, the admin's hour and eve's hour yesterday at 23:00 UTC don't"
+    assert_equal 1, summary[:dau], "ana's 60 s at 17:00 UTC counts; dee's 30 s, the admin's hour and eve's hour at 23:00 UTC yesterday (19:00 ET) don't"
     assert_nil summary[:dau_on_site], "no visit recorded yet"
   end
 
-  test "D-092: the tile resets at midnight UTC, not 24 hours on" do
-    bucket(@ana, 20 * 60 + 5, 600)
-    assert_equal 0, AdminSummary.new.to_h[:dau], "ana built at 23:55 yesterday, 20 hours ago"
+  test "D-092: the tile resets at midnight Eastern, so 03:59 UTC is still the previous day" do
+    travel_to Time.utc(2026, 10, 25, 3, 59) do
+      bucket(@ana, 4, 600)
+      assert_equal 1, AdminSummary.new.to_h[:dau], "03:55 UTC is 23:55 ET on the 24th, in the 24th's day"
+      assert_equal Date.new(2026, 10, 24), AdminSummary.new.to_h[:today_row][:date]
+    end
 
-    travel_to Time.utc(2026, 10, 25, 0, 4) do
-      bucket(@ana, 3, 600)
-      assert_equal 1, AdminSummary.new.to_h[:dau], "00:00 to 00:04 today"
+    travel_to Time.utc(2026, 10, 25, 4, 1) do
+      assert_equal 0, AdminSummary.new.to_h[:dau], "00:01 ET on the 25th: a new day with nothing in it"
+      assert_equal Date.new(2026, 10, 25), AdminSummary.new.to_h[:today_row][:date]
+      bucket(@ana, 1, 300)
+      summary = AdminSummary.new.to_h
+      assert_equal [ 1, 1 ], [ summary[:dau], summary[:today_row][:dau] ]
     end
   end
 

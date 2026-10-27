@@ -88,6 +88,13 @@ module Nudge::Copy
 
   # Nudges that always send when they apply (see Nudge::Fixed).
   FIXED = {
+    # D-096: five hours or more since their last ship (Nudge::ShipPrompt). %{since} is "since your last ship", or
+    # "and haven't shipped yet" before a first ship.
+    "ship_prompt" => [
+      "%{unshipped} hours on %{title} that you haven't shipped yet! ship what you've got, you can keep building after :)",
+      "psst, %{unshipped} unshipped hours on %{title}! a small ship now is easier than one big one later :cat-lock-in:",
+      "you've built %{unshipped} hours of %{title} %{since}. time to ship it! :yay:"
+    ],
     # Setup, one missing step at a time.
     "hackatime" => [ "your hours start counting once hackatime is linked, it only takes about 2 minutes :)" ],
     "plugin" => [ "nothing from you has reached hackatime yet! turn the hackatime plugin on in your editor and write a line: %{title} links itself :)" ],
@@ -143,6 +150,7 @@ module Nudge::Copy
     "hackatime_project" => [ "pick your project", :project ],
     "repo" => [ "add your repo", :project ],
     "pledge_setup" => [ "pledge your game", :onboarding ],
+    "ship_prompt" => [ "ship it", :ship ],
     "first_session" => [ "see your progress", :project ],
     "halfway" => [ "see your progress", :project ],
     "done" => [ "claim your prize", :project ],

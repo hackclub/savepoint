@@ -162,6 +162,6 @@ class SlackDemo
         pace:, build_time: "evening", finish_on: (Date.current + 9).strftime("%b %-d"), local_time: "7pm", days_left: 9, streak: 4, streak_word: "days",
         streak_next: 5, next_reward: "a shoutout in slack", days_to_reward: 1, reward_days_word: "day", peers: 6, days_idle: 3, minutes: 48,
         day: "today", next_day: "tomorrow", rank: 12, above: "pixelana", gap_minutes: 25, gap_word: "minutes", passed_by: "pixelana",
-        places_lost: 2, sticker_minutes: 5 }
+        places_lost: 2, sticker_minutes: 5, unshipped: "5.4", since: "since your last ship" }
     end
 end

@@ -138,3 +138,4 @@ nudge.three_days_left:
   - url: https://media.giphy.com/media/EYLpQqZ14Nl7q3twr2/giphy-downsized.gif
     alt: "White rabbit holding up a pocket watch"
 nudge.streak_saver: *celebration
+nudge.ship_prompt: *celebration

@@ -59,6 +59,7 @@ class StreakActivity < ApplicationRecord
       user.update_column(:streak_synced_at, Time.current)
       user.recalculate_streak!
       Nudge::Cheer.queue(user, just_completed.max) if just_completed.any?
+      Nudge::ShipPrompt.queue(user)
     end
 
     # D-084: the person confirmed their link, so the time held for it counts, without asking Hackatime.

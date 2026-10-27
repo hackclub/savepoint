@@ -648,3 +648,19 @@
   .pg-project .project__side:has(.sticker-promise) > :not(.sticker-promise) { order: 1; }
   .pg-project .project__side:has(.sticker-promise) > .sticker-promise { order: -1; }
 }
+
+/* ---------- Unshipped hours (D-096) ----------
+   Concentric, measured: the card is 20px round (--outer) with 12px of padding (--gap), so the Ship it button against its
+   edge is 20 - 12 = 8px round (--inner). The track is not nested in anything (0px gap), 10px tall and fully round, and
+   its fill inherits the track's radius. */
+.pg-project .project__ship-counter { --outer: 20px; --gap: 12px; --inner: calc(var(--outer) - var(--gap));
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--gap);
+  border-radius: var(--outer); background: var(--surface-sunken); border: 2px solid var(--line); }
+.pg-project .project__ship-counter-body { flex: 1 1 220px; min-inline-size: 0; display: grid; gap: 8px; }
+.pg-project .project__ship-counter-text { margin: 0; color: var(--ink); }
+.pg-project .project__ship-counter-text strong { font-weight: 900; }
+.pg-project .project__ship-counter-bar { box-sizing: border-box; inline-size: 100%; block-size: 10px; overflow: hidden; border-radius: var(--radius-full); background: var(--line); }
+.pg-project .project__ship-counter-fill { display: block; block-size: 100%; min-inline-size: 8px; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--gold-hi)); transition: inline-size 400ms ease; }
+.pg-project .project__ship-counter[data-due="true"] { border-color: var(--gold); }
+.pg-project .project__ship-counter-action { flex: none; border-radius: var(--inner); margin-bottom: var(--lip-depth); }
+@media (prefers-reduced-motion: reduce) { .pg-project .project__ship-counter-fill { transition: none; } }

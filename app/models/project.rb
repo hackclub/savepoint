@@ -516,6 +516,23 @@ class Project < ApplicationRecord
   # As of the last sync (see User::Streakable).
   def streak = user.current_streak
 
+  # D-096: at this many unshipped hours the project page and the bot ask you to ship.
+  SHIP_PROMPT_HOURS = 5
+
+  # D-096: the hours you have logged (hours_logged, the figure the page shows) less the hours of your latest ship that
+  # is still standing, in review or approved. A ship sent back for changes or rejected doesn't count as shipped. Before
+  # any ship it's all of them. Never below 0.
+  def unshipped_hours
+    [ (hours_logged.to_f - latest_standing_ship&.hours.to_f).round(1), 0 ].max
+  end
+
+  # The newest ship that counts as shipped for unshipped_hours: in review, awaiting its fraud check, or approved.
+  def latest_standing_ship
+    ships.select { it.pending? || it.approved? }.max_by(&:id)
+  end
+
+  def ship_prompt_due? = unshipped_hours >= SHIP_PROMPT_HOURS
+
   # Once a ship's approved (which is once it has passed its fraud check, D-063).
   def shipped?
     ships.any? { |ship| ship.status == "approved" }

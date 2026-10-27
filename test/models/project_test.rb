@@ -328,13 +328,10 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
     Hackatime.stubbed_all_projects = before
   end
 
-  test "a hand-picked old project that looks like another game is held until they say yes (D-087, D-089)" do
+  test "a hand-picked old project counts at once, however it is named (D-091, D-089)" do
     project = projects(:orpheus)
     project.update_columns(name: "Rhythm Quest", repo_url: nil, hackatime_projects: [ "old-jam" ], hackatime_auto_linked: false, hackatime_link_confirmed: false)
-    assert project.hackatime_link_doubtful?
-    assert_not project.hackatime_confirmed?
-    project.update_columns(hackatime_projects: [ "rhythm-quest" ])
-    assert project.hackatime_confirmed?, "an old project named for the game needs no question"
+    assert project.hackatime_confirmed?
   end
 
   test "a continued game links itself once its project gains time after the baseline" do

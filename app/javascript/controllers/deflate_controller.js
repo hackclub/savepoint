@@ -3,10 +3,11 @@ import { Controller } from "@hotwired/stimulus"
 // The review form's deflation (D-063). The coding presets fill the approved coding hours with a share of the claimed
 // coding, never above the AI cap. The art presets fill the approved art hours with a share of the claimed art. Art is held
 // at its percent of the total, so changing coding moves the art limit and lowers the art field when it is over. Values are
-// hours, to the hundredth. The reviewer still presses a verdict, and can type any value.
+// hours, to the hundredth. On a later ship (D-097) the fields hold the new hours: the art limit is read on the earlier
+// coding plus the new, less the earlier art, and the total adds the earlier approval back. The reviewer still presses a verdict, and can type any value.
 export default class extends Controller {
   static targets = [ "coding", "art", "artMax", "total", "hold" ]
-  static values = { claimed: Number, cap: Number, artClaimed: Number, artPercent: Number }
+  static values = { claimed: Number, cap: Number, artClaimed: Number, artPercent: Number, earlierCoding: { type: Number, default: 0 }, earlierArt: { type: Number, default: 0 } }
 
   setCoding(event) {
     const percent = Number(event.currentTarget.dataset.percent)
@@ -27,17 +28,17 @@ export default class extends Controller {
   #update() {
     const coding = Math.min(Number(this.codingTarget.value) || 0, this.capValue)
     if (!this.hasArtTarget) {
-      if (this.hasTotalTarget) this.totalTarget.textContent = this.#round(coding)
+      if (this.hasTotalTarget) this.totalTarget.textContent = this.#round(this.earlierCodingValue + this.earlierArtValue + coding)
       return
     }
-    const artMax = this.#round(coding * this.artPercentValue / (100 - this.artPercentValue))
+    const artMax = Math.max(this.#round((this.earlierCodingValue + coding) * this.artPercentValue / (100 - this.artPercentValue) - this.earlierArtValue), 0)
     const allowed = Math.min(this.artClaimedValue, artMax)
     let art = Number(this.artTarget.value) || 0
     const held = art > allowed
     if (held) { art = allowed; this.artTarget.value = allowed }
     this.holdTarget.hidden = !(held || (this.artClaimedValue > artMax && art >= allowed))
     if (this.hasArtMaxTarget) this.artMaxTarget.textContent = artMax
-    this.totalTarget.textContent = this.#round(coding + art)
+    this.totalTarget.textContent = this.#round(this.earlierCodingValue + this.earlierArtValue + coding + art)
   }
 
   #round(hours) { return Math.round(hours * 100) / 100 }

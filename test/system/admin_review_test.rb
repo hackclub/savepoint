@@ -42,6 +42,24 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_equal "0.83", find("input[name=coding_hours]").value
   end
 
+  test "on a later ship the presets and the total work on the new hours, with the earlier approval added back (D-097)" do
+    travel_to(Program::STARTS_AT + 1.5.days) do
+      earlier = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "First.",
+                                             repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", hackatime_projects: [ "pong" ], hours: 3,
+                                             screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+      earlier.update_columns(status: "approved", approved_hours: 3, review_hours: 3, review_coding_hours: 3, review_art_hours: 0,
+                             decided_by_id: users(:ana).id, decided_at: Time.current)
+    end
+    visit admin_ship_path(@ship)
+    assert_selector "#admin-ship-already-approved", text: "Already approved: 3 hrs"
+    assert_selector "[data-deflate-target=total]", text: "6.42"
+
+    find("button[data-action='deflate#setCoding'][data-percent='50']").click
+    assert_equal "1.25", find("input[name=coding_hours]").value, "half of the 2.5 new coding hours claimed"
+    assert_equal "1.82", find("input[name=art_hours]").value, "art held at 30% of the 4.25 coding approved so far"
+    assert_selector "[data-deflate-target=total]", text: "6.07"
+  end
+
   test "keys focus the fields, and a verdict key needs pressing twice" do
     visit admin_ship_path(@ship)
     body = find("body")

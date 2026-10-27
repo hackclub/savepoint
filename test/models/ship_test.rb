@@ -152,10 +152,10 @@ class ShipTest < ActiveSupport::TestCase
     assert_equal 6, @project.reload.hours_approved
 
     second = ship_now(hours: 11)
-    approve(second, coding_hours: "10.5", technical_features: "A combo meter and beat timing.",
+    approve(second, coding_hours: "4.5", technical_features: "A combo meter and beat timing.",
                                                          deflation_reason: "Half an hour was a broken build.")
-    assert_equal 10.5, second.approved_hours
-    assert_equal 10.5, @project.reload.hours_approved, "each ship counts every hour up to it, so the most, not the sum"
+    assert_equal 10.5, second.approved_hours, "the earlier 6 plus 4.5 new hours (D-097)"
+    assert_equal 10.5, @project.reload.hours_approved, "each ship's total is cumulative, so the latest is the project's"
 
     approve(ship_now(hours: 2), coding_hours: "-4", technical_features: "A combo meter and beat timing.", deflation_reason: "None of it shows.")
     assert_equal 10.5, @project.reload.hours_approved

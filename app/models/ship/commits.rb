@@ -10,6 +10,10 @@ class Ship::Commits
   # status: :ok, :not_github, :not_found, :rate_limited, :error. more: the repository has more than LIMIT.
   Result = Data.define(:status, :commits, :message, :more) do
     def ok? = status == :ok
+
+    # D-101: the same result with only the commits after a time (a later ship lists those since the last approved ship). The
+    # full result still dates the release check, so this is for showing, never for the evidence.
+    def since(time) = with(commits: commits.select { it.date > time })
   end
 
   def self.repo_path(url) = url.to_s.match(REPO)&.then { "#{it[1]}/#{it[2]}" }

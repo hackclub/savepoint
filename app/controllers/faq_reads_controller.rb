@@ -1,5 +1,5 @@
 # Where the landing page's FAQ sends how long a question was open (D-094), with navigator.sendBeacon as the page goes away.
-# Public: anyone reading the FAQ, signed in or not. It stores the key and the seconds and nothing about the sender.
+# Public: anyone reading the FAQ, signed in or not. It stores the key, the seconds and the browser's random reader ID (D-095), and nothing else about the sender.
 class FaqReadsController < ApplicationController
   # sendBeacon can't add the CSRF header, and the request is no more than a key and a number from any reader, with no
   # session behind it. This is the only action that skips the check.
@@ -11,6 +11,6 @@ class FaqReadsController < ApplicationController
   def create
     return head :no_content if true_user&.admin? # admins leave no trace (D-032)
 
-    head(FaqRead.record(params[:key], params[:seconds]) ? :no_content : :unprocessable_content)
+    head(FaqRead.record(params[:key], params[:seconds], params[:reader_id]) ? :no_content : :unprocessable_content)
   end
 end

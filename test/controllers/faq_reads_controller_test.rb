@@ -3,6 +3,7 @@ require "test_helper"
 # The beacon the landing FAQ sends as a question closes (D-094).
 class FaqReadsControllerTest < ActionDispatch::IntegrationTest
   KEY = "shipping.what-does-my-repository-need".freeze
+  READER = "3f2b8c1e-5a4d-4e7f-9b6a-1c2d3e4f5a6b".freeze
 
   setup { @admins = Rails.configuration.x.admin_slack_ids }
   teardown { Rails.configuration.x.admin_slack_ids = @admins }
@@ -13,6 +14,21 @@ class FaqReadsControllerTest < ActionDispatch::IntegrationTest
     assert_response :no_content
     read = FaqRead.last
     assert_equal [ KEY, 14 ], [ read.key, read.seconds ]
+    assert_nil read.reader_id
+  end
+
+  test "the browser's reader ID is stored with the read" do
+    post faq_reads_path, params: { key: KEY, seconds: 14, reader_id: READER }
+
+    assert_response :no_content
+    assert_equal READER, FaqRead.last.reader_id
+  end
+
+  test "a malformed reader ID keeps the read without it" do
+    assert_difference("FaqRead.count", 1) { post faq_reads_path, params: { key: KEY, seconds: 14, reader_id: "x" * 200 } }
+
+    assert_response :no_content
+    assert_nil FaqRead.last.reader_id
   end
 
   test "it works without the CSRF token, as sendBeacon sends it" do

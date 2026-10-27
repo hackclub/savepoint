@@ -7,5 +7,13 @@ module AdminHomePageHelper
     "Bandit" => "sparkles-fill", "Tokens" => "lock-fill", "Insights" => "search-fill"
   }.freeze
 
+  # An average of seconds as "42s" or "1m 05s"; "—" when there is none (a question nobody identified has no average).
+  def faq_average_time(seconds)
+    return "—" unless seconds
+
+    whole = seconds.round
+    whole < 60 ? "#{whole}s" : format("%dm %02ds", *whole.divmod(60))
+  end
+
   def admin_page_icon(label) = sp_icon(ADMIN_PAGE_ICONS.fetch(label, "right-fill"))
 end

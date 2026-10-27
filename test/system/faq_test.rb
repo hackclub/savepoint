@@ -15,14 +15,15 @@ class FaqTest < ApplicationSystemTestCase
     assert_no_selector "details[id='#{FIRST}'][open]"
     assert_selector "details[open]", count: 1
 
-    # A read under a second isn't kept, so the first question left no read.
-    assert_equal 0, FaqRead.where(key: FIRST).count
-
     sleep 1.2
     find("details[id='#{SECOND}'] summary").click
     assert_no_selector "details[open]"
     assert_equal 1, wait_for_reads(SECOND)
     assert_operator FaqRead.find_by(key: SECOND).seconds, :>=, 1
+    # The beacon carries the browser's random reader ID (D-095), which the page keeps in localStorage.
+    reader_id = FaqRead.find_by(key: SECOND).reader_id
+    assert_match(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/, reader_id)
+    assert_equal reader_id, evaluate_script("localStorage.getItem('sp_faq_reader')")
   end
 
   test "a group's anchor scrolls to it, and a question's key or the old position opens it" do

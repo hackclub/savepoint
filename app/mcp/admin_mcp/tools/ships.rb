@@ -100,6 +100,8 @@ module AdminMcp::Tools::Ships
              art_hours: { type: "number", minimum: 0, description: "For approved: the art hours to approve. Defaults to the most the art hold allows. On a later ship these are the NEW art hours since the earlier approval." },
              technical_features: { type: "string", description: "For approved: the specific technical features that explain the hours." },
              deflation_reason: { type: "string", description: "For approved: why you approve less than the rules allow." },
+             ai_coding_hours: { type: "number", minimum: 0, description: "For approved: the AI coding hours, when the code looks AI-generated (D-102). Above Hackatime's figure only (get_ship's limits), never above the coding claimed. Needs ai_reason. Leave out to keep what is set." },
+             ai_reason: { type: "string", description: "With ai_coding_hours: what looked AI-generated." },
              feedback: { type: "string", description: "The note to the participant. Required for changes_needed, optional otherwise." },
              judgement: { type: "string", description: "Your internal judgement. Required for rejected. It goes into the Airtable justification." },
              evidence: { type: "string", description: "For banned: what shows the fraud." } },
@@ -110,6 +112,9 @@ module AdminMcp::Tools::Ships
       Guard.check!(ship, "review", caller)
       # Asked once, as opening the review page does, so the limits are known.
       ship.fetch_hackatime_categories!
+      if args[:ai_coding_hours] && !ship.set_reviewer_ai!(args[:ai_coding_hours].to_s, args[:ai_reason])
+        return { decided: false, message: "Not decided: #{ship.errors.full_messages.to_sentence}.", errors: ship.errors.to_hash, ship: AdminMcp::Present.ship(ship.reload) }
+      end
       decided = ship.decide!(args[:decision], by: caller.user, coding_hours: args[:coding_hours]&.to_s, art_hours: args[:art_hours]&.to_s,
                              technical_features: args[:technical_features], deflation_reason: args[:deflation_reason],
                              feedback: args[:feedback], judgement: args[:judgement], evidence: args[:evidence],

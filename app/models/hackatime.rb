@@ -165,6 +165,7 @@ module Hackatime
     return Fake.category_seconds(user, category) if fake
     if stubbed_category_seconds
       seconds = stubbed_category_seconds.fetch(user.hackatime_uid, {})[category]
+      seconds = seconds.call(from, to) if seconds.respond_to?(:call)
       raise Unavailable, "stubbed failure" if seconds == :unavailable
       return seconds.to_i
     end
@@ -182,6 +183,18 @@ module Hackatime
     (body["total_seconds"] || body.dig("data", "total_seconds")).to_i
   rescue JSON::ParserError => error
     raise Unavailable, error.message
+  end
+
+  # D-087: seconds Hackatime files under "coding" on these projects from `from` to just before `to`, for the DAU. Hackatime's
+  # spans carry no category and can't be filtered by one, so this asks its stats for the window instead (one request).
+  # nil when it can't say (a project name with a comma, Hackatime down, a made-up Hackatime): the caller counts all the time.
+  # Tests that stub spans only get nil; stubbed_category_seconds["coding"] may be a proc of (from, to).
+  def self.coding_seconds(user, project_names, from:, to:)
+    return if fake || (stubbed_spans && !stubbed_category_seconds)
+
+    category_seconds(user, project_names, "coding", from:, to:)
+  rescue Unavailable
+    nil
   end
 
   def self.category_path(project_names, category, from:, to:)

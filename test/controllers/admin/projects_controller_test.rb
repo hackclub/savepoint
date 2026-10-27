@@ -70,6 +70,18 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".admin__tile a[href=?]", admin_project_path(@ana), "pong"
   end
 
+  test "D-087: the project and person pages flag a game that shares a repo with another account" do
+    dee = dee_sharing_ana_repo
+    sign_in_as(users(:orpheus))
+
+    get admin_project_path(@ana)
+    assert_select ".admin__ship-details dd", text: /Shares a repo with dee-builds/
+    get admin_user_path(@ana.user)
+    assert_select ".au__facts dd", text: /Shares a repo with dee-builds/
+    get admin_project_path(dee.project)
+    assert_select ".admin__ship-details dd", text: /Shares a repo with #{Regexp.escape(@ana.user.public_name)}/
+  end
+
   test "nobody else can see them" do
     get admin_projects_path
     assert_response :not_found
@@ -84,6 +96,12 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def dee_sharing_ana_repo
+      dee = User.create!(hca_id: "ident!dee", first_name: "Dee", slack_display_name: "dee-builds")
+      Project.create!(user: dee, idea: "martian", prize_key: "micro", pace_minutes: 45, build_time: "evening", signed_on: "2026-09-30", repo_url: projects(:ana).repo_url)
+      dee
+    end
+
     def sign_in_as(user)
       mock_hack_club_auth(uid: user.hca_id, slack_id: user.slack_id, email: user.email, name: user.name, first_name: user.first_name)
       post "/auth/hackclub"

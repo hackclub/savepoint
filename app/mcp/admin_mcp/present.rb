@@ -34,7 +34,7 @@ module AdminMcp::Present
     buddy = project.buddy
     { id: project.id, title: project.title, name: project.name, idea: project.idea, user: user_ref(user),
       goal: project.chosen_prize&.name, pace_minutes: project.pace_minutes, build_time: project.build_time, signed_on: project.signed_on,
-      hackatime: hackatime_state(project), hackatime_projects: project.hackatime_projects, hackatime_auto_linked: project.hackatime_auto_linked,
+      hackatime: hackatime_state(project), hackatime_projects: project.hackatime_projects, hackatime_auto_linked: project.hackatime_auto_linked, hackatime_confirmed: project.hackatime_confirmed?,
       hours: (project.tracking? ? (seconds / 3600.0).round(1) : 0), streak: user.current_streak, repo_url: project.repo_url.presence,
       buddy: (buddy && { project_id: buddy.id, title: buddy.title }), buddy_skipped: project.buddy_skipped, buddy_invited: project.buddy_invited,
       ship: ship_state(project) }

@@ -85,6 +85,9 @@
                     <% else %><span class="au__muted">none</span><% end %>
                   </dd>
                   <dt>Hours</dt><dd><%= project_hours_label(project) %></dd>
+                  <% SharedGames.sharing_with(project).each do |other| %>
+                    <dt>Shared game</dt><dd>Shares a repo with <%= link_to other.user.public_name, admin_user_path(other.user) %> <small class="au__muted">(counted once in DAU)</small></dd>
+                  <% end %>
                   <dt>Ships</dt>
                   <dd>
                     <% if ships.empty? %><span class="au__muted">not shipped yet</span>

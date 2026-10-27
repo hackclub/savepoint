@@ -31,6 +31,14 @@
 .pg-ship .ship__count[data-enough] { color: var(--mint-ink); }
 .pg-ship .ship__textarea { min-height: 156px; }
 .pg-ship .ship__textarea--short { min-height: 108px; }
+/* D-100: the commits since your last ship, above the note. One sunken box (radius 16px, as the confirm box: panel inner radius 30px - 14px inset) whose rows have no corners of their own. */
+.pg-ship .ship__commits { padding: 12px 14px; border-radius: 16px; background: var(--surface-sunken); }
+.pg-ship .ship__commits-title { margin: 0 0 var(--space-2); font: 800 13px/18px var(--font-body); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); }
+.pg-ship .ship__commit-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pg-ship .ship__commit { display: flex; justify-content: space-between; gap: var(--space-3); font: 600 14px/20px var(--font-body); color: var(--ink); }
+.pg-ship .ship__commit-message { min-width: 0; overflow-wrap: anywhere; }
+.pg-ship .ship__commit-date { flex: none; color: var(--ink-faint); font-weight: 700; }
+.pg-ship .ship__commits-more { margin: var(--space-2) 0 0; font: 800 13px/18px var(--font-body); color: var(--ink-muted); }
 .pg-ship .ship__input--title { font: 800 20px/28px var(--font-body); }
 .pg-ship .ship__pair { display: grid; gap: var(--space-5); }
 @media (min-width: 640px) {

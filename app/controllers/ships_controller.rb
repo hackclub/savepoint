@@ -19,10 +19,13 @@ class ShipsController < ApplicationController
     @closed = !@ship.persisted? && !@project.may_ship? && @rejected.nil?
     @needs_nps = !@ship.persisted? && !@closed && @rejected.nil? && NpsResponse.due?(current_user)
     @changes_needed = changes_needed_ship unless @ship.persisted?
+    # D-099: an approved ship needs a new hour before the next one. The page says how long is left.
+    @waiting = !@ship.persisted? && !@closed && @rejected.nil? && @project.ship_waiting?
+    @commits = since_last_ship_commits unless @ship.persisted? || @waiting || @closed || @rejected
   end
 
   def create
-    return redirect_to project_ship_path if @project.ship_in_review || !@project.may_ship? || current_user.needs_address? || NpsResponse.due?(current_user)
+    return redirect_to project_ship_path if @project.ship_in_review || !@project.may_ship? || @project.ship_waiting? || current_user.needs_address? || NpsResponse.due?(current_user)
 
     @ship = @project.ship!(ship_attributes.merge(changes_required: true))
     if @ship.persisted?
@@ -30,6 +33,7 @@ class ShipsController < ApplicationController
       redirect_to project_ship_path
     else
       @changes_needed = changes_needed_ship
+      @commits = since_last_ship_commits
       render :show, status: :unprocessable_entity
     end
   end
@@ -50,6 +54,13 @@ class ShipsController < ApplicationController
   end
 
   private
+    # D-100: on a later ship, the commits since the latest approved ship, to help write the note. Nil on a first ship, and
+    # when GitHub can't say: the list only helps, so nothing is shown and shipping goes on.
+    def since_last_ship_commits
+      result = Ship::Commits.since_last_ship(@project, @ship.repo_url)
+      result if result&.ok? && result.commits.any?
+    end
+
     # The project's newest ship, if an admin said it needs changes: what the participant is fixing now.
     def changes_needed_ship
       latest = @project.ships.order(:id).last

@@ -24,6 +24,20 @@ class Ship::Commits
 
   def self.for(ship) = new(ship.repo_url, since: ship.project.hours_start, until_time: ship.created_at || Time.current).fetch
 
+  # D-100: what the participant sees on a later ship's form, the same GitHub call as the reviewer's list but from the latest
+  # approved ship's time to now. Only a good answer is kept (5 minutes, by repository and start), so a failure is asked again.
+  PARTICIPANT_LIMIT = 20
+
+  def self.since_last_ship(project, repo_url)
+    approved = project.latest_approved_ship
+    return unless approved && repo_path(repo_url)
+
+    key = [ "ship-new-commits", repo_path(repo_url), approved.created_at.to_i ]
+    Rails.cache.read(key) || new(repo_url, since: approved.created_at, until_time: Time.current).fetch.tap do |result|
+      Rails.cache.write(key, result, expires_in: 5.minutes) if result.ok?
+    end
+  end
+
   def initialize(repo_url, since:, until_time:)
     @repo = self.class.repo_path(repo_url)
     @since = since

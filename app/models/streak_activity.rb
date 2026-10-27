@@ -44,8 +44,7 @@ class StreakActivity < ApplicationRecord
       counted = clip_to_start(spans, project.hours_start)
       daily_seconds = bucket_spans_by_streak_day(counted, user.timezone)
       note_first_coded(project, counted)
-      # D-084, D-087: a link nobody has confirmed (it linked itself, or looks like another game) is still synced, but its
-      # time is held, not counted.
+      # D-084: a link nobody has confirmed (it linked itself) is still synced, but its time is held, not counted.
       held = !project.hackatime_confirmed?
       CodedBucket.rewrite_for(user, counted, held:, coding_share: coding_share_for_pieces(user, project, counted))
 
@@ -67,6 +66,20 @@ class StreakActivity < ApplicationRecord
       CodedBucket.release_held!(user)
       user.streak_activities.where("unconfirmed_seconds > 0")
           .update_all("coded_seconds = coded_seconds + unconfirmed_seconds, unconfirmed_seconds = 0, updated_at = CURRENT_TIMESTAMP")
+    end
+
+    # D-091: time held on a hand-picked link (D-087 held the doubtful ones) counts. Moves it into the counted seconds of
+    # each person whose project isn't an unconfirmed auto-link, and recalculates their streak. Safe to run again: it
+    # only moves what is still held. Returns the ids of the people it released.
+    def release_held_on_hand_picked_links!
+      hand_picked = User.where(id: Project.where(hackatime_auto_linked: false).select(:user_id))
+      ids = (CodedBucket.where(user_id: hand_picked).where("unconfirmed_seconds > 0").distinct.pluck(:user_id) |
+             where(user_id: hand_picked).where("unconfirmed_seconds > 0").distinct.pluck(:user_id))
+      User.where(id: ids).find_each do |user|
+        release_held!(user)
+        user.recalculate_streak!
+      end
+      ids
     end
 
     def streak_date_for(time, timezone)

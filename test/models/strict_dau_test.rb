@@ -1,6 +1,6 @@
 require "test_helper"
 
-# D-087: the strict DAU. Coding time only, a doubtful hand-picked link held until a Yes.
+# D-087: the strict DAU. Coding time only. (Its doubtful-link rule was reversed by D-091.)
 class StrictDauTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
@@ -70,13 +70,13 @@ class StrictDauTest < ActiveSupport::TestCase
     bucket(@ana, 30, 1800, coding: 30)
     bucket(@orpheus, 30, 1800, coding: 90)
 
-    assert_equal 1, AdminSummary.new.dau_24h, "ana browsed for half an hour and coded 30 s; orpheus coded a minute and a half"
+    assert_equal 1, AdminSummary.new.dau_today, "ana browsed for half an hour and coded 30 s; orpheus coded a minute and a half"
   end
 
   test "a piece with no coding figure yet counts in full" do
     bucket(@ana, 30, 600)
 
-    assert_equal 1, AdminSummary.new.dau_24h
+    assert_equal 1, AdminSummary.new.dau_today
   end
 
   test "the day charts and the public count use coding time too" do
@@ -95,7 +95,7 @@ class StrictDauTest < ActiveSupport::TestCase
     bucket(@ana, 30, 600, coding: 600)
     bucket(@orpheus, 30, 600, coding: 600)
 
-    assert_equal 2, AdminSummary.new.dau_24h
+    assert_equal 2, AdminSummary.new.dau_today
     pair = AdminSummary.new.shared_games.sole
     assert_equal [ @ana.project.id, @orpheus.project.id ].sort, [ pair[:project_id], pair[:other_project_id] ].sort
     assert_equal [ @ana.public_name, @orpheus.public_name ].sort, [ pair[:name], pair[:other_name] ].sort
@@ -107,7 +107,7 @@ class StrictDauTest < ActiveSupport::TestCase
     bucket(@ana, 30, 600, coding: 600)
     bucket(@orpheus, 30, 600, coding: 600)
 
-    assert_equal 2, AdminSummary.new.dau_24h
+    assert_equal 2, AdminSummary.new.dau_today
     assert_empty AdminSummary.new.shared_games
     @ana.project.update_columns(repo_url: nil)
     @orpheus.project.update_columns(repo_url: nil)
@@ -123,87 +123,47 @@ class StrictDauTest < ActiveSupport::TestCase
     assert_equal 2, Growth.new(today: day + 1).days.find { |row| row.date == day }.dau
   end
 
-  # --- Rule 3: doubtful hand-picked links ---
+  # --- D-091: a hand-picked link needs no confirmation ---
 
-  test "a Hackatime name that shares nothing with the title or repo is doubtful" do
-    project = project_for(@ana, title: "Space", hackatime: [ "Chill cafe" ])
-    assert project.hackatime_link_doubtful?, "Chill cafe on a game called Space"
-    project.update_columns(repo_url: "https://github.com/ana/chill-cafe")
-    assert_not project.reload.hackatime_link_doubtful?, "the repo says chill-cafe"
-  end
-
-  test "one matching name among several is enough" do
-    project = project_for(@ana, title: "Dust Bunny, Dusty Beetle", hackatime: [ "Dusty Beetle" ])
-    assert_not project.hackatime_link_doubtful?
-    project.update_columns(hackatime_projects: [ "Dusty Beetle", "Other" ])
-    assert_not project.hackatime_link_doubtful?
-  end
-
-  test "Other is always doubtful, even for a game with other in its title" do
-    assert project_for(@ana, title: "Other Side", hackatime: [ "Other" ]).hackatime_link_doubtful?
-  end
-
-  test "case, hyphens and generic words are ignored" do
-    assert_not project_for(@ana, title: "Minimum Wage Martian", hackatime: [ "minimum-wage-martian" ]).hackatime_link_doubtful?
-    assert_not project_for(@ana, title: "Space Pirates", hackatime: [ "SpacePirates" ]).hackatime_link_doubtful?
-    assert project_for(@ana, title: "Space Pirates", hackatime: [ "jame-gam-game" ]).hackatime_link_doubtful?
-    assert project_for(@ana, title: "Pirate Game", hackatime: [ "my-game-project" ]).hackatime_link_doubtful?, "game and project say nothing"
-    assert project_for(@ana, title: "3 Apples Tall", hackatime: [ "Jame Gam" ]).hackatime_link_doubtful?
-    assert_not project_for(@ana, title: "Hecate", hackatime: [ "Jame-Gam-Game-Jam-Game" ], repo: "https://example.com/x/Jame-Gam-Game-Jam-Game").hackatime_link_doubtful?, "the repo has that very name"
-    assert_not project_for(@ana, title: "Minimum Wage Martian", hackatime: [ "Minimum Wage Martians" ]).hackatime_link_doubtful?
-    assert project_for(@ana, title: "Minimum Wage Martian", hackatime: [ "Untitled Restuarant Game" ]).hackatime_link_doubtful?
-  end
-
-  test "no linked Hackatime project is not doubtful, and a repo name can match" do
-    project = project_for(@ana, title: "Zork", hackatime: [], repo: nil)
-    assert_not project.hackatime_link_doubtful?
-    project.update_columns(hackatime_projects: [ "martian-run" ], repo_url: "https://github.com/x/Martian-Run")
-    assert_not project.reload.hackatime_link_doubtful?
-  end
-
-  test "a doubtful link is unconfirmed, a Yes confirms it for good, and a new project asks again" do
-    project = project_for(@ana, title: "Space", hackatime: [ "Chill cafe" ])
-    assert_not project.hackatime_confirmed?
-
-    project.update!(hackatime_link_confirmed: true)
+  test "D-091: a hand-picked link counts however it is named" do
+    project = project_for(@ana, title: "Space", hackatime: [ "life-2" ])
     assert project.hackatime_confirmed?
-    project.update!(name: "Something else", repo_url: "https://github.com/a/b")
-    assert project.reload.hackatime_confirmed?, "the Yes stays when the title changes"
 
-    project.hackatime_project_names = [ "Chill cafe" ]
-    assert project.hackatime_link_confirmed?, "picking the same project again keeps the Yes"
-    project.hackatime_project_names = [ "Chill cafe", "Another" ]
-    assert_not project.hackatime_link_confirmed?
+    project.update_columns(hackatime_projects: [ "Other" ])
+    assert project.reload.hackatime_confirmed?
   end
 
-  test "time on a doubtful link is held, and a Yes counts it at once" do
+  test "D-091: an auto-link still asks, and time on a hand-picked link is not held" do
     travel_to Time.utc(2026, 11, 2, 12) do
       link_hackatime(@orpheus)
-      project = project_for(@orpheus, title: "Space", hackatime: [ "Chill cafe" ])
+      project = project_for(@orpheus, title: "Space", hackatime: [ "life-2" ])
       Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 11, 1, 15), 30) ] }
       StreakActivity.sync_for_user!(@orpheus)
 
       day = @orpheus.streak_activities.find_by(activity_date: Date.new(2026, 11, 1))
-      assert_equal [ 0, 1800 ], [ day.coded_seconds, day.unconfirmed_seconds ]
-
-      project.update!(hackatime_link_confirmed: true)
-      day.reload
       assert_equal [ 1800, 0 ], [ day.coded_seconds, day.unconfirmed_seconds ]
+
+      project.update_columns(hackatime_auto_linked: true)
+      assert_not project.reload.hackatime_confirmed?
     end
   end
 
-  test "the one-off task holds time already stored for doubtful links" do
-    project_for(@ana, title: "Space", hackatime: [ "Chill cafe" ])
+  test "D-091: the migration step releases held time on hand-picked links only, and is safe to run again" do
+    project_for(@ana, title: "Space", hackatime: [ "life-2" ])
     project_for(@orpheus, title: "Rhythm", hackatime: [ "rhythm" ])
-    @ana.streak_activities.create!(activity_date: Date.new(2026, 10, 25), coded_seconds: 600)
-    @orpheus.streak_activities.create!(activity_date: Date.new(2026, 10, 25), coded_seconds: 600)
-    bucket(@ana, 30, 300)
+    @orpheus.project.update_columns(hackatime_auto_linked: true)
+    [ @ana, @orpheus ].each do |user|
+      user.streak_activities.create!(activity_date: Date.new(2026, 10, 25), coded_seconds: 0, unconfirmed_seconds: 600)
+      bucket(user, 30, 300, held: true)
+    end
 
-    Rails.application.load_tasks
-    assert_output(/1 doubtful links.*project ids #{@ana.project.id}\n/m) { Rake::Task["hackatime:hold_doubtful_links"].execute }
+    assert_equal [ @ana.id ], StreakActivity.release_held_on_hand_picked_links!
+    assert_equal [ 600, 0 ], @ana.streak_activities.pick(:coded_seconds, :unconfirmed_seconds)
+    assert_equal [ 300, 0 ], @ana.coded_buckets.pick(:seconds, :unconfirmed_seconds)
+    assert_equal [ 0, 600 ], @orpheus.streak_activities.pick(:coded_seconds, :unconfirmed_seconds), "an unconfirmed auto-link stays held"
+    assert_equal [ 0, 300 ], @orpheus.coded_buckets.pick(:seconds, :unconfirmed_seconds)
 
-    assert_equal [ 0, 600 ], @ana.streak_activities.pick(:coded_seconds, :unconfirmed_seconds)
-    assert_equal [ 600, 0 ], @orpheus.streak_activities.pick(:coded_seconds, :unconfirmed_seconds)
-    assert_equal [ 0, 300 ], @ana.coded_buckets.pick(:seconds, :unconfirmed_seconds)
+    assert_empty StreakActivity.release_held_on_hand_picked_links!
+    assert_equal [ 600, 0 ], @ana.streak_activities.pick(:coded_seconds, :unconfirmed_seconds)
   end
 end

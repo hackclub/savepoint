@@ -166,18 +166,43 @@ class ProjectsHelperTest < ActionView::TestCase
     assert_equal 0, project_hours_percent(project)
   end
 
-  test "the project dropdown lists recent projects, and keeps a linked one without recent time so it can be unlinked" do
+  test "the project dropdown lists every project, old ones too, and keeps a linked one so it can be unlinked (D-089)" do
     project = projects(:orpheus)
     link_hackatime(project.user)
     project.update_columns(hackatime_projects: [ "dotfiles" ])
-    before = Hackatime.stubbed_recent_projects
-    Hackatime.stubbed_recent_projects = { "1001" => [ "rhythm-game" ] }
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { "1001" => [ Hackatime::Project.new("rhythm-game", 5400 + 43_200), Hackatime::Project.new("dotfiles", 11_160),
+                                                    Hackatime::Project.new("old-jam", 7200) ] }
     choices = project_hackatime_choices(project)[:projects]
-    assert_equal [ "dotfiles", "rhythm-game" ], choices.map { |choice| choice[:name] }
-    assert_equal [ true, false ], choices.map { |choice| choice[:linked] }
-    assert_equal "3.1 hrs", choices.first[:note], "its time since the start, not a note that it's gone"
+    assert_equal [ "dotfiles", "rhythm-game", "old-jam" ].sort, choices.map { |choice| choice[:name] }.sort
+    by_name = choices.index_by { |choice| choice[:name] }
+    assert_equal "1.5 hrs", by_name["rhythm-game"][:note], "only the time since the start"
+    assert_equal "12 hrs before Save Point", by_name["rhythm-game"][:earlier]
+    assert_equal "0 hrs", by_name["old-jam"][:note]
+    assert_equal "2 hrs before Save Point", by_name["old-jam"][:earlier]
+    assert_nil by_name["dotfiles"][:earlier]
+    assert_equal "old-jam", choices.last[:name], "projects with no time that counts come last"
+    assert_equal true, by_name["dotfiles"][:linked]
   ensure
-    Hackatime.stubbed_recent_projects = before
+    Hackatime.stubbed_all_projects = before
+  end
+
+  test "someone who joined after the launch reads 'before your start'" do
+    pick = Hackatime::Project.new("old-jam", 0, 7200)
+    assert_equal "2 hrs before your start", project_earlier_label(pick, :sign_up)
+    assert_equal "2 hrs before Save Point", project_earlier_label(pick, :launch)
+    assert_nil project_earlier_label(Hackatime::Project.new("new", 600, 0), :launch)
+  end
+
+  test "a long list keeps its first rows and puts the older ones behind a button, linked ones always showing (D-089)" do
+    choices = (1..12).map { |number| { name: "game-#{number}", note: "0 hrs", linked: number == 11 } }
+    html = render partial: "shared/hackatime_rows", locals: { choices: }
+    assert_equal "Show 3 older projects", Nokogiri::HTML.fragment(html).at_css("details.hkp__older summary").text.strip
+    page = Nokogiri::HTML.fragment(html)
+    assert_equal 3, page.css("details .hkp__row").size
+    assert_equal 9, page.css(".hkp__row").size - 3, "eight, and the linked one"
+    assert_not_includes page.css("details .hkp__name").map(&:text), "game-11"
+    assert_no_match "older project", render(partial: "shared/hackatime_rows", locals: { choices: choices.first(8) })
   end
 
   # D-064: the picker lists a project Hackatime links to another repo last, with a warning, and it stays pickable.
@@ -185,12 +210,12 @@ class ProjectsHelperTest < ActionView::TestCase
     project = projects(:orpheus)
     link_hackatime(project.user)
     project.update_columns(repo_url:, hackatime_projects: linked)
-    before = [ Hackatime.stubbed_recent_projects, Hackatime.stubbed_repo_urls ]
-    Hackatime.stubbed_recent_projects = { "1001" => [ "dotfiles", "rhythm-game" ] }
+    before = [ Hackatime.stubbed_projects, Hackatime.stubbed_repo_urls ]
+    Hackatime.stubbed_projects = { "1001" => [ Hackatime::Project.new("rhythm-game", 5400), Hackatime::Project.new("dotfiles", 11_160) ] }
     Hackatime.stubbed_repo_urls = { "1001" => links }
     yield project
   ensure
-    Hackatime.stubbed_recent_projects, Hackatime.stubbed_repo_urls = before
+    Hackatime.stubbed_projects, Hackatime.stubbed_repo_urls = before
   end
 
   test "the picker lists a project Hackatime links to another repo last, with a warning" do

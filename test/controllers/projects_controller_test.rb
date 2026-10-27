@@ -298,7 +298,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
     get project_path
 
-    assert_select ".project__step-text", /Only time from Oct 23 on counts/
+    assert_select ".hkp__text", "Pick your game, even if you've worked on it before. Only time from Oct 23 on counts."
     assert_equal [ "rhythm-game", "beat-sheet-art", "dotfiles" ], css_select(".hkp__name").map(&:text)
     assert_equal [ "1.5hrs", "0.3hrs", "3.1hrs" ], css_select(".hkp__hours").map { it.text.gsub(/\s+/, "") }
     assert_select ".hkp__input[checked]", count: 0
@@ -428,7 +428,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
 
       get project_path(step: "hackatime_project")
       assert_select ".project__step-waiting", /hasn't seen any coding from you yet/
-      assert_select ".project__step-hint", /Nothing on Hackatime since .* yet/
+      assert_select ".project__step-hint", "Nothing on Hackatime yet. Only time from Oct 23 on counts."
       assert_select ".project__step-error", count: 0
 
       get hours_project_path(refresh: 1)

@@ -3,7 +3,7 @@
 # dev:fake) get the spans their seeded days say; anyone else, Armand included, gets a steady made-up pattern.
 module Hackatime::Fake
   # Projects any account has "logged time on", whatever else they've linked: name, seconds since Hackatime started
-  # counting, and whether there's time since Program::HACKATIME_PICK_SINCE (so it's listed to pick from).
+  # counting, and whether it has time since the program started (the rest are old projects, with earlier time only).
   POOL = [
     [ "moonlit-platformer", 23_040, true ],
     [ "pixel-farm", 8_280, true ],
@@ -66,9 +66,14 @@ module Hackatime::Fake
   # No repo links, so auto-link never skips a fake project.
   def self.repo_urls(_user) = {}
 
-  def self.recent_project_names(user)
+  # D-089: every project, the ones with time that counts first and the old ones with earlier time only.
+  def self.pickable_projects(user)
     linked = user.project&.hackatime_projects.to_a
-    linked + POOL.select { |name, _, recent| recent && !linked.include?(name) }.map(&:first)
+    pool = projects(user).index_by(&:name)
+    recent = POOL.select { |_, _, recent| recent }.map(&:first) | linked
+    pool.values.map do |project|
+      recent.include?(project.name) ? Hackatime::Project.new(project.name, project.seconds, 7_200) : Hackatime::Project.new(project.name, 0, project.seconds)
+    end.sort_by { |pick| pick.seconds.positive? ? [ 0, -pick.seconds ] : [ 1, -pick.earlier_seconds ] }
   end
 
   # No "ai coding" or art time, so a fake ship's review applies no cut.

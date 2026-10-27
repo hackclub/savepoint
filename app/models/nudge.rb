@@ -13,7 +13,7 @@
 class Nudge < ApplicationRecord
   # Bandit nudges and cheers are learned from. The rest always send when they apply, bar test ones
   # (bin/rails nudges:test), which are never scored or counted.
-  KINDS = %w[bandit cheer setup milestone program streak_saver comeback test].freeze
+  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt test].freeze
   LEARNED = %w[bandit cheer].freeze
 
   # What keeps a streak going. Milestone, program and streak saver nudges count as working when they built this long
@@ -136,6 +136,7 @@ class Nudge < ApplicationRecord
 
   def cheer? = kind == "cheer"
   def setup? = kind == "setup"
+  def ship_prompt? = kind == "ship_prompt"
   def worked_quickly? = WORKED_KINDS.include?(kind)
 
   # When building counts as this nudge working: the WORKED_WINDOW after a bandit or comeback nudge, the six hours after
@@ -161,10 +162,16 @@ class Nudge < ApplicationRecord
     reward =
       if opted_out_at then OPT_OUT_PENALTY
       elsif setup? then step_done? ? 1 : 0
+      elsif ship_prompt? then shipped_since? ? 1 : 0
       elsif seconds >= (worked_quickly? ? Growth::ACTIVE_SECONDS : REWARD_MINUTES * 60) then 1
       else 0
       end
     update!(reward:, rewarded_at: Time.current)
+  end
+
+  # Whether they shipped after a ship prompt DM (D-096).
+  def shipped_since?
+    user.project.present? && user.project.ships.where(created_at: sent_at..).exists?
   end
 
   # Whether the step a setup nudge asked for is done now. Nothing records when it was done, so a setup nudge is
@@ -231,6 +238,7 @@ class Nudge < ApplicationRecord
     when :leaderboard then "#{Rails.configuration.x.app_url}/leaderboard"
     when :hackatime_site then ApplicationController.helpers.hackatime_url
     when :onboarding then "#{Rails.configuration.x.app_url}/start"
+    when :ship then "#{Rails.configuration.x.app_url}/project/ship"
     else "#{Rails.configuration.x.app_url}/project" # Linking Hackatime, picking your project and adding a repo are on the project page too.
     end
   end

@@ -109,6 +109,7 @@
               </div>
             <% else %>
               <p class="project__schedule-note"><%= project_schedule_note(@project) %></p>
+              <% if @project.may_ship? && Time.current < Program::ENDS_AT %><%= render "projects/ship_counter", project: @project %><% end %>
             <% end %>
             <div class="project__plan">
               <div class="project__goal-cells">

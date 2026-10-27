@@ -1,6 +1,6 @@
 require "test_helper"
 
-# D-087: the strict DAU. Coding time only, one count for accounts that share a repo, and a doubtful hand-picked link held until a Yes.
+# D-087: the strict DAU. Coding time only, a doubtful hand-picked link held until a Yes.
 class StrictDauTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
@@ -87,27 +87,18 @@ class StrictDauTest < ActiveSupport::TestCase
     assert_equal 1, Growth.new(today: day + 1).days.find { |row| row.date == day }.dau
   end
 
-  # --- Rule 2: one per shared game ---
+  # --- Rule 2 (reversed by D-090): accounts that share a repo each count ---
 
-  test "accounts whose projects share a repo count once, however the link is written" do
+  test "D-090: accounts whose projects share a repo each count, and the admin still lists the pair" do
     @ana.project.update_columns(repo_url: MARTIAN)
     @orpheus.project.update_columns(repo_url: "http://www.GitHub.com/hdhmhf/minimum-wage-martian.git")
     bucket(@ana, 30, 600, coding: 600)
     bucket(@orpheus, 30, 600, coding: 600)
 
-    assert_equal 1, AdminSummary.new.dau_24h
+    assert_equal 2, AdminSummary.new.dau_24h
     pair = AdminSummary.new.shared_games.sole
     assert_equal [ @ana.project.id, @orpheus.project.id ].sort, [ pair[:project_id], pair[:other_project_id] ].sort
     assert_equal [ @ana.public_name, @orpheus.public_name ].sort, [ pair[:name], pair[:other_name] ].sort
-  end
-
-  test "two half-minutes on a shared game make one builder with a minute" do
-    @ana.project.update_columns(repo_url: MARTIAN)
-    @orpheus.project.update_columns(repo_url: MARTIAN)
-    bucket(@ana, 30, 30, coding: 30)
-    bucket(@orpheus, 30, 30, coding: 30)
-
-    assert_equal 1, AdminSummary.new.dau_24h
   end
 
   test "different repos, or no repo, are different games" do
@@ -123,13 +114,13 @@ class StrictDauTest < ActiveSupport::TestCase
     assert_empty SharedGames.pairs
   end
 
-  test "a shared game counts once in the day charts" do
+  test "D-090: accounts that share a game each count in the day charts" do
     day = Date.new(2026, 10, 25)
     @ana.project.update_columns(repo_url: MARTIAN)
     @orpheus.project.update_columns(repo_url: MARTIAN)
     [ @ana, @orpheus ].each { |user| user.streak_activities.create!(activity_date: day, coded_seconds: 1800, coding_seconds: 1800) }
 
-    assert_equal 1, Growth.new(today: day + 1).days.find { |row| row.date == day }.dau
+    assert_equal 2, Growth.new(today: day + 1).days.find { |row| row.date == day }.dau
   end
 
   # --- Rule 3: doubtful hand-picked links ---

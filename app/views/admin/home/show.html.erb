@@ -56,10 +56,6 @@
             <span class="admin__readout-name"><%= sp_icon "fire-fill" %><abbr title="Daily active builders">DAU</abbr></span>
             <strong><%= number_with_delimiter(@summary[:dau]) %></strong>
             <small>built in the last 24 hours</small>
-            <small>plus <%= number_with_delimiter(@summary[:dau_unconfirmed]) %> unconfirmed</small>
-            <small>coding only, a shared game counts once</small>
-            <% on_site = @summary[:dau_on_site] %>
-            <small><%= on_site ? "#{number_with_delimiter(on_site)} also opened the site today" : "site visits: –" %></small>
           </div>
         </div>
 
@@ -69,7 +65,7 @@
               <li>
                 <%= link_to pair[:name], admin_user_path(pair[:user_id]) %> shares a repo with
                 <%= link_to pair[:other_name], admin_user_path(pair[:other_user_id]) %>
-                <small>(<%= link_to pair[:title], admin_project_path(pair[:project_id]) %> and <%= link_to pair[:other_title], admin_project_path(pair[:other_project_id]) %>), counted once in DAU</small>
+                <small>(<%= link_to pair[:title], admin_project_path(pair[:project_id]) %> and <%= link_to pair[:other_title], admin_project_path(pair[:other_project_id]) %>)</small>
               </li>
             <% end %>
           </ul>

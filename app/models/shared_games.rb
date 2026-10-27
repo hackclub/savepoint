@@ -1,17 +1,8 @@
-# D-087: accounts whose projects share a repo are one game (or one team), so the DAU counts them once. Two projects share a
-# repo when their repo links are the same after Ship::EarlierShip.normalize (so a title and a repo shared is covered too: the
+# D-087, D-090: accounts whose projects share a repo are flagged for the admin to judge, but each still counts in the DAU
+# (most are jam teams). Two projects share a repo when their repo links are the same after Ship::EarlierShip.normalize (so a title and a repo shared is covered too: the
 # repo alone is enough). The admin flags each pair, so a person can judge one builder or a team.
 class SharedGames
   Pair = Data.define(:project, :other)
-
-  # { user id => the lowest user id in their group } for every account that shares a repo with another, so a count can add
-  # a group up and count it once. `user_ids` narrows it to some accounts (the participants, for the admin).
-  def self.canonical_ids(user_ids: nil)
-    groups(user_ids).values.each_with_object({}) do |projects, map|
-      lowest = projects.map(&:user_id).min
-      projects.each { |project| map[project.user_id] = lowest }
-    end
-  end
 
   # Each pair of projects, by different accounts, that share a repo, in a stable order.
   def self.pairs(user_ids: nil)

@@ -47,7 +47,7 @@
             title: "Build a little more first.", project: @project do %>
         <p class="ship__done-text">
           Ship again once you have <%= Project::SHIP_MINIMUM_NEW_HOURS %> new hour since your last ship.
-          Log <strong><%= project_hours(needed) %> more hrs</strong> on <%= @project.title %> and this page opens.
+          Log <strong><%= project_hours(needed) %> more hrs</strong> on <%= @project.title %>, then you can ship again.
         </p>
         <div class="ship__done-actions">
           <%= link_to project_path, class: "sp-btn sp-btn--royal sp-btn--lg ship__button" do %>

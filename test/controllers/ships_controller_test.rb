@@ -89,6 +89,8 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     NpsResponse.create!(user: users(:orpheus), project: projects(:orpheus), source: "ship", score: 9, doing_well: "a", improve: "b")
     get project_ship_path
     assert_select "form.ship__form"
+    get project_path
+    assert_select ".project__ship", /Ship/
     assert_difference -> { Ship.count }, 1 do
       post project_ship_path, params: { ship: ship_params }
     end
@@ -546,7 +548,7 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_redirected_to project_ship_path
     get project_path
-    assert_select ".project__ship", /Ship in 0\.6 hrs/
+    assert_select ".project__ship", 0, "no ship button while waiting"
     assert project.reload.ship_waiting?
   end
 
@@ -566,6 +568,8 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     get project_ship_path
     assert_select "form.ship__form"
     assert_select ".ship__changes-needed"
+    get project_path
+    assert_select ".project__ship", /Ship/
   end
 
   test "a pending ship still shows in review, not the wait" do

@@ -27,7 +27,7 @@ class ShipAgainTest < ApplicationSystemTestCase
     log_hours(@user, 2.6)
     approved_ship(2.0)
     visit project_path
-    assert_link "Ship in 0.4 hrs"
+    assert_no_selector ".project__ship"
     visit project_ship_path
 
     assert_text "Build a little more first."

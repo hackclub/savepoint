@@ -53,6 +53,59 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ name ], project.hackatime_projects
   end
 
+  test "starting a project can pick a Hackatime project with only earlier time (D-089)" do
+    user = users(:orpheus)
+    user.project.destroy!
+    link_hackatime(user)
+    sign_in_as(mock_hack_club_auth(uid: user.hca_id, slack_id: "U0ORPHEUS"))
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { "1001" => [ Hackatime::Project.new("old-jam", 11_520), Hackatime::Project.new("rhythm-game", 5400) ] }
+    assert_not_includes Hackatime.projects(user).map(&:name), "old-jam"
+
+    post project_path, as: :json, params: { project: { name: "Pong", prize_key: "aseprite", hackatime_project_names: [ "old-jam" ] } }
+
+    assert_response :created
+    assert_equal [ "old-jam" ], user.reload.project.hackatime_projects
+  ensure
+    Hackatime.stubbed_all_projects = before
+  end
+
+  test "the project page picks a Hackatime project with only earlier time, as HTML and as JSON (D-089)" do
+    link_hackatime(users(:orpheus))
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { "1001" => [ Hackatime::Project.new("old-jam", 11_520), Hackatime::Project.new("rhythm-game", 5400) ] }
+
+    patch project_path, params: { project: { hackatime_project_names: [ "old-jam" ] } }
+    assert_redirected_to project_path
+    assert_equal [ "old-jam" ], projects(:orpheus).reload.hackatime_projects
+
+    patch project_path, params: { project: { hackatime_project_names: [ "rhythm-game", "old-jam" ] } }, as: :json
+    assert_response :no_content
+    assert_equal [ "rhythm-game", "old-jam" ], projects(:orpheus).reload.hackatime_projects
+  ensure
+    Hackatime.stubbed_all_projects = before
+  end
+
+  test "a refused pick on the project page answers JSON with the reasons, for Hackatime missing it and not answering (D-103)" do
+    link_hackatime(users(:orpheus))
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    patch project_path, params: { project: { hackatime_project_names: [ "someone-elses-game" ] } }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal [ "Hackatime projects don't include someone-elses-game on Hackatime" ], response.parsed_body["errors"]
+
+    projects = Hackatime.method(:projects)
+    begin
+      Hackatime.define_singleton_method(:projects) { |*, **| raise Hackatime::Unavailable, "down" }
+      patch project_path, params: { project: { hackatime_project_names: [ "someone-elses-game" ] } }, as: :json
+    ensure
+      Hackatime.define_singleton_method(:projects, projects)
+    end
+    assert_response :unprocessable_entity
+    assert_equal [ "Hackatime didn't answer. Try again in a moment." ], response.parsed_body["errors"]
+  end
+
   test "starting a project when Hackatime doesn't answer says so, and starts nothing (D-103)" do
     user = users(:orpheus)
     user.project.destroy!

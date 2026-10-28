@@ -54,7 +54,7 @@ class ProjectsController < ApplicationController
 
     project = current_user.build_project
     attributes = new_project_attributes
-    project.available_hackatime_projects = hackatime_projects if attributes.key?(:hackatime_project_names)
+    project.load_hackatime_picks if attributes.key?(:hackatime_project_names)
     if project.update(attributes)
       render json: { location: accept_pending_buddy_invite(project) ? buddy_path : project_path }, status: :created
     else
@@ -65,14 +65,14 @@ class ProjectsController < ApplicationController
   # Ticking off a setup step, or changing your project.
   def update
     if setup_params.key?(:hackatime_project_names) || (@project.hackatime_linked? && @project.hackatime_projects.none?)
-      @project.available_hackatime_projects = hackatime_projects
+      @project.load_hackatime_picks
     end
     if @project.update(setup_params)
       # The shop's "Set as my goal" comes back to the shop.
       return head :no_content if request.format.json? # a fetch (the shop's and the picker's) has already drawn the change
       redirect_to(params[:return_to] == "shop" ? shop_path : project_path)
     else
-      return head :unprocessable_entity if request.format.json?
+      return render json: { errors: @project.errors.full_messages }, status: :unprocessable_entity if request.format.json?
       @project.restore_attributes([ :build_time ]) # the page draws from the saved one
       @step = "repo" if @project.errors[:repo_url].any?
       @step = "hackatime_project" if @project.errors[:hackatime_projects].any? || @project.hackatime_no_answer?
@@ -91,13 +91,6 @@ class ProjectsController < ApplicationController
     def require_project
       @project = current_user&.project
       redirect_to onboarding_path unless @project
-    end
-
-    # What's on Hackatime for you to pick from, or nil if it can't say right now.
-    def hackatime_projects(refresh: false)
-      Hackatime.projects(current_user, refresh:)
-    rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
-      nil
     end
 
     # Before you've picked a Hackatime project, links the first new one you log time on (Project#auto_link_hackatime_project).

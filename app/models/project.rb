@@ -377,6 +377,26 @@ class Project < ApplicationRecord
   # on your project page, while you haven't).
   attr_reader :available_hackatime_projects
 
+  # The names the picker offers (Hackatime.pickable_projects, D-089), which include projects with time only before the
+  # start. They may be picked even though available_hackatime_projects, which counts since the start, lacks them. Nil when
+  # Hackatime couldn't say.
+  attr_reader :pickable_hackatime_names
+
+  # Asks Hackatime for what the picker lists and what counts, ahead of linking a pick. Either left nil when Hackatime
+  # can't say (D-103).
+  def load_hackatime_picks
+    self.available_hackatime_projects = begin
+      Hackatime.projects(user)
+    rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
+      nil
+    end
+    @pickable_hackatime_names = begin
+      Hackatime.pickable_projects(user).map(&:name) if available_hackatime_projects
+    rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
+      nil
+    end
+  end
+
   HACKATIME_NO_ANSWER = "Hackatime didn't answer. Try again in a moment."
 
   def hackatime_no_answer?
@@ -666,13 +686,14 @@ class Project < ApplicationRecord
       return errors.add(:hackatime_projects, "need one picked") if @picked_hackatime_projects.empty?
 
       unknown = @picked_hackatime_projects - hackatime_projects_was.to_a
-      if available_hackatime_projects.nil?
+      if available_hackatime_projects.nil? && pickable_hackatime_names.nil?
         # D-103: nil is Hackatime not answering (an empty list is an answer), so it can't say the pick is missing.
         errors.add(:base, HACKATIME_NO_ANSWER) if unknown.any?
         return
       end
 
-      unknown -= available_hackatime_projects.map(&:name)
+      unknown -= available_hackatime_projects.to_a.map(&:name)
+      unknown -= pickable_hackatime_names.to_a # D-089: the picker lists projects with earlier time only, so they can be picked
       errors.add(:hackatime_projects, "don't include #{unknown.to_sentence} on Hackatime") if unknown.any?
     end
 

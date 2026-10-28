@@ -41,11 +41,7 @@ class ShipsController < ApplicationController
   # The ship page's Hackatime list saves a tick or an untick here, as JSON: the page then updates its hours and checklist itself,
   # so nothing typed in the form is touched. The same linking as the project page (ProjectsController#update).
   def hackatime
-    @project.available_hackatime_projects = begin
-      Hackatime.projects(current_user)
-    rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
-      nil
-    end
+    @project.load_hackatime_picks
     if @project.update(params.expect(project: [ hackatime_project_names: [] ]))
       render json: { projects: @project.hackatime_projects, hours: helpers.project_hours(@project.hours_logged) }
     else

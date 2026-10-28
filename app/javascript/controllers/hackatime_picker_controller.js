@@ -34,14 +34,24 @@ export default class extends Controller {
         headers: { "X-CSRF-Token": document.querySelector("meta[name=csrf-token]")?.content || "", Accept: this.modeValue === "json" ? "application/json" : "text/html" }
       })
       if (version !== this.version) return // a newer save is on its way
-      if (!response.ok) throw new Error(response.status)
+      if (!response.ok) throw new Error(await this.errorFrom(response))
       this.say("Saved", "saved")
       if (this.modeValue === "json") this.dispatch("saved", { detail: await response.json() })
       else if (this.modeValue === "swap") await this.swapParts(response)
       else window.Turbo ? window.Turbo.visit(this.urlValue.replace(/\/ship\/hackatime$/, ""), { action: "replace" }) : window.location.assign(this.urlValue)
-    } catch {
-      this.say("Couldn't save that. Try again.", "error")
+    } catch (error) {
+      this.say(error.message || "Couldn't save that. Try again.", "error")
     }
+  }
+
+  // The first reason the save was refused, when the answer says one: a JSON answer's first error, or the error the refused
+  // project page shows (the swap and page modes ask for HTML). Empty when it doesn't.
+  async errorFrom(response) {
+    try {
+      if ((response.headers.get("Content-Type") || "").includes("json")) return (await response.json()).errors?.[0] || ""
+      const doc = new DOMParser().parseFromString(await response.text(), "text/html")
+      return doc.querySelector(".project__step[data-state=current] .project__step-error")?.textContent.trim() || ""
+    } catch { return "" }
   }
 
   // The page parts that depend on the linked projects (the chips, the schedule and its hours) are swapped for the saved page's,

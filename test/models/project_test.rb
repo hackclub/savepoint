@@ -149,6 +149,24 @@ class ProjectTest < ActiveSupport::TestCase
     assert project.valid?
   end
 
+  test "a project the picker lists with only earlier time can be picked, and a stranger still can't (D-089)" do
+    project = projects(:orpheus)
+    link_hackatime(project.user)
+    before = Hackatime.stubbed_all_projects
+    Hackatime.stubbed_all_projects = { "1001" => [ Hackatime::Project.new("old-jam", 36_000), Hackatime::Project.new("rhythm-game", 5400) ] }
+    project.load_hackatime_picks
+    assert_not_includes project.available_hackatime_projects.map(&:name), "old-jam", "it has no time since the start"
+
+    project.hackatime_project_names = [ "old-jam" ]
+    assert project.valid?, project.errors.full_messages.to_sentence
+
+    project.hackatime_project_names = [ "not-mine" ]
+    assert_not project.valid?
+    assert_equal [ "Hackatime projects don't include not-mine on Hackatime" ], project.errors.full_messages
+  ensure
+    Hackatime.stubbed_all_projects = before
+  end
+
   test "no answer from Hackatime is fine for picks that are already linked" do
     project = projects(:orpheus)
     link_hackatime(project.user)

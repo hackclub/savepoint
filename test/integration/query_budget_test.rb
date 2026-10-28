@@ -71,10 +71,10 @@ class QueryBudgetTest < ActionDispatch::IntegrationTest
         10.times { |d| user.streak_activities.create!(activity_date: Date.current - d, coded_seconds: 1800 + d * 60 + i * 30) }
         project
       end
-      made.each_slice(2) do |a, b|
+      made.each_slice(2).with_index do |(a, b), at|
         next unless b
         pair = Pair.create!(first_project: a, second_project: b, started_on: Date.current)
-        pair.pomodoros.create!(joined_at: Time.current, started_by: a, started_at: 1.day.ago, minutes: 25) if a.id.odd?
+        pair.pomodoros.create!(joined_at: Time.current, started_by: a, started_at: 1.day.ago, minutes: 25) if at.even?
       end
     end
 end

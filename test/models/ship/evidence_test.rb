@@ -100,11 +100,21 @@ class Ship::EvidenceTest < ActiveSupport::TestCase
     assert_empty Ship::Evidence.new(@ship).duplicates
   end
 
-  test "the Telescreen link goes to their Hackatime id, or the home without one" do
-    assert_equal "https://telescreen.hackclub.com/subjects/1001", Ship::Evidence.new(@ship).telescreen_url
+  test "the Telescreen link opens their Hackatime workbench with the ship's projects, and the bare workbench without an id" do
+    @ship.update_columns(hackatime_projects: [ "Slime Survivors", "Jame Gam Game Jam" ])
+    assert_equal "https://telescreen.hackclub.com/workbench/hackatime/overview?u=1001&p=Slime+Survivors,Jame+Gam+Game+Jam", Ship::Evidence.new(@ship.reload).telescreen_url
+    @ship.update_columns(hackatime_projects: [])
+    assert_equal "https://telescreen.hackclub.com/workbench/hackatime/overview?u=1001", Ship::Evidence.new(@ship.reload).telescreen_url
     @user.update_columns(hackatime_uid: nil)
-    assert_equal "https://telescreen.hackclub.com", Ship::Evidence.new(@ship.reload).telescreen_url
-    assert_equal "https://telescreen.hackclub.com/workbench/lapse", Ship::Evidence.new(@ship).lapse_review_url
+    assert_equal "https://telescreen.hackclub.com/workbench/hackatime/overview", Ship::Evidence.new(@ship.reload).telescreen_url
+    @user.update_columns(hackatime_uid: "fake-fresh-1")
+    assert_equal "https://telescreen.hackclub.com/workbench/hackatime/overview", Ship::Evidence.new(@ship.reload).telescreen_url
+  end
+
+  test "the Lapse review link carries their Hackatime id when there is one" do
+    assert_equal "https://telescreen.hackclub.com/workbench/lapse?u=1001", Ship::Evidence.new(@ship).lapse_review_url
+    @user.update_columns(hackatime_uid: nil)
+    assert_equal "https://telescreen.hackclub.com/workbench/lapse", Ship::Evidence.new(@ship.reload).lapse_review_url
   end
 
   test "the trust level is the one stored, and asked once when none is" do

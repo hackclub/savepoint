@@ -222,6 +222,10 @@ class AdminReviewTest < ApplicationSystemTestCase
     find("#admin-ship-checklist summary").click
     assert_selector "#admin-ship-checklist .ash__tick", count: 7
     assert_selector "details details", count: 0, visible: :all
+    assert_selector ".ash__decide #admin-ship-limits", text: /Claimed.*Counted.*AI coding.*Art.*Most to approve/m
+    assert_no_selector "details#admin-ship-hours[open]", visible: :all
+    find("#admin-ship-hours summary").click
+    assert_selector "details#admin-ship-hours[open]"
     assert_no_text "What they submitted"
     %w[admin-ship-readme admin-ship-repo admin-ship-person admin-ship-hours-start snapshot-edit].each { |id| assert_no_selector "details##{id}[open]", visible: :all }
   end

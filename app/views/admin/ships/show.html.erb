@@ -9,7 +9,7 @@
 <%# One ship in full (D-002, D-106). What a reviewer reads on every review is open: who, the hours on one line, a problem line
     only when one applies, what they changed, the screenshots, the commits. What is read now and then (the README, the
     repository, the participant, Lapse, the hours start, the snapshot editor) sits in a closed section with one fact in its
-    summary. One level of disclosure, no nesting. The decision rail sits beside it from 1200px (D-070). Real names and emails
+    summary. One level of disclosure, no nesting. The decision rail, whose top is the one hours panel (claimed, counted, the cuts, the most to approve), sits beside it from 1200px (D-070). Real names and emails
     are here, so nothing on this page is recorded. Styled in admin-ship.css. %>
 <div class="sp-page pg-admin-ship" data-controller="shortcuts">
   <div class="ash">
@@ -59,7 +59,6 @@
 
       <div class="ash__layout">
       <div class="ash__col">
-      <%= render "admin/ships/hours", ship: @ship, project:, evidence: @evidence, limits: @limits %>
       <% problems = render("admin/ships/problems", ship: @ship, evidence: @evidence, limits: @limits, earlier_ship: @earlier_ship) %>
       <% if problems.present? %><div class="ash__problems"><%= problems %></div><% end %>
 
@@ -131,6 +130,7 @@
           <h2 class="sp-ribbon <%= "sp-ribbon--gold" if @ship.pending? %> ash__ribbon" id="admin-ship-decision"><span><%= sp_icon "flag-1-fill" %><%= @ship.awaiting_fraud? ? "Fraud check" : "Decision" %></span></h2>
           <%# D-063: three states. Waiting for a review, the verdict form. Waiting for its fraud check, the fraud form. Decided, what
               was decided. Your own ship has no form: someone else judges it. %>
+          <%= render "admin/ships/hours", ship: @ship, project:, evidence: @evidence, limits: @limits %>
           <% if @ship.in_review? && !own %>
             <%= render "admin/ships/verdict", ship: @ship, limits: @limits, earlier_ship: @earlier_ship, send_backs: @send_backs,
                        checklist:, defaults:, ticked: %>

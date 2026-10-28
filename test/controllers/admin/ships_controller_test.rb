@@ -35,7 +35,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", "Pong"
     assert_select ".leaderboard__note", /by\s+Ana Lovelace \(pixelana on Slack\)/m
-    assert_select "#admin-ship-hours", text: /Claimed\s*7\.5 hrs.*Counted\s*7\.5 hrs.*Most to approve/m
+    assert_select "#admin-ship-limits", text: /Claimed\s*7\.5 hrs\s*Counted.*?7\.5 hrs.*Most to approve/m
+    assert_select ".ash__decide #admin-ship-limits", 1, "one hours panel, at the top of the decision"
+    assert_select ".ash__main > .ash__layout > .ash__col #admin-ship-limits", 0, "not in the main column"
     assert_select "a#admin-ship-repo-link[href='https://github.com/ana/pong']"
     assert_select "a#admin-ship-demo-link[href='https://example.com/pong']"
     assert_select ".admin__ship-description", /every frame is a sprite/
@@ -149,7 +151,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-feedback", "Add a README."
     assert_select "#admin-ship-judgement", "Thin."
     assert_select ".ash__status [data-decision=changes_needed]", "Changes needed"
-    assert_select "#admin-ship-limits", 0, "the limits are the review form's"
+    assert_select ".ash__decide #admin-ship-limits", 1, "the hours panel stays once decided"
   end
 
   test "reject is final and needs the judgement, and the participant is told so on their ship page, not messaged" do
@@ -422,7 +424,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".ash__before[data-unified=found] img[src='https://dl.airtable.com/before.png']"
     assert_select ".ash__before figcaption", /jame gam, approved 2026-11-06, 4 hrs/
     assert_select ".ash__after img[alt='Screenshot of Pong']"
-    assert_select "#admin-ship-hours", text: /Counted/
+    assert_select "#admin-ship-limits", text: /Counted/
     assert_select "button", /Changes needed/
     assert_select "textarea[name=review_judgement]"
   end
@@ -486,7 +488,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
     assert_response :success
-    assert_select "#admin-ship-limits", text: /Counted\s*7\.5 hrs.*AI coding.*1\.5 hrs\s*−1.*Art \(designing and Lapse\).*0 hrs.*Most to approve\s*6\.5 hrs/m
+    assert_select "#admin-ship-limits", text: /Claimed\s*7\.5 hrs\s*Counted.*?7\.5 hrs.*AI coding.*1\.5 hrs\s*−1.*Art \(designing and Lapse\).*0 hrs.*Most to approve\s*6\.5 hrs/m
     assert_select "input[name=coding_hours][value='6.5'][max='6.5']"
     assert_select "input[name=art_hours]", 0, "no art, no art field"
     assert_select "textarea[name=deflation_reason]", ""

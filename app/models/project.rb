@@ -377,6 +377,12 @@ class Project < ApplicationRecord
   # on your project page, while you haven't).
   attr_reader :available_hackatime_projects
 
+  HACKATIME_NO_ANSWER = "Hackatime didn't answer. Try again in a moment."
+
+  def hackatime_no_answer?
+    errors.of_kind?(:base, HACKATIME_NO_ANSWER)
+  end
+
   # Whenever we ask Hackatime, what it said is kept too: how many projects and their seconds. Nothing's linked until
   # someone picks one, so without this "never set up the editor" and "coding on a project that isn't linked" look the
   # same. A failed ask sets nil, which says nothing, so it doesn't overwrite what we last saw.
@@ -659,7 +665,14 @@ class Project < ApplicationRecord
       return if @picked_hackatime_projects.nil?
       return errors.add(:hackatime_projects, "need one picked") if @picked_hackatime_projects.empty?
 
-      unknown = @picked_hackatime_projects - hackatime_projects_was.to_a - available_hackatime_projects.to_a.map(&:name)
+      unknown = @picked_hackatime_projects - hackatime_projects_was.to_a
+      if available_hackatime_projects.nil?
+        # D-103: nil is Hackatime not answering (an empty list is an answer), so it can't say the pick is missing.
+        errors.add(:base, HACKATIME_NO_ANSWER) if unknown.any?
+        return
+      end
+
+      unknown -= available_hackatime_projects.map(&:name)
       errors.add(:hackatime_projects, "don't include #{unknown.to_sentence} on Hackatime") if unknown.any?
     end
 

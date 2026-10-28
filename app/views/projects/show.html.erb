@@ -294,6 +294,8 @@
                     <span class="project__party-queued">
                       <%= sp_icon "check-circle-fill" %>In the queue
                     </span>
+                    <%= button_to "Take my game out", project_path, method: :patch, params: { project: { party_queued: false } },
+                          class: "sp-btn sp-btn--sm sp-btn--ghost project__event-button" %>
                   <% else %>
                     <%= button_to "Add my game to the queue", project_path, method: :patch, params: { project: { party_queued: true } },
                           class: "sp-btn sp-btn--sm sp-btn--royal project__event-button" %>

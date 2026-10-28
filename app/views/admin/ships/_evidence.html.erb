@@ -1,168 +1,164 @@
-<%# D-063: what the reviewer checks the claim against, as playground's review shows it. The hours on each Hackatime project,
-    the repository and its latest release, the Lapse sessions, who shipped it, the same repo or person elsewhere, and the
-    Stardance check. Locals: evidence (Ship::Evidence), limits (Ship::Limits). Each part says plainly when its service is down.
-    The Stardance answer is evidence.stardance_shipped?: the verdict form reads it to turn Approve off. Styled in admin-ship.css. %>
+<%# locals: (evidence:, limits:, others:) %>
+<%# D-063, D-106: the evidence a reviewer opens when a question comes up, each in a closed section with one fact in its summary:
+    the repository and its latest release, who shipped it with their earlier ships (the project's, and their others), and
+    the Lapse sessions with the art share. Lapse opens by itself when the ship has Lapse time, for the reviewer's split (D-085).
+    The hours, the problems and the Stardance check are open higher up. Each part says plainly when its service is down.
+    Styled in admin-ship.css. %>
 <% ship = evidence.ship %>
-<% user = ship.project.user %>
-<% stardance = evidence.stardance %>
-<% hackatime = evidence.hackatime %>
+<% project = ship.project %>
+<% user = project.user %>
 <% repo = evidence.repo %>
 <% lapses = evidence.lapses %>
+<% level = evidence.trust_level %>
+<% earlier_count = others.size %>
 
-<% if stardance.shipped? %>
-  <p class="ash__problem ash__problem--coral" data-stardance="shipped" id="admin-ship-stardance">
-    <%= sp_icon "warning-fill" %><span><%= Stardance::MESSAGE %> Approve is off. Ask for changes or send it back.
-    <% stardance.ids.each do |id| %><%= link_to "Stardance project #{id}", Stardance.project_url(id), target: "_blank", rel: "noopener" %> <% end %></span>
-  </p>
-<% elsif stardance.unknown? %>
-  <p class="admin__muted ash__quiet" data-stardance="unknown" id="admin-ship-stardance"><%= sp_icon "information-fill" %>Could not check Stardance<%= " (no STARDANCE_MCP_TOKEN set)" unless Stardance.configured? %>.</p>
-<% end %>
-
-<div class="ash__changes ash__evidence">
-  <div class="ash__side">
-    <section class="sp-panel ash__panel" aria-labelledby="admin-ship-hackatime">
-      <h2 class="sp-ribbon ash__ribbon" id="admin-ship-hackatime"><span><%= sp_icon "keyboard-fill" %>Hours per Hackatime project</span></h2>
-      <% if hackatime.rows.any? %>
-        <table class="ash__evtable" id="admin-ship-hackatime-hours">
-          <thead><tr><th scope="col">Project</th><th scope="col"><%= hackatime.captured ? "At ship" : "Up to ship (live)" %></th><th scope="col">Now</th></tr></thead>
-          <tbody>
-            <% hackatime.rows.each do |row| %>
-              <tr><th scope="row"><%= row.name %></th><td><%= evidence_hours(row.at_ship) %></td><td><%= evidence_hours(row.now) %></td></tr>
-            <% end %>
-          </tbody>
-          <tfoot><tr><th scope="row">They claimed</th><td><%= Ship::Limits.hrs(ship.hours) %></td><td><%= Ship::Limits.hrs(ship.project.hours_logged) %></td></tr></tfoot>
-        </table>
-        <p class="admin__muted ash__quiet">Time since Save Point began, each project on its own. <%= hackatime.captured ? "Kept when they shipped." : "This ship was made before the figures were kept, so these are asked of Hackatime now." %></p>
-      <% end %>
-      <% if hackatime.problem %><p class="ash__problem" data-hackatime="problem"><%= sp_icon "warning-fill" %><%= hackatime.problem %></p><% end %>
-    </section>
-
-    <section class="sp-panel ash__panel" aria-labelledby="admin-ship-repo">
-      <h2 class="sp-ribbon ash__ribbon" id="admin-ship-repo"><span><%= sp_icon "github-fill" %>Repository</span></h2>
+<details class="sp-panel ash__disc" id="admin-ship-repo">
+  <summary class="ash__disc-sum">
+    <span class="ash__disc-title"><%= sp_icon "github-fill" %>Repository</span>
+    <span class="ash__disc-fact">
       <% if repo.ok? %>
-        <dl class="ash__details" id="admin-ship-repo-facts">
-          <dt>Repo</dt><dd><%= link_to repo.full_name, "https://github.com/#{repo.full_name}", target: "_blank", rel: "noopener" %></dd>
-          <dt>Commits</dt><dd><%= repo.commits.nil? ? "unknown" : repo.commits %></dd>
-          <dt>Last push</dt><dd><%= repo.pushed_at ? repo.pushed_at.utc.strftime("%b %-d, %Y") : "unknown" %></dd>
-          <dt>Stars</dt><dd><%= repo.stars %></dd>
-          <dt>Release</dt>
-          <dd>
-            <% if repo.release %>
-              <%= link_to repo.release.tag.presence || "untagged", repo.release.url, target: "_blank", rel: "noopener" if safe_http_url?(repo.release.url) %>
-              <% if repo.release.published_at %><small class="admin__muted">published <%= repo.release.published_at.utc.strftime("%b %-d, %Y") %></small><% end %>
-              <% if repo.release.assets.any? %>
-                <ul class="ash__files">
-                  <% repo.release.assets.each do |asset| %><li><%= asset.name %> <small class="admin__muted"><%= number_to_human_size(asset.size) %></small></li><% end %>
-                </ul>
-              <% else %>
-                <small class="admin__muted">no files</small>
-              <% end %>
+        <%= repo.commits.nil? ? "commits unknown" : pluralize(repo.commits, "commit") %> · pushed <%= repo.pushed_at ? repo.pushed_at.utc.strftime("%b %-d") : "unknown" %> · <%= repo.release ? (repo.release.tag.presence || "untagged") : "no release" %>
+      <% else %>
+        unavailable
+      <% end %>
+    </span>
+  </summary>
+  <div class="ash__disc-body">
+    <% if repo.ok? %>
+      <dl class="ash__details" id="admin-ship-repo-facts">
+        <dt>Repo</dt><dd><%= link_to repo.full_name, "https://github.com/#{repo.full_name}", target: "_blank", rel: "noopener" %></dd>
+        <dt>Commits</dt><dd><%= repo.commits.nil? ? "unknown" : repo.commits %></dd>
+        <dt>Last push</dt><dd><%= repo.pushed_at ? repo.pushed_at.utc.strftime("%b %-d, %Y") : "unknown" %></dd>
+        <dt>Stars</dt><dd><%= repo.stars %></dd>
+        <dt>Release</dt>
+        <dd>
+          <% if repo.release %>
+            <%= link_to repo.release.tag.presence || "untagged", repo.release.url, target: "_blank", rel: "noopener" if safe_http_url?(repo.release.url) %>
+            <% if repo.release.published_at %><small class="admin__muted">published <%= repo.release.published_at.utc.strftime("%b %-d, %Y") %></small><% end %>
+            <% if repo.release.assets.any? %>
+              <ul class="ash__files">
+                <% repo.release.assets.each do |asset| %><li><%= asset.name %> <small class="admin__muted"><%= number_to_human_size(asset.size) %></small></li><% end %>
+              </ul>
             <% else %>
-              none
+              <small class="admin__muted">no files</small>
             <% end %>
-          </dd>
-        </dl>
-        <% if evidence.release_predates? %>
-          <p class="ash__problem" data-release="predates"><%= sp_icon "warning-fill" %>
-            This release is from <%= repo.release.published_at.utc.strftime("%b %-d") %>, before <%= evidence.first_commit_at ? "the first commit since Save Point began (#{evidence.first_commit_at.utc.strftime("%b %-d")})" : "this project's hours began counting (#{evidence.ship.project.hours_start.utc.strftime("%b %-d")})" %>. It can't hold this work.</p>
-        <% end %>
-      <% else %>
-        <p class="ash__problem" data-repo="<%= repo.status %>"><%= sp_icon "warning-fill" %><%= repo.message %></p>
-      <% end %>
-    </section>
-
-    <section class="sp-panel ash__panel" aria-labelledby="admin-ship-lapses">
-      <h2 class="sp-ribbon ash__ribbon" id="admin-ship-lapses"><span><%= sp_icon "play-fill" %>Lapse sessions</span></h2>
-      <% if limits.art_known? && limits.claimed.positive? %>
-        <% share = (limits.art * 100 / limits.claimed).round %>
-        <p id="admin-ship-art-share">Art (designing and Lapse) <strong><%= Ship::Limits.hrs(limits.art) %></strong> of <%= Ship::Limits.hrs(limits.claimed) %> counted:
-          <strong class="<%= "ash__over" if share > Ship::Limits::ART_CAP_PERCENT %>"><%= share %>%</strong>
-          <span class="admin__muted">(cap <%= Ship::Limits::ART_CAP_PERCENT %>%)</span></p>
-      <% elsif !limits.art_known? %>
-        <p class="admin__muted">Hackatime didn't say how much of the time is art.</p>
-      <% end %>
-      <% if limits.lapse_known? %>
-        <p id="admin-ship-lapse-time">Lapse time <strong><%= Ship::Limits.hrs(limits.lapse) %></strong>:
-          <strong><%= Ship::Limits.hrs(limits.lapse_coding) %></strong> coding, <strong><%= Ship::Limits.hrs(limits.lapse - limits.lapse_coding) %></strong> art.</p>
-        <% if ship.in_review? && !ship.by?(current_user) %>
-          <%= form_with url: lapse_split_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "lapse-split", data: { turbo: false } do |form| %>
-            <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
-            <div class="sp-field">
-              <%= form.label :lapse_coding_hours, "Lapse hours that were coding", class: "sp-label" %>
-              <span class="ash__hours-box">
-                <%= form.number_field :lapse_coding_hours, value: ship.lapse_coding_hours.to_f, min: 0, max: limits.lapse.floor(2).to_f, step: 0.01,
-                      class: "sp-input admin__hours ash__hours", aria: { describedby: "admin-ship-lapse-help" } %>
-                <span class="ash__hours-unit" aria-hidden="true">hrs</span>
-              </span>
-            </div>
-            <div class="ash__hours-start-actions">
-              <%= form.button type: "submit", class: "sp-btn sp-btn--royal sp-btn--sm" do %><%= sp_icon "save-2-fill" %>Set Lapse coding<% end %>
-            </div>
+          <% else %>
+            none
           <% end %>
-          <p class="admin__muted ash__hours-start-note" id="admin-ship-lapse-help">0 means all of it is art. Coding hours sit outside the <%= Ship::Limits::ART_CAP_PERCENT %>% art cap, for an editor Hackatime can't track. The coding and art limits below update when you set it.</p>
-        <% end %>
-      <% end %>
-      <% if lapses.error %>
-        <p class="ash__problem" data-lapses="unavailable"><%= sp_icon "warning-fill" %>The session list is unavailable: <%= lapses.error %>.</p>
-      <% elsif lapses.lapses.empty? %>
-        <p class="admin__muted" data-lapses="none">No Lapse sessions on these projects.</p>
-      <% else %>
-        <ul class="ash__files" data-lapses="listed">
-          <% lapses.lapses.each do |lapse| %>
-            <li><%= link_to lapse.title.presence || lapse.id, lapse.url, target: "_blank", rel: "noopener" %> <small class="admin__muted"><%= evidence_hours(lapse.duration) %> · <%= lapse.project %></small></li>
-          <% end %>
-        </ul>
-      <% end %>
-    </section>
-  </div>
-
-  <div class="ash__side">
-    <section class="sp-panel ash__panel" aria-labelledby="admin-ship-person">
-      <h2 class="sp-ribbon ash__ribbon" id="admin-ship-person"><span><%= sp_icon "user-3-fill" %>Participant</span></h2>
-      <dl class="ash__details" id="admin-ship-participant">
-        <dt>Name</dt><dd><%= admin_person_link(user) %></dd>
-        <dt>Email</dt><dd><%= user.email.presence || "unknown" %></dd>
-        <dt>Slack</dt><dd><%= user.slack_id.present? ? name_with_slack(user, name: user.slack_display_name.presence || user.slack_id) : "not linked" %></dd>
-        <dt>Identity</dt>
-        <dd>
-          <% verified = user.verification_status == "verified" %>
-          <span class="sp-badge sp-badge--<%= verified ? "mint" : "coral" %>"><%= sp_icon(verified ? "check-circle-fill" : "warning-fill") %><%= user.verification_status.presence || "unverified" %></span>
-          <% unless user.ysws_eligible? %><span class="sp-badge sp-badge--coral">not YSWS eligible</span><% end %>
-        </dd>
-        <dt>Hackatime</dt>
-        <dd>
-          <% level = evidence.trust_level %>
-          <%= user.hackatime_uid.presence || "not linked" %>
-          <span class="sp-badge sp-badge--<%= trust_level_tone(level) || "gold" %>" data-trust="<%= level || "unknown" %>">trust <%= level || "unknown" %></span>
         </dd>
       </dl>
-      <% if evidence.other_ships.any? %>
-        <p class="sp-label ash__justify-label">Their other ships</p>
-        <ul class="ash__files">
-          <% evidence.other_ships.each do |other| %>
-            <li><%= link_to other.title, admin_ship_path(other) %> <small class="admin__muted"><%= ship_status_label(other) %> · <%= other.created_at.strftime("%b %-d") %> · <%= Ship::Limits.hrs(other.approved_hours || other.hours) %></small></li>
-          <% end %>
-        </ul>
-      <% end %>
-    </section>
-
-    <% if evidence.duplicates.any? %>
-      <section class="sp-panel ash__panel ash__warnbox" aria-labelledby="admin-ship-duplicates">
-        <h2 class="sp-ribbon sp-ribbon--gold ash__ribbon" id="admin-ship-duplicates"><span><%= sp_icon "warning-fill" %>Same repo or person elsewhere</span></h2>
-        <ul class="ash__files" id="admin-ship-duplicate-list">
-          <% evidence.duplicates.each do |duplicate| %>
-            <li><%= admin_person_link(duplicate.user) %> <small class="admin__muted"><%= duplicate.reason %><% if duplicate.project %> · <%= duplicate.project.title %><% end %></small></li>
-          <% end %>
-        </ul>
-      </section>
+    <% else %>
+      <p class="ash__problem" data-repo="<%= repo.status %>"><%= sp_icon "warning-fill" %><%= repo.message %></p>
     <% end %>
-
-    <section class="sp-panel ash__panel" aria-labelledby="admin-ship-links">
-      <h2 class="sp-ribbon ash__ribbon" id="admin-ship-links"><span><%= sp_icon "link-fill" %>Links</span></h2>
-      <p class="ash__links">
-        <%= link_to evidence.telescreen_url, target: "_blank", rel: "noopener", class: "sp-btn ash__link-btn", id: "admin-ship-telescreen" do %><%= sp_icon "search-fill" %>Telescreen<% end %>
-        <%= link_to evidence.lapse_review_url, target: "_blank", rel: "noopener", class: "sp-btn ash__link-btn", id: "admin-ship-lapse-review" do %><%= sp_icon "play-fill" %>Lapse review<% end %>
-      </p>
-    </section>
   </div>
-</div>
+</details>
+
+<details class="sp-panel ash__disc" id="admin-ship-person">
+  <summary class="ash__disc-sum">
+    <span class="ash__disc-title"><%= sp_icon "user-3-fill" %>Participant</span>
+    <span class="ash__disc-fact">
+      <span class="sp-badge sp-badge--<%= trust_level_tone(level) || "gold" %>" data-trust="<%= level || "unknown" %>">trust <%= level || "unknown" %></span>
+      <%= earlier_count.zero? ? "no earlier ships" : pluralize(earlier_count, "earlier ship") %>
+    </span>
+  </summary>
+  <div class="ash__disc-body">
+    <dl class="ash__details" id="admin-ship-participant">
+      <dt>Name</dt><dd><%= admin_person_link(user) %></dd>
+      <dt>Email</dt><dd><%= user.email.presence || "unknown" %></dd>
+      <dt>Slack</dt><dd><%= user.slack_id.present? ? name_with_slack(user, name: user.slack_display_name.presence || user.slack_id) : "not linked" %></dd>
+      <dt>Project</dt><dd><%= link_to project.title, admin_project_path(project) %></dd>
+      <dt>Identity</dt>
+      <dd>
+        <% verified = user.verification_status == "verified" %>
+        <span class="sp-badge sp-badge--<%= verified ? "mint" : "coral" %>"><%= sp_icon(verified ? "check-circle-fill" : "warning-fill") %><%= user.verification_status.presence || "unverified" %></span>
+        <% unless user.ysws_eligible? %><span class="sp-badge sp-badge--coral">not YSWS eligible</span><% end %>
+      </dd>
+      <dt>Hackatime</dt>
+      <dd><%= user.hackatime_uid.presence || "not linked" %></dd>
+    </dl>
+    <% if others.any? %>
+      <h3 class="sp-label ash__sub" id="admin-ship-others">Earlier ships of this project</h3>
+      <div class="admin__scroll ash__scroll">
+        <table class="leaderboard__table admin__table admin__table--ships ash__table">
+          <thead>
+            <tr>
+              <th scope="col">Who</th>
+              <th scope="col">Ship</th>
+              <th class="leaderboard__number" scope="col">Hours</th>
+              <th scope="col">Shipped</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% others.each do |other| %>
+              <%= render "admin/ships/row", ship: other %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+    <% if evidence.other_ships.any? %>
+      <h3 class="sp-label ash__sub">Their other ships</h3>
+      <ul class="ash__files">
+        <% evidence.other_ships.each do |other| %>
+          <li><%= link_to other.title, admin_ship_path(other) %> <small class="admin__muted"><%= ship_status_label(other) %> · <%= other.created_at.strftime("%b %-d") %> · <%= Ship::Limits.hrs(other.approved_hours || other.hours) %></small></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+</details>
+
+<details class="sp-panel ash__disc ash__lapse" id="admin-ship-lapses" <%= "open" if limits.lapse_known? %>>
+  <summary class="ash__disc-sum">
+    <span class="ash__disc-title"><%= sp_icon "play-fill" %>Lapse</span>
+    <span class="ash__disc-fact">
+      <% if limits.art_known? && limits.claimed.positive? %>
+        art <%= (limits.art * 100 / limits.claimed).round %>% of <%= Ship::Limits.hrs(limits.claimed) %> (cap <%= Ship::Limits::ART_CAP_PERCENT %>%)
+      <% else %>
+        art unknown
+      <% end %>
+    </span>
+  </summary>
+  <div class="ash__disc-body">
+    <% if limits.art_known? && limits.claimed.positive? %>
+      <% share = (limits.art * 100 / limits.claimed).round %>
+      <p id="admin-ship-art-share">Art (designing and Lapse) <strong><%= Ship::Limits.hrs(limits.art) %></strong> of <%= Ship::Limits.hrs(limits.claimed) %> counted:
+        <strong class="<%= "ash__over" if share > Ship::Limits::ART_CAP_PERCENT %>"><%= share %>%</strong>
+        <span class="admin__muted">(cap <%= Ship::Limits::ART_CAP_PERCENT %>%)</span></p>
+    <% elsif !limits.art_known? %>
+      <p class="admin__muted">Hackatime didn't say how much of the time is art.</p>
+    <% end %>
+    <% if limits.lapse_known? %>
+      <p id="admin-ship-lapse-time">Lapse time <strong><%= Ship::Limits.hrs(limits.lapse) %></strong>:
+        <strong><%= Ship::Limits.hrs(limits.lapse_coding) %></strong> coding, <strong><%= Ship::Limits.hrs(limits.lapse - limits.lapse_coding) %></strong> art.</p>
+      <% if ship.in_review? && !ship.by?(current_user) %>
+        <%= form_with url: lapse_split_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "lapse-split", data: { turbo: false } do |form| %>
+          <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
+          <div class="sp-field">
+            <%= form.label :lapse_coding_hours, "Lapse hours that were coding", class: "sp-label" %>
+            <span class="ash__hours-box">
+              <%= form.number_field :lapse_coding_hours, value: ship.lapse_coding_hours.to_f, min: 0, max: limits.lapse.floor(2).to_f, step: 0.01,
+                    class: "sp-input admin__hours ash__hours", aria: { describedby: "admin-ship-lapse-help" } %>
+              <span class="ash__hours-unit" aria-hidden="true">hrs</span>
+            </span>
+          </div>
+          <div class="ash__hours-start-actions">
+            <%= form.button type: "submit", class: "sp-btn sp-btn--royal sp-btn--sm" do %><%= sp_icon "save-2-fill" %>Set Lapse coding<% end %>
+          </div>
+        <% end %>
+        <p class="admin__muted ash__hours-start-note" id="admin-ship-lapse-help">0 means all of it is art. Coding hours sit outside the <%= Ship::Limits::ART_CAP_PERCENT %>% art cap, for an editor Hackatime can't track. The coding and art limits update when you set it.</p>
+      <% end %>
+    <% end %>
+    <% if lapses.error %>
+      <p class="ash__problem" data-lapses="unavailable"><%= sp_icon "warning-fill" %>The session list is unavailable: <%= lapses.error %>.</p>
+    <% elsif lapses.lapses.empty? %>
+      <p class="admin__muted" data-lapses="none">No Lapse sessions on these projects.</p>
+    <% else %>
+      <ul class="ash__files" data-lapses="listed">
+        <% lapses.lapses.each do |lapse| %>
+          <li><%= link_to lapse.title.presence || lapse.id, lapse.url, target: "_blank", rel: "noopener" %> <small class="admin__muted"><%= evidence_hours(lapse.duration) %> · <%= lapse.project %></small></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+</details>

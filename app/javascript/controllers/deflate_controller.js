@@ -6,7 +6,7 @@ import { Controller } from "@hotwired/stimulus"
 // hours, to the hundredth. On a later ship (D-097) the fields hold the new hours: the art limit is read on the earlier
 // coding plus the new, less the earlier art, and the total adds the earlier approval back. The reviewer still presses a verdict, and can type any value.
 export default class extends Controller {
-  static targets = [ "coding", "art", "artMax", "total", "hold" ]
+  static targets = [ "coding", "art", "artMax", "total", "hold", "why" ]
   static values = { claimed: Number, cap: Number, artClaimed: Number, artPercent: Number, earlierCoding: { type: Number, default: 0 }, earlierArt: { type: Number, default: 0 } }
 
   setCoding(event) {
@@ -23,12 +23,15 @@ export default class extends Controller {
     this.artTarget.focus()
   }
 
+  connect() { this.#toggleWhy() }
+
   changed() { this.#update() }
 
   #update() {
     const coding = Math.min(Number(this.codingTarget.value) || 0, this.capValue)
     if (!this.hasArtTarget) {
       if (this.hasTotalTarget) this.totalTarget.textContent = this.#round(this.earlierCodingValue + this.earlierArtValue + coding)
+      this.#toggleWhy()
       return
     }
     const artMax = Math.max(this.#round((this.earlierCodingValue + coding) * this.artPercentValue / (100 - this.artPercentValue) - this.earlierArtValue), 0)
@@ -39,6 +42,21 @@ export default class extends Controller {
     this.holdTarget.hidden = !(held || (this.artClaimedValue > artMax && art >= allowed))
     if (this.hasArtMaxTarget) this.artMaxTarget.textContent = artMax
     this.totalTarget.textContent = this.#round(this.earlierCodingValue + this.earlierArtValue + coding + art)
+    this.#toggleWhy()
+  }
+
+  // D-106: "Why deflated" shows only when less coding or art is approved than the rules allow (the server asks for it then, and
+  // not for the AI cut or the art hold). A reason already typed, or an error on it, keeps the field showing.
+  #toggleWhy() {
+    if (!this.hasWhyTarget) return
+    const coding = Number(this.codingTarget.value) || 0
+    let below = coding < this.capValue - 0.01
+    if (this.hasArtTarget) {
+      const artMax = Math.max(this.#round((this.earlierCodingValue + Math.min(coding, this.capValue)) * this.artPercentValue / (100 - this.artPercentValue) - this.earlierArtValue), 0)
+      below = below || (Number(this.artTarget.value) || 0) < Math.min(this.artClaimedValue, artMax) - 0.01
+    }
+    const typed = this.whyTarget.querySelector("textarea")?.value.trim() || this.whyTarget.querySelector(".ash__error")
+    this.whyTarget.hidden = !(below || typed)
   }
 
   #round(hours) { return Math.round(hours * 100) / 100 }

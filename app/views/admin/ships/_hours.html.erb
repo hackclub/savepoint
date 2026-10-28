@@ -1,0 +1,48 @@
+<%# locals: (ship:, project:, evidence:, limits:) %>
+<%# D-106: every figure once, at the top of the decision panel: what they claimed, what counts and from when (D-065), the AI
+    coding and art cuts the handbook's limits make (D-030), and the most to approve. The hours on each Hackatime project (D-063)
+    open from "By project" under it. "Claimed" is what they said when they shipped, "Counted" what Hackatime has since Save
+    Point's start. Styled in admin-ship.css. %>
+<% hackatime = evidence.hackatime %>
+<% format = Ship::Limits.method(:format) %>
+<% source = { override: "the set start", jame_gam: "the jame gam submission", sign_up: "sign-up", launch: "Save Point began" }.fetch(project.hours_start_source) %>
+<dl class="ash__limits" id="admin-ship-limits">
+  <div><dt>Claimed</dt><dd><%= Ship::Limits.hrs(ship.hours) %></dd></div>
+  <div>
+    <dt>Counted <small>since <%= source %><% if ship.counted_hours < ship.hours %>, <%= Ship::Limits.hrs(ship.hours - ship.counted_hours) %> cut<% end %></small></dt>
+    <dd><%= format.(limits.claimed) %> hrs</dd>
+  </div>
+  <div>
+    <dt>AI coding <small>counts at a third</small></dt>
+    <dd id="admin-ship-ai-coding"><% if limits.ai_known? %><% if limits.ai_raised? %>Hackatime <%= format.(limits.hackatime_ai) %> hrs, raised to <%= format.(limits.ai_coding) %> hrs<% else %><%= format.(limits.ai_coding) %> hrs<% end %><% if limits.ai_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
+  </div>
+  <div>
+    <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
+    <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
+  </div>
+  <% if limits.lapse_coding.positive? %>
+    <div id="admin-ship-lapse-coding">
+      <dt>Lapse coding <small>counts as coding, outside the cap</small></dt>
+      <dd><%= format.(limits.lapse_coding) %> hrs</dd>
+    </div>
+  <% end %>
+  <div class="ash__limits-total"><dt>Most to approve</dt><dd><%= format.(limits.most) %> hrs</dd></div>
+</dl>
+<% if hackatime.problem %><p class="ash__problem" data-hackatime="problem"><%= sp_icon "warning-fill" %><%= hackatime.problem %></p><% end %>
+<details class="ash__fold ash__by-project" id="admin-ship-hours">
+  <summary class="ash__fold-summary">By project</summary>
+  <% if hackatime.rows.any? %>
+    <table class="ash__evtable" id="admin-ship-hackatime-hours">
+      <thead><tr><th scope="col">Hackatime project</th><th scope="col"><%= hackatime.captured ? "At ship" : "Up to ship (live)" %></th><th scope="col">Now</th></tr></thead>
+      <tbody>
+        <% hackatime.rows.each do |row| %>
+          <tr><th scope="row"><%= row.name %></th><td><%= evidence_hours(row.at_ship) %></td><td><%= evidence_hours(row.now) %></td></tr>
+        <% end %>
+      </tbody>
+      <tfoot><tr><th scope="row">Claimed</th><td><%= Ship::Limits.hrs(ship.hours) %></td><td><%= Ship::Limits.hrs(project.hours_logged) %></td></tr></tfoot>
+    </table>
+    <p class="admin__muted ash__quiet">Time since Save Point began, each project on its own. <%= hackatime.captured ? "Kept when they shipped." : "This ship was made before the figures were kept, so these are asked of Hackatime now." %></p>
+  <% else %>
+    <p class="admin__muted"><%= project.hackatime_projects.join(", ").presence || "No Hackatime project." %></p>
+  <% end %>
+</details>

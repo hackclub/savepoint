@@ -1,0 +1,52 @@
+<%# locals: (ship:, earlier_ship:, earlier_approval:) %>
+<%# D-106, D-101: one panel for the screenshots. A first ship shows the game before (from the Unified YSWS DB, D-002) beside this
+    ship's. A later ship shows the last approved ship's beside this one's, each with its date. The current screenshot has
+    one label, "This ship". Styled in admin-ship.css. %>
+<section class="sp-panel ash__panel ash__beforeafter" id="admin-ship-screenshots" aria-labelledby="admin-ship-screenshots-title">
+  <h2 class="sp-ribbon ash__ribbon" id="admin-ship-screenshots-title"><span><%= sp_icon "pic-fill" %>Screenshots</span></h2>
+  <div class="ash__pair">
+    <% if earlier_approval %>
+      <% last_ship = earlier_approval.ship %>
+      <figure class="admin__ship-shot ash__shot ash__before" id="admin-ship-last-approved">
+        <% if last_ship.screenshot.attached? %>
+          <%= link_to url_for(last_ship.screenshot), target: "_blank", rel: "noopener" do %>
+            <%= image_tag url_for(last_ship.screenshot), alt: "Screenshot of the last approved ship, #{last_ship.created_at.utc.strftime("%b %-d")}" %>
+          <% end %>
+        <% else %>
+          <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span>The last approved ship has no screenshot.</span></p>
+        <% end %>
+        <figcaption class="admin__muted"><strong>Last approved ship</strong> <%= last_ship.created_at.utc.strftime("%b %-d") %></figcaption>
+      </figure>
+    <% else %>
+      <figure class="ash__shot ash__before" data-unified="<%= earlier_ship.status %>">
+        <% if earlier_ship.found? && safe_http_url?(earlier_ship.entry.screenshot_url) %>
+          <%= safe_link_to earlier_ship.entry.screenshot_url, target: "_blank", rel: "noopener" do %>
+            <%= safe_image_tag earlier_ship.entry.screenshot_url, alt: "Earlier screenshot of #{ship.title}" %>
+          <% end %>
+        <% else %>
+          <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span><%= earlier_ship.found? ? "The earlier ship has no screenshot." : (earlier_ship.message || "Nothing to show.") %></span></p>
+        <% end %>
+        <figcaption>
+          <strong>Before</strong>
+          <% if earlier_ship.found? %>
+            <%= earlier_ship.entry.program %><% if earlier_ship.entry.approved_at.present? %>, approved <%= earlier_ship.entry.approved_at.to_s.first(10) %><% end %><% if earlier_ship.entry.hours.present? %>, <%= earlier_ship.entry.hours %> hrs<% end %>.
+            Time before that date was already counted there.
+            <%= safe_link_to "Open its code", earlier_ship.entry.code_url, target: "_blank", rel: "noopener" %>.
+          <% elsif earlier_ship.status == :none %>
+            No earlier ship in the Unified YSWS DB.
+          <% end %>
+        </figcaption>
+      </figure>
+    <% end %>
+    <figure class="admin__ship-shot ash__shot ash__after">
+      <% if ship.screenshot.attached? %>
+        <%= link_to url_for(ship.screenshot), target: "_blank", rel: "noopener" do %>
+          <%= image_tag url_for(ship.screenshot), alt: (earlier_approval ? "Screenshot of this ship, #{ship.created_at.utc.strftime("%b %-d")}" : "Screenshot of #{ship.title}") %>
+        <% end %>
+      <% else %>
+        <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span>No screenshot.</span></p>
+      <% end %>
+      <figcaption class="admin__muted"><strong>This ship</strong> <%= ship.created_at.utc.strftime("%b %-d") %></figcaption>
+    </figure>
+  </div>
+</section>

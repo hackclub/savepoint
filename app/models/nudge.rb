@@ -13,7 +13,7 @@
 class Nudge < ApplicationRecord
   # Bandit nudges and cheers are learned from. The rest always send when they apply, bar test ones
   # (bin/rails nudges:test), which are never scored or counted.
-  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt test].freeze
+  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt approved test].freeze
   LEARNED = %w[bandit cheer].freeze
 
   # What keeps a streak going. Milestone, program and streak saver nudges count as working when they built this long
@@ -238,6 +238,7 @@ class Nudge < ApplicationRecord
     when :leaderboard then "#{Rails.configuration.x.app_url}/leaderboard"
     when :hackatime_site then ApplicationController.helpers.hackatime_url
     when :onboarding then "#{Rails.configuration.x.app_url}/start"
+    when :shop then "#{Rails.configuration.x.app_url}/shop"
     when :ship then "#{Rails.configuration.x.app_url}/project/ship"
     else "#{Rails.configuration.x.app_url}/project" # Linking Hackatime, picking your project and adding a repo are on the project page too.
     end

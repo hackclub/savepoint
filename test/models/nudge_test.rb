@@ -71,6 +71,24 @@ class NudgeTest < ActiveSupport::TestCase
     assert_equal "bandit", deliver(at_slot(10)).kind, "the repo nudge waits a few days before saying it again"
   end
 
+  test "an approval DM the same day blocks neither a setup nudge nor the weekly cap (D-098)" do
+    sent!("first_session", kind: "milestone")
+    @user.project.update!(repo_later: false)
+    5.times { |n| sent!("approved_short", kind: "approved", at: at_slot(8, hour: 9) - n.hours) }
+
+    nudge = deliver(at_slot(8))
+
+    assert_equal [ "setup", "repo" ], [ nudge.kind, nudge.arm ]
+  end
+
+  test "an approval DM the same day is not a nudge sent today, so the day's streak saver or bandit nudge may still go" do
+    sent!("first_session", kind: "milestone")
+    sent!("approved_short", kind: "approved", at: at_slot(8, hour: 9))
+    context = Nudge::Context.new(@user.reload, at_slot(8))
+    assert_empty context.sent_today
+    assert context.may_nudge?
+  end
+
   test "with time on hackatime and no project picked, the bot asks you to pick one" do
     sent!("first_session", kind: "milestone")
     @user.project.update!(hackatime_projects: [], repo_later: false)

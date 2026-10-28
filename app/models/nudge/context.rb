@@ -84,7 +84,7 @@ class Nudge::Context
   def may_nudge?
     return false unless project.program_dates.cover?(today) && reachable?
     return false if quiet? || just_messaged? || sent_today.exists?
-    return false if user.nudges.delivered.where.not(kind: "cheer").where(sent_at: now - 7.days..).count >= Nudge::WEEKLY_CAP
+    return false if user.nudges.delivered.where.not(kind: %w[cheer approved]).where(sent_at: now - 7.days..).count >= Nudge::WEEKLY_CAP
     minutes_today < Nudge::REWARD_MINUTES
   end
 
@@ -127,7 +127,7 @@ class Nudge::Context
   end
 
   def sent_today
-    user.nudges.delivered.where(sent_at: local_now.beginning_of_day..)
+    user.nudges.delivered.where.not(kind: "approved").where(sent_at: local_now.beginning_of_day..)
   end
 
   # Only bandit nudges use buckets.

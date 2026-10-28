@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  # The merge queue (D-108) runs CI on each pull request combined with the latest main.
+  merge_group:
   push:
     branches: [main]
 

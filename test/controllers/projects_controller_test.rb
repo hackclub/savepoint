@@ -53,6 +53,26 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ name ], project.hackatime_projects
   end
 
+  test "starting a project when Hackatime doesn't answer says so, and starts nothing (D-103)" do
+    user = users(:orpheus)
+    user.project.destroy!
+    link_hackatime(user)
+    sign_in_as(mock_hack_club_auth(uid: user.hca_id, slack_id: "U0ORPHEUS"))
+    name = Hackatime.stubbed_projects["1001"].first.name
+
+    projects = Hackatime.method(:projects)
+    begin
+      Hackatime.define_singleton_method(:projects) { |*, **| raise Hackatime::Unavailable, "down" }
+      post project_path, as: :json, params: { project: { name: "Pong", prize_key: "aseprite", hackatime_project_names: [ name ] } }
+    ensure
+      Hackatime.define_singleton_method(:projects, projects)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal [ "Hackatime didn't answer. Try again in a moment." ], response.parsed_body["errors"]
+    assert_nil user.reload.project
+  end
+
   test "changing your prize, right on your project, keeps everything else" do
     link_hackatime(users(:orpheus))
     projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)

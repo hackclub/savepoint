@@ -75,7 +75,7 @@ class ProjectsController < ApplicationController
       return head :unprocessable_entity if request.format.json?
       @project.restore_attributes([ :build_time ]) # the page draws from the saved one
       @step = "repo" if @project.errors[:repo_url].any?
-      @step = "hackatime_project" if @project.errors[:hackatime_projects].any?
+      @step = "hackatime_project" if @project.errors[:hackatime_projects].any? || @project.hackatime_no_answer?
       render :show, status: :unprocessable_entity
     end
   end

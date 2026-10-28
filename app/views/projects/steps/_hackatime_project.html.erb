@@ -20,6 +20,6 @@
   <p class="project__step-text">Which Hackatime project is this build?</p>
   <%= render "shared/hackatime_picker", project:, url: project_path, mode:, swap:, refresh: %>
 <% end %>
-<% if project.errors[:hackatime_projects].any? %>
-  <p class="project__step-error" role="alert"><%= project.errors.full_messages_for(:hackatime_projects).first %></p>
+<% if project.errors[:hackatime_projects].any? || project.hackatime_no_answer? %>
+  <p class="project__step-error" role="alert"><%= project.hackatime_no_answer? ? Project::HACKATIME_NO_ANSWER : project.errors.full_messages_for(:hackatime_projects).first %></p>
 <% end %>

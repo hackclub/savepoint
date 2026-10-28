@@ -1,0 +1,19 @@
+<%# locals: (ship:, checklist:, defaults:, ticked:, own:) %>
+<%# D-049, D-106: the reviewer's checklist, closed, with how many are ticked in its summary. Each tick saves at once
+    (checklist_controller.js, Admin::ShipsController#checklist) and locks when the ship is decided. It never blocks a verdict. %>
+<details class="ash__fold ash__checklist" id="admin-ship-checklist" data-controller="checklist" data-checklist-url-value="<%= checklist_admin_ship_path(ship) %>">
+  <summary class="ash__fold-summary">Checklist <small class="admin__muted" id="admin-ship-checklist-count"><span data-checklist-target="count"><%= ticked %></span> of <%= checklist.size %></small></summary>
+  <div class="ash__ticks">
+    <% checklist.each do |key, label| %>
+      <label class="ash__tick">
+        <input type="checkbox" class="sp-check" name="<%= key %>" <%= "checked" if ship.checklist_tick(key, defaults) %>
+               <%= "disabled" if !ship.in_review? || own %> data-action="checklist#save">
+        <span><%= label %></span>
+        <%# D-050: "auto" while the app's value stands. The reviewer's tick replaces it. %>
+        <% if defaults.key?(key) && !ship.review_checklist.key?(key) %>
+          <small class="ash__auto" data-checklist-target="auto" title="<%= defaults[key].last %>">auto</small>
+        <% end %>
+      </label>
+    <% end %>
+  </div>
+</details>

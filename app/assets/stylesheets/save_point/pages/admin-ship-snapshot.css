@@ -53,8 +53,7 @@
 .pg-admin-ship .ash__saved { display: flex; align-items: flex-start; gap: 6px; font: 700 15px/22px var(--font-body); color: var(--mint-ink); }
 .pg-admin-ship .ash__saved [data-icon] { flex: none; margin-top: 2px; font-size: 18px; }
 .pg-admin-ship .ash__snapshot-note { font: 600 14px/21px var(--font-body); }
-.pg-admin-ship .ash__fold > .ash__sub { margin-top: var(--space-6); }
-.pg-admin-ship .ash__fold > .ash__sub + .ash__snapshot-note { margin-top: var(--space-1); }
+.pg-admin-ship .ash__disc-body > .ash__sub + .ash__snapshot-note { margin-top: calc(-1 * var(--space-2)); }
 .pg-admin-ship .ash__snapshot-form { display: grid; gap: var(--space-4); margin: 0; }
 .pg-admin-ship .ash__snapshot-save { justify-self: start; }
 

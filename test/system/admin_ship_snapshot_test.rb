@@ -34,8 +34,10 @@ class AdminShipSnapshotSystemTest < ApplicationSystemTestCase
     Web.adapter = nil
   end
 
-  test "an upload, a move and a removal each save to the ship, and the README is open" do
+  test "an upload, a move and a removal each save to the ship, and the README opens from its section" do
     visit admin_ship_path(@ship)
+    assert_no_selector "#admin-ship-readme-body", visible: :visible
+    find("#admin-ship-readme summary").click
     assert_selector "#admin-ship-readme-body h1", text: "Pong"
 
     find("#snapshot-edit summary").click

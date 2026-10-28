@@ -5,6 +5,7 @@
 class Ship::Evidence
   TELESCREEN = "https://telescreen.hackclub.com"
   LAPSE_REVIEW = "#{TELESCREEN}/workbench/lapse"
+  HACKATIME_WORKBENCH = "#{TELESCREEN}/workbench/hackatime/overview"
   CACHE_FOR = 5.minutes
 
   # at_ship and now are seconds from Save Point's start, nil when Hackatime didn't say.
@@ -44,8 +45,18 @@ class Ship::Evidence
     @lapses ||= Ship::Lapses.for(ship)
   end
 
-  def telescreen_url = user.hackatime_uid.present? ? "#{TELESCREEN}/subjects/#{ERB::Util.url_encode(user.hackatime_uid)}" : TELESCREEN
-  def lapse_review_url = LAPSE_REVIEW
+  # D-105: the participant's Telescreen workbench, for their numeric Hackatime id (users.hackatime_uid) and the ship's linked
+  # projects. Without a numeric id there is nothing to open for them, so the bare workbench opens.
+  def telescreen_url
+    return HACKATIME_WORKBENCH unless hackatime_id
+
+    query = "u=#{hackatime_id}"
+    names = ship.hackatime_projects
+    query += "&p=#{names.map { CGI.escape(it) }.join(",")}" if names.any?
+    "#{HACKATIME_WORKBENCH}?#{query}"
+  end
+
+  def lapse_review_url = hackatime_id ? "#{LAPSE_REVIEW}?u=#{hackatime_id}" : LAPSE_REVIEW
 
   # Hackatime's trust level for them, as last stored. Asked once when nothing is stored yet.
   def trust_level
@@ -90,6 +101,8 @@ class Ship::Evidence
   def stardance_shipped? = stardance.shipped?
 
   private
+    def hackatime_id = user.hackatime_uid.to_s[/\A\d+\z/]
+
     def load_hackatime
       names = ship.hackatime_projects
       return HackatimeHours.new(rows: [], captured: false, problem: "No Hackatime project is linked to this ship.") if names.empty?

@@ -119,7 +119,7 @@ class AdminSummary
 
     def projects = Project.where(user_id: participants.select(:id))
 
-    def ships = Ship.where(project_id: projects.select(:id))
+    def ships = Ship.where(project_id: projects.select(:id)).where.not(status: "superseded")
 
     def growth = @growth ||= Growth.new(participants_only: true)
 end

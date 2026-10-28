@@ -17,6 +17,6 @@ module AdminInsights
     end
 
     private
-      def ships = Ship.where(project_id: Project.where(user_id: User.participants.select(:id)).select(:id))
+      def ships = Ship.where(project_id: Project.where(user_id: User.participants.select(:id)).select(:id)).where.not(status: "superseded")
   end
 end

@@ -39,6 +39,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert ship.decide!("approved", by: @reviewer, coding_hours: "9", art_hours: "5", technical_features: "A rhythm grid.")
     assert_equal [ BigDecimal("4"), BigDecimal("1.71") ], [ ship.review_coding_hours, ship.review_art_hours ], "whatever is typed is held to the limits"
 
+    ship.update_columns(status: "changes_needed") # a later ship waits for an earlier one in its fraud check (D-109)
     other = ship_now
     other.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
     assert_not other.decide!("approved", by: @reviewer, coding_hours: "2", technical_features: "A rhythm grid.")
@@ -194,7 +195,98 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_not @project.reload.may_ship?
   end
 
+  # D-109: shipping again while a ship is in review.
+
+  test "shipping again replaces a ship still waiting for its first review, which leaves every queue and count" do
+    first = @ship
+    second = @project.ship!(shipping_params)
+
+    assert second.persisted?
+    assert second.in_review?
+    assert first.reload.superseded?
+    assert_equal second, first.superseded_by
+    assert_equal [ second ], Ship.pending.where(project: @project).to_a
+    assert_equal [ second ], Ship.in_review.where(project: @project).to_a
+    assert_equal [ second ], Ship.reviewable.where(project: @project).to_a
+    assert_not_includes Ship.decided, first
+    assert_equal second, @project.reload.ship_in_review
+    assert_equal second, @project.latest_standing_ship, "the replaced ship is not the one that stands"
+    assert_equal 0, @project.hours_approved
+    assert_equal 0, first.claims.count
+  end
+
+  test "a reviewer's verdict on a replaced ship is refused, even from a page opened before it was replaced" do
+    open_page = Ship.find(@ship.id)
+    @project.ship!(shipping_params)
+
+    assert_not open_page.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert_equal [ Ship::REPLACED_MESSAGE ], open_page.errors[:base]
+    assert_not open_page.decide!("changes_needed", by: @reviewer, feedback: "More.")
+    assert_not open_page.decide!("banned", by: @reviewer, evidence: "Copied.")
+    assert @ship.reload.superseded?, "nothing was applied"
+    assert_nil @ship.reviewer
+    assert_not @reviewer.reload.banned?
+    assert_not @project.user.reload.banned?
+  end
+
+  test "a ship a reviewer already approved at review is not replaced, and the new ship waits for its fraud check" do
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
+    travel 1.hour
+    second = ship_again(14)
+
+    assert @ship.reload.awaiting_fraud?, "left alone"
+    assert second.in_review?
+    assert_equal [ @ship, second ], Ship.pending.where(project: @project).order(:id).to_a
+    assert_equal second, @project.reload.latest_standing_ship
+    assert_equal @ship, second.waiting_on_earlier
+    assert_not_includes Ship.reviewable, second, "not in the review queue until the first is checked"
+    assert_not second.decide!("approved", by: @reviewer, technical_features: "More levels.")
+    assert_equal [ Ship::WAITING_ON_EARLIER_MESSAGE ], second.errors[:base]
+    assert second.reload.in_review?
+  end
+
+  test "hours count once: the second ship's review starts from the first ship's approval, not from the start" do
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
+    travel 1.hour
+    second = ship_again(14)
+    second.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
+    assert_nil second.earlier_approval, "the first ship is not an approval until its fraud check passes"
+
+    assert @ship.reload.pass_fraud!(by: @reviewer)
+    assert_equal 5.71, @project.reload.hours_approved
+    assert_equal @ship, second.reload.earlier_approval.ship
+    assert_includes Ship.reviewable, second
+    assert second.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "More levels.", deflation_reason: "Some of it is repeat work.")
+    assert second.pass_fraud!(by: @reviewer)
+
+    new_hours = second.reload.approved_hours - @ship.approved_hours
+    assert_equal BigDecimal("2"), new_hours, "only the two new hours were added on top of the first approval"
+    assert_equal second.approved_hours.to_f, @project.reload.hours_approved, "the total is the latest approval, not the two added together"
+  end
+
+  test "a replaced ship does not reach Airtable or the metrics" do
+    first = @ship
+    @project.ship!(shipping_params)
+    assert first.reload.superseded?
+    assert_not_includes Ship.approved, first
+    assert_equal 1, Metric.send(:ships).where(project: @project).count, "only the ship that stands"
+    assert_not_includes Ship.where(project: @project).latest_per_project, first
+  end
+
   private
+    # Shipping through the project, as the form does. The hours the form stores come from Hackatime, so they are set here.
+    def ship_again(hours)
+      @project.ship!(shipping_params).tap { it.update_columns(hours:) }
+    end
+
+    def shipping_params
+      { title: "Beat Sheet 2", description: "A rhythm game where every beat is a cell lighting up in time.", changes_made: "More.",
+        repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat", screenshot_shows_game: true,
+        screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png") }
+    end
+
     def ship_now
       @project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                              changes_made: "Added a combo meter.", repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat",

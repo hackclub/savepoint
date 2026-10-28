@@ -25,11 +25,18 @@
           <div class="project__header-text">
             <div class="project__day-row">
               <span class="project__day"><%= sp_icon "flag-1-fill" %><%= Program.day_label %></span>
-              <% if set_up && @project.tracking? && (@project.ship_in_review || (@project.may_ship? && !@project.ship_waiting?)) %>
-                <%= link_to project_ship_path, class: [ "project__ship", "sp-btn", "sp-btn--sm", ("sp-btn--gold" unless @project.ship_in_review) ] do %>
-                  <%# D-099: no button while an approved ship's new-hour minimum is unmet. %>
-                  <%= sp_icon(@project.ship_in_review ? "time-fill" : "rocket-fill") %>
-                  <%= @project.ship_in_review ? "In review" : "Ship" %>
+              <% if set_up && @project.tracking? %>
+                <%# D-109: a ship in review doesn't block the next one. The status stays beside the button. %>
+                <% if @project.ship_in_review %>
+                  <%= link_to project_ship_path, class: [ "project__ship", "project__ship-status", "sp-btn", "sp-btn--sm" ] do %>
+                    <%= sp_icon "time-fill" %>In review
+                  <% end %>
+                <% end %>
+                <%# D-099: no button while an approved ship's new-hour minimum is unmet. %>
+                <% if @project.may_ship? && !@project.ship_waiting? %>
+                  <%= link_to project_ship_path(again: (1 if @project.ship_in_review)), class: [ "project__ship", "sp-btn", "sp-btn--sm", "sp-btn--gold" ] do %>
+                    <%= sp_icon "rocket-fill" %>Ship
+                  <% end %>
                 <% end %>
               <% end %>
             </div>

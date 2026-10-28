@@ -18,6 +18,7 @@ class Admin::ShipsController < Admin::BaseController
     ships = Ship.includes(:decided_by, project: :user)
     @in_review = ships.in_review.order(:created_at)
     @awaiting_fraud = ships.awaiting_fraud.order(:reviewed_at, :id)
+    @superseded = ships.superseded.order(updated_at: :desc)
     @decided = ships.decided.order(decided_at: :desc)
     @decided = @decided.where(status: @stage) if @stage.in?(%w[approved changes_needed rejected])
   end
@@ -31,6 +32,7 @@ class Admin::ShipsController < Admin::BaseController
   # A review's verdict: params[:decision] is one of Ship::DECISIONS.
   def review
     return head(:bad_request) unless Ship::DECISIONS.include?(params[:decision].to_s)
+    return replaced if @ship.superseded?
     return stale unless @ship.in_review?
     return taken if Claim.held_by_other?(@ship, "review", current_user)
 
@@ -43,6 +45,7 @@ class Admin::ShipsController < Admin::BaseController
                             technical_features: params[:technical_features], deflation_reason: params[:deflation_reason],
                             feedback: params[:review_feedback], judgement: params[:review_judgement], evidence: params[:evidence],
                             checklist_defaults: @ship.checklist_defaults(earlier:))
+    return replaced if @ship.superseded?
     return refill unless decided
 
     @ship.claims.where(stage: "review").delete_all
@@ -200,5 +203,7 @@ class Admin::ShipsController < Admin::BaseController
     end
 
     def stale = redirect_to(admin_ship_path(@ship), alert: "That one's moved on already.")
+    # D-109: the participant shipped again while this page was open, so this ship is out of the queue. The verdict is not applied.
+    def replaced = redirect_to(admin_ship_path(@ship), alert: Ship::REPLACED_MESSAGE)
     def taken = redirect_to(admin_ship_path(@ship), alert: "Someone else holds this ship.")
 end

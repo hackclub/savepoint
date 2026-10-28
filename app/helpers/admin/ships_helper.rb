@@ -1,9 +1,9 @@
 # The admin ships pages (Admin::ShipsController).
 module Admin::ShipsHelper
   SHIP_STATUS_LABELS = { "in_review" => "In review", "awaiting_fraud" => "Fraud check", "approved" => "Approved",
-                         "changes_needed" => "Changes needed", "rejected" => "Rejected" }.freeze
+                         "changes_needed" => "Changes needed", "rejected" => "Rejected", "superseded" => "Replaced" }.freeze
 
-  # "In review" (waiting for a review), "Fraud check" (waiting for it), "Approved", "Changes needed" or "Rejected".
+  # "In review" (waiting for a review), "Fraud check" (waiting for it), "Approved", "Changes needed", "Rejected" or "Replaced" (the participant shipped again before its first review).
   def ship_status_label(ship)
     SHIP_STATUS_LABELS.fetch(ship.status)
   end
@@ -11,6 +11,8 @@ module Admin::ShipsHelper
   # "Approved · Orpheus · Oct 13": the decision, who made it and when; the stage until then.
   def ship_decision(ship)
     return ship_status_label(ship) if ship.pending?
+    # D-109: a replaced ship has no verdict, only the date the participant shipped again.
+    return "#{ship_status_label(ship)} · #{ship.updated_at.strftime("%b %-d")}" if ship.superseded?
 
     "#{ship_status_label(ship)} · #{ship.decided_by&.first_name.presence || "someone"} · #{ship.decided_at.strftime("%b %-d")}"
   end

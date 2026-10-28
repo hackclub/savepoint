@@ -1,10 +1,14 @@
-<%# D-065, D-066: the moment this project's Hackatime time starts counting, where it came from, and the reviewer's override. The
+<%# D-065, D-066, D-106 (closed, with the start in its summary): the moment this project's Hackatime time starts counting, where it came from, and the reviewer's override. The
     override rebuilds the participant's days from the new moment. Nobody moves the start of their own ship. Styled in admin-ship.css. %>
 <% project = ship.project %>
 <% source = { override: "set by a reviewer", sign_up: "sign-up", launch: "launch",
               jame_gam: "jame gam submission (#{project.jame_gam_review_status.presence || "no status yet"}, #{project.jame_gam_submitted_at&.utc&.strftime("%b %-d")})" }.fetch(project.hours_start_source) %>
-<section class="sp-panel ash__panel ash__hours-start" aria-labelledby="admin-ship-hours-start">
-  <h2 class="sp-ribbon ash__ribbon" id="admin-ship-hours-start"><span><%= sp_icon "time-fill" %>Hours start</span></h2>
+<details class="sp-panel ash__disc ash__hours-start" id="admin-ship-hours-start">
+  <summary class="ash__disc-sum">
+    <span class="ash__disc-title"><%= sp_icon "time-fill" %>Hours start</span>
+    <span class="ash__disc-fact"><%= project.hours_start.utc.strftime("%b %-d, %H:%M") %> UTC</span>
+  </summary>
+  <div class="ash__disc-body">
   <p class="ash__hours-start-line" id="hours-start">
     Hours count from <strong><%= project.hours_start.utc.strftime("%b %-d, %H:%M") %> UTC</strong> (<%= source %>).
   </p>
@@ -26,4 +30,5 @@
     <% end %>
     <p class="admin__muted ash__hours-start-note">Not before Save Point began. Their days rebuild from it within a minute or so.</p>
   <% end %>
-</section>
+  </div>
+</details>

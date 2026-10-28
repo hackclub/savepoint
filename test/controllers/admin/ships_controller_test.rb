@@ -34,10 +34,10 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
     assert_response :success
     assert_select "h1", "Pong"
-    assert_select ".leaderboard__note", /by\s+Ana Lovelace \(ana@hackclub\.com, pixelana on Slack\)/m
-    assert_select ".admin__tile", text: /Hours when shipped\s*7\.5/m
-    assert_select ".admin__ship-details a[href='https://github.com/ana/pong']"
-    assert_select ".admin__ship-details a[href='https://example.com/pong']"
+    assert_select ".leaderboard__note", /by\s+Ana Lovelace \(pixelana on Slack\)/m
+    assert_select "#admin-ship-hours", text: /Claimed\s*7\.5 hrs.*Counted\s*7\.5 hrs.*Most to approve/m
+    assert_select "a#admin-ship-repo-link[href='https://github.com/ana/pong']"
+    assert_select "a#admin-ship-demo-link[href='https://example.com/pong']"
     assert_select ".admin__ship-description", /every frame is a sprite/
     assert_select ".admin__ship-shot img[alt='Screenshot of Pong']"
     assert_select "form#verdict[action=?]", review_admin_ship_path(@ship)
@@ -55,7 +55,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_not projects(:ana).shipped?
 
     follow_redirect!
-    assert_select ".admin__tile [data-decision=awaiting_fraud]", "Fraud check"
+    assert_select ".ash__status [data-decision=awaiting_fraud]", "Fraud check"
     assert_select "form#verdict", 0
     assert_select "form#fraud-verdict[action=?]", fraud_admin_ship_path(@ship)
     assert_select "#admin-ship-review-said .ash__limits-total", /6 hrs/
@@ -75,9 +75,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_equal users(:orpheus), @ship.decided_by
 
     follow_redirect!
-    assert_select ".admin__tile [data-decision=approved]", "Approved"
+    assert_select ".ash__status [data-decision=approved]", "Approved"
     assert_select "form#verdict, form#fraud-verdict", 0, "decided, so no buttons"
-    assert_select "[data-decision=approved]", /Approved · Orpheus · #{Date.current.strftime("%b %-d")}/
+    assert_select ".ash__status", /Approved\s*Orpheus · #{Date.current.strftime("%b %-d")}/
     assert_select "#admin-ship-fraud", /Passed by Orpheus/
 
     post review_admin_ship_path(@ship), params: { decision: "changes_needed", review_feedback: "Add a README." }
@@ -148,7 +148,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
     assert_select "#admin-ship-feedback", "Add a README."
     assert_select "#admin-ship-judgement", "Thin."
-    assert_select ".admin__tile [data-decision=changes_needed]", "Changes needed"
+    assert_select ".ash__status [data-decision=changes_needed]", "Changes needed"
     assert_select "#admin-ship-limits", 0, "the limits are the review form's"
   end
 
@@ -164,7 +164,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert @ship.reload.rejected?
     assert_empty enqueued_jobs.select { it[:job] == SlackMessageJob }, "nobody is told (D-034)"
     get admin_ship_path(@ship)
-    assert_select ".admin__tile [data-decision=rejected]", "Rejected"
+    assert_select ".ash__status [data-decision=rejected]", "Rejected"
   end
 
   test "fraud at review needs the evidence, rejects the ship and bans the account" do
@@ -237,7 +237,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
 
     assert_select "[data-controller=shortcuts]"
-    assert_select "form#verdict[data-controller=deflate]"
+    assert_select "form#verdict[data-controller~=deflate][data-controller~=verdict]"
     # 7.5 counted, 2 of it art and 1.5 AI coding: coding 5.5 claimed, 5.5 - 1 = 4.5 cap, art at most 4.5 * 30/70 = 1.92.
     assert_select "input[name=coding_hours][value='4.5'][max='4.5'][data-shortcut=h]"
     assert_select "input[name=art_hours][value='1.92'][max='2.0']"
@@ -250,8 +250,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "textarea[name=review_judgement][data-shortcut=j]"
     assert_select "textarea[name=review_feedback][data-shortcut=f]"
     { "approved" => "a", "changes_needed" => "c", "rejected" => "r", "banned" => "b" }.each do |decision, key|
-      assert_select "button[name=decision][value=#{decision}][data-shortcut=#{key}][data-shortcut-confirm]"
+      assert_select "form#verdict button[type=button][data-verdict=#{decision}][data-shortcut=#{key}][data-shortcut-submit='#verdict-submit']"
     end
+    assert_select "button#verdict-submit[type=submit][name=decision][hidden]", 1, "one submit button, hidden until a verdict is picked"
     assert_select "a[data-shortcut=n][href=?]", admin_review_path(skip: @ship.id)
   end
 
@@ -293,7 +294,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-ai-coding", /Hackatime 0\.5 hrs, raised to 3 hrs/
     assert_select "input[name=coding_hours][max='5.5']" # 7.5 less two thirds of 3
     assert_select "form#reviewer-ai textarea", /One pasted dump/
-    assert_select "button[name=decision][value=approved][data-shortcut=a]"
+    assert_select "button[data-verdict=approved][data-shortcut=a]"
 
     patch reviewer_ai_admin_ship_path(@ship), params: { reviewer_ai_coding_hours: "0.2", reviewer_ai_reason: "x" }
     assert_equal BigDecimal("3"), @ship.reload.reviewer_ai_coding_hours
@@ -421,7 +422,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".ash__before[data-unified=found] img[src='https://dl.airtable.com/before.png']"
     assert_select ".ash__before figcaption", /jame gam, approved 2026-11-06, 4 hrs/
     assert_select ".ash__after img[alt='Screenshot of Pong']"
-    assert_select ".admin__tile", text: /Hours that count/
+    assert_select "#admin-ship-hours", text: /Counted/
     assert_select "button", /Changes needed/
     assert_select "textarea[name=review_judgement]"
   end
@@ -470,9 +471,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
     assert_response :success
     assert_select "a[href^=javascript], a[href^=data]", 0
-    assert_select "dd", text: "javascript://x.example/%0Aalert(1)"
-    assert_select "dd", text: "data://text/html,<script>alert(1)</script>"
-    assert_select "dd a[href='https://github.com/ana/pong']", 0
+    assert_select ".ash__unsafe-link", text: "javascript://x.example/%0Aalert(1)"
+    assert_select ".ash__unsafe-link", text: "data://text/html,<script>alert(1)</script>"
+    assert_select "a#admin-ship-repo-link", 0
 
     get admin_project_path(projects(:ana))
     assert_response :success
@@ -485,7 +486,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
     assert_response :success
-    assert_select "#admin-ship-limits", text: /Hackatime counted\s*7\.5 hrs.*AI coding.*1\.5 hrs\s*−1.*Art \(designing and Lapse\).*0 hrs.*Most to approve\s*6\.5 hrs/m
+    assert_select "#admin-ship-limits", text: /Counted\s*7\.5 hrs.*AI coding.*1\.5 hrs\s*−1.*Art \(designing and Lapse\).*0 hrs.*Most to approve\s*6\.5 hrs/m
     assert_select "input[name=coding_hours][value='6.5'][max='6.5']"
     assert_select "input[name=art_hours]", 0, "no art, no art field"
     assert_select "textarea[name=deflation_reason]", ""
@@ -563,12 +564,12 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "#admin-ship-hackatime-hours tbody tr", 2
     assert_select "#admin-ship-hackatime-hours tr", text: /Gloobls\s*0\.5 hrs\s*2 hrs/
-    assert_select "#admin-ship-hackatime-hours tfoot", /They claimed\s*7\.5 hrs/
+    assert_select "#admin-ship-hackatime-hours tfoot", /Claimed\s*7\.5 hrs/
     assert_select "#admin-ship-repo-facts", /ana\/pong/
     assert_select "#admin-ship-repo-facts", /v0\.1.*published Oct 1, 2026.*pong\.zip.*2 KB/m
     assert_select "[data-release=predates]", /before/
     assert_select "#admin-ship-participant", /ana@hackclub\.com.*verified/m
-    assert_select "#admin-ship-participant [data-trust=yellow]", "trust yellow"
+    assert_select "#admin-ship-person summary [data-trust=yellow]", "trust yellow"
     assert_select "#admin-ship-participant a[href='https://hackclub.slack.com/team/U0ANA']"
     assert_select "#admin-ship-telescreen[href='https://telescreen.hackclub.com/subjects/1001']"
     assert_select "#admin-ship-lapse-review[href='https://telescreen.hackclub.com/workbench/lapse']"
@@ -861,8 +862,8 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     Ship::Evidence.define_method(:stardance_shipped?) { true }
 
     get admin_ship_path(@ship)
-    assert_select "form#verdict button[value=approved][disabled]"
-    assert_select "form#verdict button[value=changes_needed]:not([disabled])"
+    assert_select "form#verdict button[data-verdict=approved][disabled]"
+    assert_select "form#verdict button[data-verdict=changes_needed]:not([disabled])"
 
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball." }
     assert_redirected_to admin_ship_path(@ship)
@@ -900,7 +901,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name=coding_hours][value='1.5'][max='1.5']"
     assert_select "input[name=art_hours][value='1.92']"
     assert_select "[data-deflate-target=total]", "6.42"
-    assert_select ".ash__total", /Total approved:\s*6\.42 hrs/
+    assert_select "#verdict-submit", /Approve\s*6\.42\s*hrs in all/
     assert_select "form#verdict[data-deflate-earlier-coding-value='3.0'][data-deflate-earlier-art-value='0.0']"
   end
 
@@ -977,9 +978,10 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".ash__commits-note", /1 from #{@earlier.created_at.utc.strftime("%b %-d")}/
     assert_select "a#admin-ship-commits-toggle[href=?]", admin_ship_path(@ship, commits: "all"), /Show all commits since/
     assert_select "#admin-ship-last-approved figcaption", /Last approved ship\s*#{@earlier.created_at.utc.strftime("%b %-d")}/
-    assert_select "#admin-ship-last-approved figcaption", /This ship\s*#{@ship.created_at.utc.strftime("%b %-d")}/
+    assert_select "#admin-ship-screenshots figcaption", /This ship\s*#{@ship.created_at.utc.strftime("%b %-d")}/
     assert_select "#admin-ship-last-approved img[alt^='Screenshot of the last approved ship']"
-    assert_select "#admin-ship-last-approved img[alt^='Screenshot of this ship']"
+    assert_select "#admin-ship-screenshots img[alt^='Screenshot of this ship']"
+    assert_select "#admin-ship-screenshots h2", 1, "one panel for the screenshots"
 
     get admin_ship_path(@ship, commits: "all")
     assert_select "#admin-ship-commits", /Commits since Save Point began/

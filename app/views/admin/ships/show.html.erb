@@ -6,27 +6,42 @@
 <% status_icon = { "approved" => "check-circle-fill", "rejected" => "close-circle-fill", "changes_needed" => "refresh-2-fill", "awaiting_fraud" => "search-fill" }.fetch(@ship.status, "time-fill") %>
 <% own = @ship.by?(current_user) %>
 
-<%# One ship in full, as it was submitted (D-002): who, the hours that count, then what they say they changed beside the
-    repository's commits from Save Point's dates, the game before (from the Unified YSWS DB) and after, the links and
-    the description. A button each way while it's in review; then what was decided. Real names and emails are here, so
-    nothing on this page is recorded. Styled in admin-ship.css. %>
+<%# One ship in full (D-002, D-106). What a reviewer reads on every review is open: who, the hours on one line, a problem line
+    only when one applies, what they changed, the screenshots, the commits. What is read now and then (the README, the
+    repository, the participant, Lapse, the hours start, the snapshot editor) sits in a closed section with one fact in its
+    summary. One level of disclosure, no nesting. The decision rail sits beside it from 1200px (D-070). Real names and emails
+    are here, so nothing on this page is recorded. Styled in admin-ship.css. %>
 <div class="sp-page pg-admin-ship" data-controller="shortcuts">
   <div class="ash">
     <main class="ash__main">
       <header class="ash__head">
         <p class="ash__back"><%= link_to admin_ships_path do %><%= sp_icon "left-fill" %>All ships<% end %></p>
         <h1 class="ash__title"><%= @ship.title %></h1>
-        <% if @ship.pending? && !own %>
-          <%# D-063: the queue's skip, to the next ship waiting for this stage. %>
-          <p class="ash__skip">
-            <%= link_to "Skip", (@ship.in_review? ? admin_review_path(skip: @ship.id) : admin_fraud_path(skip: @ship.id)), class: "sp-btn sp-btn--sm", data: { shortcut: "n" } %>
-            <kbd class="ash__kbd">n</kbd>
-          </p>
-        <% end %>
+        <p class="ash__status">
+          <span class="sp-badge sp-badge--<%= tone %>" data-decision="<%= @ship.status %>"><%= sp_icon status_icon %><%= ship_status_label(@ship) %></span>
+          <% unless @ship.in_review? %><small class="admin__muted"><%= (@ship.decided_by || @ship.reviewer)&.first_name.presence || "someone" %> · <%= (@ship.decided_at || @ship.reviewed_at || @ship.updated_at).strftime("%b %-d") %></small><% end %>
+        </p>
         <p class="leaderboard__note ash__byline">
           Shipped <%= @ship.created_at.strftime("%b %-d, %H:%M") %> UTC by
-          <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %>
-          (<%= user.email %><% if user.slack_display_name.present? %>, <%= name_with_slack(user, name: user.slack_display_name) %> on Slack<% end %>).
+          <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %><% if user.slack_display_name.present? %>
+          (<%= name_with_slack(user, name: user.slack_display_name) %> on Slack)<% end %>.
+        </p>
+        <p class="ash__links">
+          <%# A link that isn't http(s) shows as text, never as a link (the reviewer still sees what was typed). %>
+          <% { "repo" => [ @ship.repo_url, "github-fill", "Repo" ], "demo" => [ @ship.demo_url, "play-fill", "Demo" ] }.each do |key, (url, icon, name)| %>
+            <% if safe_http_url?(url) %>
+              <%= link_to url.to_s.strip, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--sm ash__link-btn", id: "admin-ship-#{key}-link" do %><%= sp_icon icon %><%= name %><% end %>
+            <% else %>
+              <span class="admin__muted ash__unsafe-link"><%= url %></span>
+            <% end %>
+          <% end %>
+          <%= link_to @evidence.telescreen_url, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--sm ash__link-btn", id: "admin-ship-telescreen" do %><%= sp_icon "search-fill" %>Telescreen<% end %>
+          <%= link_to @evidence.lapse_review_url, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--sm ash__link-btn", id: "admin-ship-lapse-review" do %><%= sp_icon "play-fill" %>Lapse review<% end %>
+          <% if @ship.pending? && !own %>
+            <%# D-063: the queue's skip, to the next ship waiting for this stage. %>
+            <%= link_to "Skip", (@ship.in_review? ? admin_review_path(skip: @ship.id) : admin_fraud_path(skip: @ship.id)), class: "sp-btn sp-btn--sm ash__skip", data: { shortcut: "n" } %>
+            <kbd class="ash__kbd">n</kbd>
+          <% end %>
         </p>
         <% if flash[:alert] %>
           <p class="sp-toast sp-toast--coral ash__alert" role="alert">
@@ -42,218 +57,98 @@
         <% end %>
       </header>
 
-      <section class="ash__tiles" aria-label="The numbers">
-        <div class="admin__tile ash__tile ash__tile--<%= tone %>">
-          <span><%= sp_icon status_icon %>Status</span><strong data-decision="<%= @ship.status %>"><%= ship_status_label(@ship) %></strong>
-          <% unless @ship.in_review? %><small><%= (@ship.decided_by || @ship.reviewer)&.first_name.presence || "someone" %> · <%= (@ship.decided_at || @ship.reviewed_at || @ship.updated_at).strftime("%b %-d") %></small><% end %>
-        </div>
-        <div class="admin__tile ash__tile ash__tile--mint">
-          <span><%= sp_icon "time-fill" %>Hours that count</span><strong><%= project_hours(@ship.counted_hours) %></strong>
-          <small>since <%= { override: "the set start", jame_gam: "the jame gam submission", sign_up: "sign-up", launch: "Save Point began" }.fetch(project.hours_start_source) %><% if @ship.counted_hours < @ship.hours %>, <%= project_hours(@ship.hours - @ship.counted_hours) %> cut<% end %></small>
-        </div>
-        <div class="admin__tile ash__tile ash__tile--gold">
-          <span><%= sp_icon "keyboard-fill" %>Hours when shipped</span><strong><%= project_hours(@ship.hours) %></strong><small><%= project_hours(project.hours_logged) %> now</small>
-        </div>
-        <div class="admin__tile ash__tile ash__tile--royal">
-          <span><%= sp_icon "game-2-fill" %>Project</span><strong><%= link_to project.title, admin_project_path(project) %></strong><small><%= project.hackatime_projects.join(", ").presence || "no Hackatime project" %></small>
-        </div>
-      </section>
-
       <div class="ash__layout">
       <div class="ash__col">
-      <%= render "admin/ships/evidence", evidence: @evidence, limits: @limits %>
-      <%= render "admin/ships/hours_start", ship: @ship %>
+      <%= render "admin/ships/hours", ship: @ship, project:, evidence: @evidence, limits: @limits %>
+      <% problems = render("admin/ships/problems", ship: @ship, evidence: @evidence, limits: @limits, earlier_ship: @earlier_ship) %>
+      <% if problems.present? %><div class="ash__problems"><%= problems %></div><% end %>
 
-      <div class="ash__changes">
-        <section class="sp-panel ash__panel ash__statement" aria-labelledby="admin-ship-statement">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-statement"><span><%= sp_icon "edit-2-fill" %>What they changed</span></h2>
-          <% if @ship.changes_made.present? %>
-            <p class="ash__description ash__statement-text"><%= @ship.changes_made %></p>
-          <% else %>
-            <p class="admin__muted">This ship was sent before the question existed.</p>
-          <% end %>
-        </section>
-
-        <section class="sp-panel ash__panel ash__commits" aria-labelledby="admin-ship-commits">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-commits"><span><%= sp_icon "github-fill" %><%= @earlier_approval && !@all_commits ? "Commits since the last approved ship" : "Commits since Save Point began" %></span></h2>
-          <% from = @earlier_approval && !@all_commits ? @earlier_approval.ship.created_at : project.hours_start %>
-          <% if @listed_commits.ok? && @listed_commits.commits.any? %>
-            <p class="admin__muted ash__commits-note">
-              <%= @listed_commits.commits.size %><%= "+" if @listed_commits.more %> from <%= from.utc.strftime("%b %-d") %> to <%= @ship.created_at.utc.strftime("%b %-d, %H:%M") %> UTC.
-              <% if @earlier_approval %>
-                <% if @all_commits %>
-                  <%= link_to "Show only since the last approved ship", admin_ship_path(@ship, queue: params[:queue].presence), id: "admin-ship-commits-toggle" %>
-                <% else %>
-                  <%= link_to "Show all commits since #{project.hours_start.utc.strftime("%b %-d")}", admin_ship_path(@ship, queue: params[:queue].presence, commits: "all"), id: "admin-ship-commits-toggle" %>
-                <% end %>
-              <% end %>
-            </p>
-            <ol class="ash__commit-list">
-              <% @listed_commits.commits.each do |commit| %>
-                <li class="ash__commit">
-                  <%= link_to commit.sha, commit.url, target: "_blank", rel: "noopener", class: "ash__sha" %>
-                  <span class="ash__commit-message"><%= commit.message.presence || "(no message)" %></span>
-                  <small class="admin__muted"><%= commit.author %> · <%= commit.date.utc.strftime("%b %-d, %H:%M") %></small>
-                </li>
-              <% end %>
-            </ol>
-          <% elsif @commits.ok? %>
-            <p class="ash__problem" data-commits="none"><%= sp_icon "warning-fill" %><%= @earlier_approval && !@all_commits ? "No commits between the last approved ship and this one." : "No commits between Save Point's start and the ship." %></p>
-            <% if @earlier_approval && !@all_commits && @commits.commits.any? %>
-              <p class="admin__muted"><%= link_to "Show all commits since #{project.hours_start.utc.strftime("%b %-d")}", admin_ship_path(@ship, queue: params[:queue].presence, commits: "all"), id: "admin-ship-commits-toggle" %></p>
-            <% end %>
-          <% else %>
-            <p class="ash__problem" data-commits="<%= @commits.status %>"><%= sp_icon "warning-fill" %><%= @commits.message %></p>
-          <% end %>
-        </section>
-      </div>
-
-      <% if @earlier_approval %>
-        <%# D-101: the last approved ship's screenshot beside this one's, each with its date. %>
-        <% last_ship = @earlier_approval.ship %>
-        <section class="sp-panel ash__panel ash__beforeafter" id="admin-ship-last-approved" aria-labelledby="admin-ship-last-approved-title">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-last-approved-title"><span><%= sp_icon "pic-fill" %>Last approved ship and this one</span></h2>
-          <div class="ash__pair">
-            <figure class="admin__ship-shot ash__shot ash__before">
-              <% if last_ship.screenshot.attached? %>
-                <%= link_to url_for(last_ship.screenshot), target: "_blank", rel: "noopener" do %>
-                  <%= image_tag url_for(last_ship.screenshot), alt: "Screenshot of the last approved ship, #{last_ship.created_at.utc.strftime("%b %-d")}" %>
-                <% end %>
-              <% else %>
-                <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span>The last approved ship has no screenshot.</span></p>
-              <% end %>
-              <figcaption class="admin__muted"><strong>Last approved ship</strong> <%= last_ship.created_at.utc.strftime("%b %-d") %></figcaption>
-            </figure>
-            <figure class="admin__ship-shot ash__shot ash__after">
-              <% if @ship.screenshot.attached? %>
-                <%= link_to url_for(@ship.screenshot), target: "_blank", rel: "noopener" do %>
-                  <%= image_tag url_for(@ship.screenshot), alt: "Screenshot of this ship, #{@ship.created_at.utc.strftime("%b %-d")}" %>
-                <% end %>
-              <% end %>
-              <figcaption class="admin__muted"><strong>This ship</strong> <%= @ship.created_at.utc.strftime("%b %-d") %></figcaption>
-            </figure>
-          </div>
-        </section>
-      <% end %>
-
-      <section class="sp-panel ash__panel ash__beforeafter" aria-labelledby="admin-ship-beforeafter">
-        <h2 class="sp-ribbon ash__ribbon" id="admin-ship-beforeafter"><span><%= sp_icon "pic-fill" %>Before and after</span></h2>
-        <div class="ash__pair">
-          <figure class="ash__shot ash__before" data-unified="<%= @earlier_ship.status %>">
-            <% if @earlier_ship.found? && safe_http_url?(@earlier_ship.entry.screenshot_url) %>
-              <%= safe_link_to @earlier_ship.entry.screenshot_url, target: "_blank", rel: "noopener" do %>
-                <%= safe_image_tag @earlier_ship.entry.screenshot_url, alt: "Earlier screenshot of #{@ship.title}" %>
-              <% end %>
-            <% else %>
-              <p class="ash__empty-shot"><%= sp_icon "pic-fill" %><span><%= @earlier_ship.found? ? "The earlier ship has no screenshot." : (@earlier_ship.message || "Nothing to show.") %></span></p>
-            <% end %>
-            <figcaption>
-              <strong>Before</strong>
-              <% if @earlier_ship.found? %>
-                <%= @earlier_ship.entry.program %><% if @earlier_ship.entry.approved_at.present? %>, approved <%= @earlier_ship.entry.approved_at.to_s.first(10) %><% end %><% if @earlier_ship.entry.hours.present? %>, <%= @earlier_ship.entry.hours %> hrs<% end %>.
-                Time before that date was already counted there.
-                <%= safe_link_to "Open its code", @earlier_ship.entry.code_url, target: "_blank", rel: "noopener" %>.
-              <% elsif @earlier_ship.status == :none %>
-                No earlier ship in the Unified YSWS DB.
-              <% end %>
-            </figcaption>
-          </figure>
-          <% if @ship.screenshot.attached? %>
-            <figure class="admin__ship-shot ash__shot ash__after">
-              <%= link_to url_for(@ship.screenshot), target: "_blank", rel: "noopener" do %>
-                <%= image_tag url_for(@ship.screenshot), alt: "Screenshot of #{@ship.title}" %>
-              <% end %>
-              <figcaption class="admin__muted"><strong>After</strong> <%= sp_icon "pic-fill" %>They said it shows the game running, not a mockup.</figcaption>
-            </figure>
-          <% end %>
-        </div>
+      <section class="sp-panel ash__panel ash__statement" aria-labelledby="admin-ship-statement">
+        <h2 class="sp-ribbon ash__ribbon" id="admin-ship-statement"><span><%= sp_icon "edit-2-fill" %>What they changed</span></h2>
+        <% if @ship.changes_made.present? %>
+          <p class="ash__description ash__statement-text"><%= @ship.changes_made %></p>
+        <% else %>
+          <p class="admin__muted">This ship was sent before the question existed.</p>
+        <% end %>
+        <% if @ship.description.present? %>
+          <h3 class="sp-label ash__sub">Description</h3>
+          <p class="ash__description admin__ship-description"><%= @ship.description %></p>
+        <% end %>
       </section>
 
-      <%= render "admin/ships/readme", readme: @readme, ship: @ship %>
-      <%= render "admin/ships/snapshot_edit", snapshot: @snapshot, ship: @ship %>
+      <%= render "admin/ships/screenshots", ship: @ship, earlier_ship: @earlier_ship, earlier_approval: @earlier_approval %>
 
-        <section class="sp-panel ash__panel ash__submitted admin__ship" aria-labelledby="admin-ship-submitted">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-submitted"><span><%= sp_icon "rocket-fill" %>What they submitted</span></h2>
-          <dl class="admin__ship-details ash__details">
-            <dt><%= sp_icon "github-fill" %>Repo</dt>
-            <dd><%= safe_link_to @ship.repo_url, @ship.repo_url, target: "_blank", rel: "noopener" %></dd>
-            <dt><%= sp_icon "play-fill" %>Demo</dt>
-            <dd><%= safe_link_to @ship.demo_url, @ship.demo_url, target: "_blank", rel: "noopener" %></dd>
-            <dt><%= sp_icon "keyboard-fill" %>Hackatime</dt>
-            <dd><%= @ship.hackatime_projects.join(", ").presence || "no Hackatime project" %></dd>
-            <dt><%= sp_icon "edit-2-fill" %>Description</dt>
-            <dd class="admin__ship-description ash__description"><%= @ship.description %></dd>
-          </dl>
-        </section>
+      <section class="sp-panel ash__panel ash__commits" aria-labelledby="admin-ship-commits">
+        <h2 class="sp-ribbon ash__ribbon" id="admin-ship-commits"><span><%= sp_icon "github-fill" %><%= @earlier_approval && !@all_commits ? "Commits since the last approved ship" : "Commits since Save Point began" %></span></h2>
+        <% from = @earlier_approval && !@all_commits ? @earlier_approval.ship.created_at : project.hours_start %>
+        <% if @listed_commits.ok? && @listed_commits.commits.any? %>
+          <p class="admin__muted ash__commits-note">
+            <%= @listed_commits.commits.size %><%= "+" if @listed_commits.more %> from <%= from.utc.strftime("%b %-d") %> to <%= @ship.created_at.utc.strftime("%b %-d, %H:%M") %> UTC.
+            <% if @earlier_approval %>
+              <% if @all_commits %>
+                <%= link_to "Show only since the last approved ship", admin_ship_path(@ship, queue: params[:queue].presence), id: "admin-ship-commits-toggle" %>
+              <% else %>
+                <%= link_to "Show all commits since #{project.hours_start.utc.strftime("%b %-d")}", admin_ship_path(@ship, queue: params[:queue].presence, commits: "all"), id: "admin-ship-commits-toggle" %>
+              <% end %>
+            <% end %>
+          </p>
+          <ol class="ash__commit-list">
+            <% @listed_commits.commits.each do |commit| %>
+              <li class="ash__commit">
+                <%= link_to commit.sha, commit.url, target: "_blank", rel: "noopener", class: "ash__sha" %>
+                <span class="ash__commit-message"><%= commit.message.presence || "(no message)" %></span>
+                <small class="admin__muted"><%= commit.author %> · <%= commit.date.utc.strftime("%b %-d, %H:%M") %></small>
+              </li>
+            <% end %>
+          </ol>
+        <% elsif @commits.ok? %>
+          <p class="ash__problem" data-commits="none"><%= sp_icon "warning-fill" %><%= @earlier_approval && !@all_commits ? "No commits between the last approved ship and this one." : "No commits between Save Point's start and the ship." %></p>
+          <% if @earlier_approval && !@all_commits && @commits.commits.any? %>
+            <p class="admin__muted"><%= link_to "Show all commits since #{project.hours_start.utc.strftime("%b %-d")}", admin_ship_path(@ship, queue: params[:queue].presence, commits: "all"), id: "admin-ship-commits-toggle" %></p>
+          <% end %>
+        <% else %>
+          <p class="ash__problem" data-commits="<%= @commits.status %>"><%= sp_icon "warning-fill" %><%= @commits.message %></p>
+        <% end %>
+      </section>
+
+      <%# Closed, one fact each: read when the open parts raise a question. %>
+      <%= render "admin/ships/readme", readme: @readme, ship: @ship %>
+      <%= render "admin/ships/evidence", evidence: @evidence, limits: @limits, others: @others %>
+      <%= render "admin/ships/hours_start", ship: @ship %>
+      <%= render "admin/ships/snapshot_edit", snapshot: @snapshot, ship: @ship %>
       </div>
 
         <aside class="ash__rail" aria-label="Checklist and decision">
-        <%# D-049: the reviewer's checklist, saved on every tick (Admin::ShipsController#checklist). %>
+        <%# D-049: the reviewer's checklist, saved on every tick (Admin::ShipsController#checklist). It sits closed in the decision
+            panel, with how many are ticked in its summary, and never blocks a verdict. %>
         <% checklist = { "runs" => "The game runs from the demo link", "continued" => "It continues an earlier game, not a brand new one",
                          "readme" => "The README says how to run it", "screenshot" => "The screenshot shows the game running",
                          "hours_fit" => "The hours fit the scope of the changes", "art_cap" => "The art time is within the #{Ship::Limits::ART_CAP_PERCENT}% cap",
                          "not_double" => "The hours aren't already approved in another program" } %>
-        <section class="sp-panel ash__panel" aria-labelledby="admin-ship-checklist"
-                 data-controller="checklist" data-checklist-url-value="<%= checklist_admin_ship_path(@ship) %>">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-checklist"><span><%= sp_icon "check-circle-fill" %>Checklist</span></h2>
-          <div class="ash__ticks">
-            <% defaults = @ship.checklist_defaults(earlier: @earlier_ship, limits: @limits) %>
-            <% checklist.each do |key, label| %>
-              <label class="ash__tick">
-                <input type="checkbox" class="sp-check" name="<%= key %>" <%= "checked" if @ship.checklist_tick(key, defaults) %>
-                       <%= "disabled" if !@ship.in_review? || own %> data-action="checklist#save">
-                <span><%= label %></span>
-                <%# D-050: "auto" while the app's value stands. The reviewer's tick replaces it. %>
-                <% if defaults.key?(key) && !@ship.review_checklist.key?(key) %>
-                  <small class="ash__auto" data-checklist-target="auto" title="<%= defaults[key].last %>">auto</small>
-                <% end %>
-              </label>
-            <% end %>
-          </div>
-        </section>
-
+        <% defaults = @ship.checklist_defaults(earlier: @earlier_ship, limits: @limits) %>
+        <% ticked = checklist.keys.count { |key| @ship.checklist_tick(key, defaults) } %>
         <section class="sp-panel ash__panel ash__decide ash__decide--<%= tone %>" aria-labelledby="admin-ship-decision">
           <h2 class="sp-ribbon <%= "sp-ribbon--gold" if @ship.pending? %> ash__ribbon" id="admin-ship-decision"><span><%= sp_icon "flag-1-fill" %><%= @ship.awaiting_fraud? ? "Fraud check" : "Decision" %></span></h2>
           <%# D-063: three states. Waiting for a review, the verdict form. Waiting for its fraud check, the fraud form. Decided, what
               was decided. Your own ship has no form: someone else judges it. %>
           <% if @ship.in_review? && !own %>
-            <%= render "admin/ships/verdict", ship: @ship, limits: @limits, earlier_ship: @earlier_ship, send_backs: @send_backs %>
+            <%= render "admin/ships/verdict", ship: @ship, limits: @limits, earlier_ship: @earlier_ship, send_backs: @send_backs,
+                       checklist:, defaults:, ticked: %>
           <% elsif @ship.awaiting_fraud? && !own %>
+            <%= render "admin/ships/checklist", ship: @ship, checklist:, defaults:, ticked:, own: %>
             <%= render "admin/ships/fraud", ship: @ship %>
           <% elsif @ship.pending? %>
             <p class="leaderboard__note ash__note">Waiting for <%= @ship.in_review? ? "a review" : "its fraud check" %> by someone else.</p>
+            <%= render "admin/ships/checklist", ship: @ship, checklist:, defaults:, ticked:, own: %>
           <% else %>
             <%= render "admin/ships/decided", ship: @ship, earlier_ship: @earlier_ship, status_icon: %>
+            <%= render "admin/ships/checklist", ship: @ship, checklist:, defaults:, ticked:, own: %>
           <% end %>
         </section>
         </aside>
       </div>
 
       <%= render "admin/ships/send_backs", send_backs: @send_backs %>
-
-      <% if @others.any? %>
-        <section class="sp-panel ash__panel" aria-labelledby="admin-ship-others">
-          <h2 class="sp-ribbon ash__ribbon" id="admin-ship-others"><span><%= sp_icon "refresh-2-fill" %>Earlier ships of this project</span></h2>
-          <div class="admin__scroll ash__scroll">
-            <table class="leaderboard__table admin__table admin__table--ships ash__table">
-              <thead>
-                <tr>
-                  <th scope="col">Who</th>
-                  <th scope="col">Ship</th>
-                  <th class="leaderboard__number" scope="col">Hours</th>
-                  <th scope="col">Shipped</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% @others.each do |ship| %>
-                  <%= render "admin/ships/row", ship: %>
-                <% end %>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      <% end %>
     </main>
   </div>
 </div>

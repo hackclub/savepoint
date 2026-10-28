@@ -1,15 +1,17 @@
-<%# The repository's README as GitHub renders it, open by default (playground shows it on its review page). Cleaned by
+<%# The repository's README as GitHub renders it, in a closed section (D-106; playground shows it open). Cleaned by
     ReadmeHelper#readme_html: no script, relative images and links resolved to the repository, images only from GitHub.
-    A problem line when GitHub can't say. Styled in admin-ship-snapshot.css. %>
+    A problem line when GitHub can't say. Styled in admin-ship.css and admin-ship-snapshot.css. %>
 <% content_for :stylesheets, " save_point/pages/admin-ship-snapshot" unless content_for(:stylesheets).to_s.include?("admin-ship-snapshot") %>
-<section class="sp-panel ash__panel ash__readme" aria-labelledby="admin-ship-readme">
-  <h2 class="sp-ribbon ash__ribbon" id="admin-ship-readme"><span><%= sp_icon "github-fill" %>README</span></h2>
-  <% if readme.ok? %>
-    <details class="ash__fold" open>
-      <summary class="ash__fold-summary"><%= readme.repo %></summary>
+<details class="sp-panel ash__disc ash__readme" id="admin-ship-readme">
+  <summary class="ash__disc-sum">
+    <span class="ash__disc-title"><%= sp_icon "github-fill" %>README</span>
+    <span class="ash__disc-fact"><%= readme.ok? ? readme.repo : "unavailable" %></span>
+  </summary>
+  <div class="ash__disc-body">
+    <% if readme.ok? %>
       <div class="ash__readme-body" id="admin-ship-readme-body"><%= readme_html(readme.html, repo: readme.repo) %></div>
-    </details>
-  <% else %>
-    <p class="ash__problem" data-readme="<%= readme.status %>"><%= sp_icon "warning-fill" %><%= readme.message %></p>
-  <% end %>
-</section>
+    <% else %>
+      <p class="ash__problem" data-readme="<%= readme.status %>"><%= sp_icon "warning-fill" %><%= readme.message %></p>
+    <% end %>
+  </div>
+</details>

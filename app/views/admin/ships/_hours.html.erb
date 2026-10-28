@@ -1,0 +1,31 @@
+<%# locals: (ship:, project:, evidence:, limits:) %>
+<%# D-106: the four number tiles became one line: claimed, counted (and from when), and the most to approve. The hours on each
+    Hackatime project (D-063) open from it. "Claimed" is what they said when they shipped, "Counted" what Hackatime has since
+    Save Point's start (D-065). Styled in admin-ship.css. %>
+<% hackatime = evidence.hackatime %>
+<% source = { override: "the set start", jame_gam: "the jame gam submission", sign_up: "sign-up", launch: "Save Point began" }.fetch(project.hours_start_source) %>
+<details class="sp-panel ash__disc ash__hours-line" id="admin-ship-hours">
+  <summary class="ash__disc-sum">
+    <span class="ash__stat"><span class="ash__stat-label">Claimed</span><strong><%= Ship::Limits.hrs(ship.hours) %></strong></span>
+    <span class="ash__stat"><span class="ash__stat-label">Counted</span><strong><%= Ship::Limits.hrs(ship.counted_hours) %></strong>
+      <small>since <%= source %><% if ship.counted_hours < ship.hours %>, <%= Ship::Limits.hrs(ship.hours - ship.counted_hours) %> cut<% end %></small></span>
+    <span class="ash__stat"><span class="ash__stat-label">Most to approve</span><strong><%= Ship::Limits.hrs(limits.most) %></strong></span>
+  </summary>
+  <div class="ash__disc-body">
+    <% if hackatime.rows.any? %>
+      <table class="ash__evtable" id="admin-ship-hackatime-hours">
+        <thead><tr><th scope="col">Hackatime project</th><th scope="col"><%= hackatime.captured ? "At ship" : "Up to ship (live)" %></th><th scope="col">Now</th></tr></thead>
+        <tbody>
+          <% hackatime.rows.each do |row| %>
+            <tr><th scope="row"><%= row.name %></th><td><%= evidence_hours(row.at_ship) %></td><td><%= evidence_hours(row.now) %></td></tr>
+          <% end %>
+        </tbody>
+        <tfoot><tr><th scope="row">Claimed</th><td><%= Ship::Limits.hrs(ship.hours) %></td><td><%= Ship::Limits.hrs(project.hours_logged) %></td></tr></tfoot>
+      </table>
+      <p class="admin__muted ash__quiet">Time since Save Point began, each project on its own. <%= hackatime.captured ? "Kept when they shipped." : "This ship was made before the figures were kept, so these are asked of Hackatime now." %></p>
+    <% else %>
+      <p class="admin__muted"><%= project.hackatime_projects.join(", ").presence || "No Hackatime project." %></p>
+    <% end %>
+    <% if hackatime.problem %><p class="ash__problem" data-hackatime="problem"><%= sp_icon "warning-fill" %><%= hackatime.problem %></p><% end %>
+  </div>
+</details>

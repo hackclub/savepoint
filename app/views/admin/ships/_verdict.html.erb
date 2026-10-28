@@ -1,8 +1,9 @@
-<%# locals: (ship:, limits:, earlier_ship:, send_backs:) %>
+<%# locals: (ship:, limits:, earlier_ship:, send_backs:, checklist:, defaults:, ticked:) %>
 <%# D-063: the review's verdict, as playground has it. Coding hours and art hours apart, each with presets at 15, 30, 50 and 75%
     of what was claimed (deflate_controller.js), a live total, and the handbook's limits already applied: AI coding counts at
     a third, art at most 30% of the total (Ship::Limits, D-030). "Why deflated" is due only below those limits. One form,
-    four verdicts, each key pressed twice (shortcuts_controller.js). A ship sent back from its fraud check opens with its earlier
+    four verdicts (D-106): the four buttons come first, picking one shows only its fields and a submit button named for the
+    action, and its key pressed again submits (verdict_controller.js, shortcuts_controller.js). A ship sent back from its fraud check opens with its earlier
     review. What was typed before an error wins, then that review, then the defaults. %>
 <% earlier = send_backs.last&.earlier_review || {} %>
 <%# D-097: a later ship judges only the new hours. The earlier approval is fixed, and the coding and art boxes take the hours
@@ -25,34 +26,25 @@
 <%# D-063 item 9: when the repo is shipped on Stardance, Stardance reviews it, so Approve is off (the evidence panel says why). %>
 <% approve_off = @evidence&.stardance_shipped? %>
 
-<dl class="ash__limits" id="admin-ship-limits">
-  <div><dt>Hackatime counted</dt><dd><%= format.(limits.claimed) %> hrs</dd></div>
-  <div>
-    <dt>AI coding <small>counts at a third</small></dt>
-    <dd id="admin-ship-ai-coding"><% if limits.ai_known? %><% if limits.ai_raised? %>Hackatime <%= format.(limits.hackatime_ai) %> hrs, raised to <%= format.(limits.ai_coding) %> hrs<% else %><%= format.(limits.ai_coding) %> hrs<% end %><% if limits.ai_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
-  </div>
-  <div>
-    <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
-    <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
-  </div>
-  <% if limits.lapse_coding.positive? %>
-    <div id="admin-ship-lapse-coding">
-      <dt>Lapse coding <small>counts as coding, outside the cap</small></dt>
-      <dd><%= format.(limits.lapse_coding) %> hrs</dd>
-    </div>
-  <% end %>
-  <div class="ash__limits-total"><dt>Most to approve</dt><dd><%= format.(limits.most) %> hrs</dd></div>
-</dl>
+<%# D-106: below Approve's limits a reason is due, so "Why deflated" shows only then (deflate_controller.js keeps it current). %>
+<% why_due = coding_now.to_d < coding_top - 0.01 || (art && art_now.to_d < [ art_claimed, art_max_now ].min - 0.01) || ship.errors[:deflation_reason].any? ||
+             params[:deflation_reason].present? %>
+<% picked = params[:decision].to_s.presence_in(Ship::DECISIONS) %>
+<%# Which verdicts each field belongs to. A field shows only when its verdict is picked. %>
+<% hide = ->(*verdicts) { verdicts.exclude?(picked) } %>
 
-<% if ship.in_review? && !ship.by?(current_user) %>
-  <%# D-102: the reviewer's AI coding hours, above Hackatime's only. Saved on its own like the Lapse split (D-085), then the page draws again. %>
-  <% ai_low = [ limits.hackatime_ai, ship.earlier_approval&.ship&.reviewer_ai_in_force.to_d ].max.floor(2) %>
+<%# D-102: the reviewer's AI coding hours, above Hackatime's only. Closed until a figure is set. Saved on its own like the Lapse
+    split (D-085), then the page draws again. %>
+<% ai_low = [ limits.hackatime_ai, ship.earlier_approval&.ship&.reviewer_ai_in_force.to_d ].max.floor(2) %>
+<details class="ash__fold" id="raise-ai" <%= "open" if limits.ai_raised? %>>
+  <summary class="ash__fold-summary">Raise AI coding <small class="admin__muted">Hackatime <%= format.(limits.hackatime_ai) %> hrs</small></summary>
   <%= form_with url: reviewer_ai_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "reviewer-ai", data: { turbo: false } do |ai_form| %>
     <%= ai_form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
     <div class="sp-field">
       <%= ai_form.label :reviewer_ai_coding_hours, "AI coding hours", class: "sp-label" %>
       <span class="ash__hours-box">
-        <%= ai_form.number_field :reviewer_ai_coding_hours, value: (limits.ai_coding.to_f if limits.ai_raised?), placeholder: ai_low.to_f, min: ai_low.to_f, step: 0.01,
+        <%# The placeholder is a String: Rails reads any other value as "look the attribute's name up". %>
+        <%= ai_form.number_field :reviewer_ai_coding_hours, value: (limits.ai_coding.to_f if limits.ai_raised?), placeholder: format.(ai_low).to_s, min: ai_low.to_f, step: 0.01,
               class: "sp-input admin__hours ash__hours", aria: { describedby: "admin-ship-ai-help" } %>
         <span class="ash__hours-unit" aria-hidden="true">hrs</span>
       </span>
@@ -64,115 +56,121 @@
     <div class="ash__hours-start-actions">
       <%= ai_form.button type: "submit", class: "sp-btn sp-btn--royal sp-btn--sm" do %><%= sp_icon "save-2-fill" %>Set AI coding<% end %>
     </div>
+    <p class="admin__muted ash__hours-start-note" id="admin-ship-ai-help">Hackatime counts <%= format.(limits.hackatime_ai) %> hrs. Raise it when the code looks AI-generated, never lower it. Leave it empty to use Hackatime's figure. The coding maximum updates when you set it.</p>
   <% end %>
-  <p class="admin__muted ash__hours-start-note" id="admin-ship-ai-help">Hackatime counts <%= format.(limits.hackatime_ai) %> hrs. Raise it when the code looks AI-generated, never lower it. Leave it empty to use Hackatime's figure. The coding maximum below updates when you set it.</p>
-<% end %>
+</details>
 
-<p class="leaderboard__note ash__note">
-  Approved, it goes to the fraud check, and the hours are theirs to spend once that passes. Changes needed, they fix the
-  ship and send it again without losing hours. Reject is final. Nobody's told either way from here.
-</p>
-<% unless limits.known? %>
-  <p class="ash__problem" data-limits="unknown"><%= sp_icon "warning-fill" %>Hackatime didn't say how much was AI coding or art, so no cut applies. Check Hackatime before you approve.</p>
-<% end %>
-<% if earlier_ship.found? && (overlap = earlier_ship.overlapping_entry(after: ship.project.hours_start.utc.to_date)) %>
-  <p class="ash__problem" data-overlap="true"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record was approved after this project's hours began counting, so some of these hours may be counted there too. Deflate them and say so.</p>
-<% end %>
+<%= render "admin/ships/checklist", ship:, checklist:, defaults:, ticked:, own: false %>
 
 <%= form_with url: review_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "verdict", html: { novalidate: true },
-      data: { turbo: false, controller: "deflate", deflate_claimed_value: coding_claimed.to_f, deflate_cap_value: coding_top.to_f,
+      data: { turbo: false, controller: "deflate verdict", verdict_picked_value: picked.to_s,
+              deflate_claimed_value: coding_claimed.to_f, deflate_cap_value: coding_top.to_f,
               deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT,
               deflate_earlier_coding_value: prior_coding.to_f, deflate_earlier_art_value: prior_art.to_f } do |form| %>
   <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
 
-  <% if prior %>
-    <p class="ash__already" id="admin-ship-already-approved">Already approved: <strong><%= Ship::Limits.hrs(prior.hours) %></strong> (<%= prior.on.strftime("%b %-d") %> ship)</p>
-    <p class="ash__total">Total approved: <strong data-deflate-target="total"><%= (prior.hours + coding_now.to_d + (art ? art_now.to_d : 0)).round(2).to_f %></strong> hrs</p>
-  <% else %>
-    <p class="ash__total">Total <strong data-deflate-target="total"><%= (coding_now.to_d + (art ? art_now.to_d : 0)).round(2).to_f %></strong> hrs</p>
-  <% end %>
-
-  <div class="sp-field">
-    <%= form.label :coding_hours, (prior ? "New coding hours" : "Coding hours"), class: "sp-label" %>
-    <span class="ash__hours-box">
-      <%= form.number_field :coding_hours, value: coding_now.to_f, min: 0, max: coding_top.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
-            data: { shortcut: "h", deflate_target: "coding", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-coding-help" } %>
-      <span class="ash__hours-unit" aria-hidden="true">hrs</span>
-    </span>
-    <span class="sp-help" id="admin-ship-coding-help"><%= prior ? "New since the earlier approval: claimed" : "Claimed" %> <%= format.(coding_claimed) %>. Up to <%= format.(coding_top) %> with the AI cut<%= " on the whole project" if prior %>. Deflate when the evidence says less.</span>
-    <div class="ash__presets" role="group" aria-label="Deflate coding to a share of the claimed coding hours">
-      <% [ 15, 30, 50, 75 ].each do |percent| %>
-        <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setCoding"><%= percent %>% <small><%= format.(coding_claimed * percent / 100) %>h</small></button>
-      <% end %>
-    </div>
+  <%# The four verdicts first. A press picks one (aria-pressed), and its key pressed again submits (shortcuts_controller.js). %>
+  <div class="ash__verdicts" role="group" aria-label="Verdict">
+    <%= form.button type: "button", disabled: approve_off, class: "sp-btn sp-btn--mint ash__verdict-btn", aria: { pressed: (picked == "approved").to_s },
+          data: { verdict_target: "pick", verdict: "approved", action: "verdict#pick", shortcut: "a", shortcut_submit: "#verdict-submit" } do %><%= sp_icon "check-fill" %>Approve <kbd class="ash__kbd">a a</kbd><% end %>
+    <%= form.button type: "button", class: "sp-btn ash__verdict-btn", aria: { pressed: (picked == "changes_needed").to_s },
+          data: { verdict_target: "pick", verdict: "changes_needed", action: "verdict#pick", shortcut: "c", shortcut_submit: "#verdict-submit" } do %><%= sp_icon "refresh-2-fill" %>Changes needed <kbd class="ash__kbd">c c</kbd><% end %>
+    <%= form.button type: "button", class: "sp-btn ash__verdict-btn ash__verdict-btn--coral", aria: { pressed: (picked == "rejected").to_s },
+          data: { verdict_target: "pick", verdict: "rejected", action: "verdict#pick", shortcut: "r", shortcut_submit: "#verdict-submit" } do %><%= sp_icon "close-fill" %>Reject <kbd class="ash__kbd">r r</kbd><% end %>
+    <%= form.button type: "button", class: "sp-btn ash__verdict-btn ash__verdict-btn--ban", aria: { pressed: (picked == "banned").to_s },
+          data: { verdict_target: "pick", verdict: "banned", action: "verdict#pick", shortcut: "b", shortcut_submit: "#verdict-submit" } do %><%= sp_icon "warning-fill" %>Fraud: reject and ban <kbd class="ash__kbd">b b</kbd><% end %>
   </div>
 
-  <% if art %>
+  <%# Approve: the hours, the features that explain them, the judgement. %>
+  <div class="ash__verdict-fields" data-verdict-target="fields" data-verdict-for="approved" <%= "hidden" if hide.("approved") %>>
+    <% if prior %>
+      <p class="ash__already" id="admin-ship-already-approved">Already approved: <strong><%= Ship::Limits.hrs(prior.hours) %></strong> (<%= prior.on.strftime("%b %-d") %> ship)</p>
+    <% end %>
+
     <div class="sp-field">
-      <%= form.label :art_hours, (prior ? "New art hours" : "Art hours"), class: "sp-label" %>
+      <%= form.label :coding_hours, (prior ? "New coding hours" : "Coding hours"), class: "sp-label" %>
       <span class="ash__hours-box">
-        <%= form.number_field :art_hours, value: art_now.to_f, min: 0, max: art_claimed.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
-              data: { deflate_target: "art", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-art-help" } %>
+        <%= form.number_field :coding_hours, value: coding_now.to_f, min: 0, max: coding_top.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
+              data: { shortcut: "h", deflate_target: "coding", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-coding-help" } %>
         <span class="ash__hours-unit" aria-hidden="true">hrs</span>
       </span>
-      <span class="sp-help" id="admin-ship-art-help">
-        <%= prior ? "New since the earlier approval: claimed" : "Claimed" %> <%= format.(art_claimed) %>. At most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total<%= " approved" if prior %>, so up to
-        <strong data-deflate-target="artMax"><%= format.(art_max_now) %></strong> hrs with this coding.
-      </span>
-      <p class="ash__problem" data-deflate-target="hold" <%= "hidden" unless art_claimed > art_max_now %>><%= sp_icon "warning-fill" %>Art held at <%= Ship::Limits::ART_CAP_PERCENT %>% of the total. No reason needed.</p>
-      <div class="ash__presets" role="group" aria-label="Deflate art to a share of the claimed art hours">
+      <span class="sp-help" id="admin-ship-coding-help"><%= prior ? "New since the earlier approval: claimed" : "Claimed" %> <%= format.(coding_claimed) %>. Up to <%= format.(coding_top) %> with the AI cut<%= " on the whole project" if prior %>. Deflate when the evidence says less.</span>
+      <div class="ash__presets" role="group" aria-label="Deflate coding to a share of the claimed coding hours">
         <% [ 15, 30, 50, 75 ].each do |percent| %>
-          <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setArt"><%= percent %>% <small><%= format.(art_claimed * percent / 100) %>h</small></button>
+          <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setCoding"><%= percent %>% <small><%= format.(coding_claimed * percent / 100) %>h</small></button>
         <% end %>
       </div>
     </div>
-  <% end %>
 
-  <div class="sp-field">
-    <%= form.label :deflation_reason, "Why deflated", class: "sp-label" %>
-    <%= form.text_area :deflation_reason, value: params[:deflation_reason].presence || earlier["deflation_reason"], rows: 3, class: "sp-input ash__textarea",
-          aria: { describedby: "admin-ship-deflation-help" } %>
-    <span class="sp-help" id="admin-ship-deflation-help">Required only when you approve less coding or art than the rules allow. The AI cut and the art hold need none.</span>
-    <% if ship.errors[:deflation_reason].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:deflation_reason).first %></span><% end %>
+    <% if art %>
+      <div class="sp-field">
+        <%= form.label :art_hours, (prior ? "New art hours" : "Art hours"), class: "sp-label" %>
+        <span class="ash__hours-box">
+          <%= form.number_field :art_hours, value: art_now.to_f, min: 0, max: art_claimed.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
+                data: { deflate_target: "art", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-art-help" } %>
+          <span class="ash__hours-unit" aria-hidden="true">hrs</span>
+        </span>
+        <span class="sp-help" id="admin-ship-art-help">
+          <%= prior ? "New since the earlier approval: claimed" : "Claimed" %> <%= format.(art_claimed) %>. At most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total<%= " approved" if prior %>, so up to
+          <strong data-deflate-target="artMax"><%= format.(art_max_now) %></strong> hrs with this coding.
+        </span>
+        <p class="ash__problem" data-deflate-target="hold" <%= "hidden" unless art_claimed > art_max_now %>><%= sp_icon "warning-fill" %>Art held at <%= Ship::Limits::ART_CAP_PERCENT %>% of the total. No reason needed.</p>
+        <div class="ash__presets" role="group" aria-label="Deflate art to a share of the claimed art hours">
+          <% [ 15, 30, 50, 75 ].each do |percent| %>
+            <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setArt"><%= percent %>% <small><%= format.(art_claimed * percent / 100) %>h</small></button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="sp-field" data-deflate-target="why" <%= "hidden" unless why_due %>>
+      <%= form.label :deflation_reason, "Why deflated", class: "sp-label" %>
+      <%= form.text_area :deflation_reason, value: params[:deflation_reason].presence || earlier["deflation_reason"], rows: 3, class: "sp-input ash__textarea",
+            aria: { describedby: "admin-ship-deflation-help" } %>
+      <span class="sp-help" id="admin-ship-deflation-help">Required only when you approve less coding or art than the rules allow. The AI cut and the art hold need none.</span>
+      <% if ship.errors[:deflation_reason].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:deflation_reason).first %></span><% end %>
+    </div>
+    <div class="sp-field">
+      <%= form.label :technical_features, "Specific technical features", class: "sp-label" %>
+      <%= form.text_area :technical_features, value: ship.technical_features.presence || earlier["technical_features"], rows: 3, class: "sp-input ash__textarea",
+            aria: { describedby: "admin-ship-features-help" } %>
+      <span class="sp-help" id="admin-ship-features-help">Required to approve. Name the features that explain the hours, like custom jump physics or a save file. No praise.</span>
+      <% if ship.errors[:technical_features].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:technical_features).first %></span><% end %>
+    </div>
   </div>
-  <div class="sp-field">
-    <%= form.label :technical_features, "Specific technical features", class: "sp-label" %>
-    <%= form.text_area :technical_features, value: ship.technical_features.presence || earlier["technical_features"], rows: 3, class: "sp-input ash__textarea",
-          aria: { describedby: "admin-ship-features-help" } %>
-    <span class="sp-help" id="admin-ship-features-help">Required to approve. Name the features that explain the hours, like custom jump physics or a save file. No praise.</span>
-    <% if ship.errors[:technical_features].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:technical_features).first %></span><% end %>
-  </div>
-  <div class="sp-field">
+
+  <%# The judgement is Approve's and Reject's. %>
+  <div class="sp-field" data-verdict-target="fields" data-verdict-for="approved rejected" <%= "hidden" if hide.("approved", "rejected") %>>
     <%= form.label :review_judgement, "Your judgement", class: "sp-label" %>
     <%= form.text_area :review_judgement, value: ship.review_judgement.presence || earlier["judgement"], rows: 3, class: "sp-input ash__textarea",
           data: { shortcut: "j" }, aria: { describedby: "admin-ship-judgement-help" } %>
     <span class="sp-help" id="admin-ship-judgement-help">Internal. Goes into the Airtable justification. Required to reject: say what is missing.</span>
     <% if ship.errors[:review_judgement].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:review_judgement).first %></span><% end %>
   </div>
-  <div class="sp-field">
+
+  <div class="sp-field" data-verdict-target="fields" data-verdict-for="changes_needed" <%= "hidden" if hide.("changes_needed") %>>
     <%= form.label :review_feedback, "Note to the participant", class: "sp-label" %>
-    <%= form.text_area :review_feedback, value: ship.review_feedback.presence || earlier["feedback"], rows: 3, class: "sp-input ash__textarea",
+    <%= form.text_area :review_feedback, value: ship.review_feedback.presence || earlier["feedback"], rows: 4, class: "sp-input ash__textarea",
           data: { shortcut: "f" }, aria: { describedby: "admin-ship-feedback-help" } %>
     <span class="sp-help" id="admin-ship-feedback-help">Shown to them. Required for changes needed: say exactly what to change.</span>
     <% if ship.errors[:review_feedback].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:review_feedback).first %></span><% end %>
   </div>
-  <div class="sp-field">
-    <%= form.label :evidence, "Evidence", class: "sp-label" %>
-    <%= form.text_area :evidence, value: params[:evidence].presence || ship.fraud_notes, rows: 2, class: "sp-input ash__textarea",
+
+  <div class="sp-field" data-verdict-target="fields" data-verdict-for="banned" <%= "hidden" if hide.("banned") %>>
+    <%= form.label :evidence, "Ban evidence", class: "sp-label" %>
+    <%= form.text_area :evidence, value: params[:evidence].presence || ship.fraud_notes, rows: 3, class: "sp-input ash__textarea",
           aria: { describedby: "admin-ship-evidence-help" } %>
     <span class="sp-help" id="admin-ship-evidence-help">Required only for fraud: reject and ban. Write what shows the fraud.</span>
     <% if ship.errors[:fraud_notes].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:fraud_notes).first %></span><% end %>
   </div>
 
-  <div class="ash__verdicts">
-    <%= form.button type: "submit", name: "decision", value: "approved", disabled: approve_off, class: "sp-btn sp-btn--mint ash__verdict-btn",
-          data: { shortcut: "a", shortcut_confirm: "" } do %><%= sp_icon "check-fill" %>Approve <kbd class="ash__kbd">a a</kbd><% end %>
-    <%= form.button type: "submit", name: "decision", value: "changes_needed", class: "sp-btn ash__verdict-btn",
-          data: { shortcut: "c", shortcut_confirm: "" } do %><%= sp_icon "refresh-2-fill" %>Changes needed <kbd class="ash__kbd">c c</kbd><% end %>
-    <%= form.button type: "submit", name: "decision", value: "rejected", class: "sp-btn ash__verdict-btn ash__verdict-btn--coral",
-          data: { shortcut: "r", shortcut_confirm: "" } do %><%= sp_icon "close-fill" %>Reject <kbd class="ash__kbd">r r</kbd><% end %>
-    <%= form.button type: "submit", name: "decision", value: "banned", class: "sp-btn ash__verdict-btn ash__verdict-btn--ban",
-          data: { shortcut: "b", shortcut_confirm: "" } do %><%= sp_icon "warning-fill" %>Fraud: reject and ban <kbd class="ash__kbd">b b</kbd><% end %>
-  </div>
-  <p class="leaderboard__note ash__note"><kbd class="ash__kbd">h</kbd> coding hours <kbd class="ash__kbd">j</kbd> judgement <kbd class="ash__kbd">f</kbd> note. Press a verdict key twice.</p>
+  <%# One submit button, named for the picked verdict. Its value is set when a verdict is picked. %>
+  <%= form.button type: "submit", name: "decision", value: picked.to_s, id: "verdict-submit", hidden: picked.nil?, class: "sp-btn ash__verdict-btn ash__submit",
+        data: { verdict_target: "submit" } do %>
+    <span data-verdict-label="approved" <%= "hidden" unless picked == "approved" %>><%= sp_icon "check-fill" %>Approve <strong data-deflate-target="total"><%= (prior ? prior.hours : 0).to_d.then { |base| (base + coding_now.to_d + (art ? art_now.to_d : 0)).round(2).to_f } %></strong> hrs<%= " in all" if prior %></span>
+    <span data-verdict-label="changes_needed" <%= "hidden" unless picked == "changes_needed" %>><%= sp_icon "refresh-2-fill" %>Send changes needed</span>
+    <span data-verdict-label="rejected" <%= "hidden" unless picked == "rejected" %>><%= sp_icon "close-fill" %>Reject ship</span>
+    <span data-verdict-label="banned" <%= "hidden" unless picked == "banned" %>><%= sp_icon "warning-fill" %>Ban and reject</span>
+  <% end %>
+  <p class="leaderboard__note ash__note"><kbd class="ash__kbd">h</kbd> coding hours <kbd class="ash__kbd">j</kbd> judgement <kbd class="ash__kbd">f</kbd> note. A verdict key picks it. Press it again to send.</p>
 <% end %>

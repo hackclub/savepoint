@@ -4,21 +4,17 @@
 <% content_for :stylesheets, " save_point/pages/admin-ship-snapshot" unless content_for(:stylesheets).to_s.include?("admin-ship-snapshot") %>
 <% shots = snapshot.screenshots %>
 <% errors = snapshot.errors %>
-<section class="sp-panel ash__panel ash__snapshot" aria-labelledby="admin-ship-snapshot">
-  <h2 class="sp-ribbon ash__ribbon" id="admin-ship-snapshot"><span><%= sp_icon "edit-2-fill" %>Snapshot</span></h2>
-  <% if flash[:notice] %>
-    <p class="ash__saved" role="status"><%= sp_icon "check-circle-fill" %><%= flash[:notice] %></p>
-  <% end %>
-  <% if snapshot.edited_at %>
-    <p class="admin__muted ash__edited" id="snapshot-edited">
-      Edited by <%= snapshot.edited_by ? admin_person_name(snapshot.edited_by) : "someone" %>, <%= time_ago_in_words(snapshot.edited_at) %> ago.
-    </p>
-  <% end %>
+<details class="sp-panel ash__disc ash__snapshot" id="snapshot-edit" <%= "open" if errors.any? %>>
+  <summary class="ash__disc-sum">
+    <span class="ash__disc-title"><%= sp_icon "edit-2-fill" %>Edit the snapshot</span>
+    <% if snapshot.edited_at %>
+      <span class="ash__disc-fact" id="snapshot-edited">Edited by <%= snapshot.edited_by ? admin_person_name(snapshot.edited_by) : "someone" %>, <%= time_ago_in_words(snapshot.edited_at) %> ago</span>
+    <% end %>
+  </summary>
+  <div class="ash__disc-body">
   <% if snapshot.own?(current_user) %>
     <p class="admin__muted">Someone else edits your own ship.</p>
   <% else %>
-    <details class="ash__fold" id="snapshot-edit" <%= "open" if errors.any? %>>
-      <summary class="ash__fold-summary">Edit the snapshot</summary>
       <p class="admin__muted ash__snapshot-note">
         Changes this ship only, for review and Airtable. The project keeps its own title, links and screenshot.
       </p>
@@ -69,6 +65,6 @@
           <%= sp_icon "save-2-fill" %>Save snapshot
         <% end %>
       <% end %>
-    </details>
   <% end %>
-</section>
+  </div>
+</details>

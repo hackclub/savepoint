@@ -1,0 +1,37 @@
+<%# locals: (ship:, evidence:, limits:, earlier_ship:) %>
+<%# D-106: the warnings that used to sit in four panels, as lines. Nothing draws when nothing is wrong. The Stardance answer is
+    evidence.stardance_shipped?, which the verdict form reads to turn Approve off. Styled in admin-ship.css. %>
+<% stardance = evidence.stardance %>
+<% repo = evidence.repo %>
+<% overlap = ship.in_review? && earlier_ship.found? ? earlier_ship.overlapping_entry(after: ship.project.hours_start.utc.to_date) : nil %>
+<% old_release = repo.ok? && evidence.release_predates? %>
+<% if stardance.shipped? %>
+  <p class="ash__problem ash__problem--coral" data-stardance="shipped" id="admin-ship-stardance">
+    <%= sp_icon "warning-fill" %><span><%= Stardance::MESSAGE %> Approve is off. Ask for changes or send it back.
+    <% stardance.ids.each do |id| %><%= link_to "Stardance project #{id}", Stardance.project_url(id), target: "_blank", rel: "noopener" %> <% end %></span>
+  </p>
+<% elsif stardance.unknown? %>
+  <p class="admin__muted ash__quiet" data-stardance="unknown" id="admin-ship-stardance"><%= sp_icon "information-fill" %>Could not check Stardance<%= " (no STARDANCE_MCP_TOKEN set)" unless Stardance.configured? %>.</p>
+<% end %>
+<% if old_release %>
+  <p class="ash__problem" data-release="predates"><%= sp_icon "warning-fill" %>
+    This release is from <%= repo.release.published_at.utc.strftime("%b %-d") %>, before <%= evidence.first_commit_at ? "the first commit since Save Point began (#{evidence.first_commit_at.utc.strftime("%b %-d")})" : "this project's hours began counting (#{ship.project.hours_start.utc.strftime("%b %-d")})" %>. It can't hold this work.</p>
+<% end %>
+<% if overlap %>
+  <p class="ash__problem" data-overlap="true"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record was approved after this project's hours began counting, so some of these hours may be counted there too. Deflate them and say so.</p>
+<% end %>
+<% if ship.in_review? && !limits.known? %>
+  <p class="ash__problem" data-limits="unknown"><%= sp_icon "warning-fill" %>Hackatime didn't say how much was AI coding or art, so no cut applies. Check Hackatime before you approve.</p>
+<% end %>
+<% if evidence.duplicates.any? %>
+  <div class="ash__problem" id="admin-ship-duplicates"><%= sp_icon "warning-fill" %>
+    <div>
+      <strong>Same repo or person elsewhere</strong>
+      <ul class="ash__files" id="admin-ship-duplicate-list">
+        <% evidence.duplicates.each do |duplicate| %>
+          <li><%= admin_person_link(duplicate.user) %> <small class="admin__muted"><%= duplicate.reason %><% if duplicate.project %> · <%= duplicate.project.title %><% end %></small></li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% end %>

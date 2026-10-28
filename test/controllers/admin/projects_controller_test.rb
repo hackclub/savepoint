@@ -67,7 +67,7 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr##{dom_id(@ana)} a[href=?]", admin_project_path(projects(:orpheus)), "a rhythm game"
 
     get admin_ship_path(ship)
-    assert_select ".admin__tile a[href=?]", admin_project_path(@ana), "pong"
+    assert_select "#admin-ship-participant a[href=?]", admin_project_path(@ana), "pong" # D-106: the project link sits in the Participant section
   end
 
   test "D-087: the project and person pages flag a game that shares a repo with another account" do

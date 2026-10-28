@@ -36,7 +36,7 @@ class Admin::ShipSnapshotsTest < ActionDispatch::IntegrationTest
 
     follow_redirect!
     assert_select "h1", "Pong 2"
-    assert_select ".ash__saved", "Snapshot saved."
+    assert_select ".sp-toast[role=status]", /Snapshot saved\./
     assert_select "#snapshot-edited", /Edited by Orpheus the Dino, less than a minute ago/
   end
 
@@ -137,14 +137,14 @@ class Admin::ShipSnapshotsTest < ActionDispatch::IntegrationTest
     assert_select ".ash__after img[alt='Screenshot of Pong']"
   end
 
-  test "the README shows open, cleaned, with its images and links in the repository" do
+  test "the README sits in a closed section, cleaned, with its images and links in the repository" do
     Web.adapter = lambda do |_method, url, _headers|
       next Web::Response.new(status: 200, headers: {}, body: "[]") unless url.end_with?("/repos/ana/pong/readme")
 
       Web::Response.new(status: 200, headers: {}, body: %(<h1>Pong</h1><script>alert(1)</script><img src="shot.png"><a href="docs/play.md">play</a><p onclick="x()">Two paddles.</p>))
     end
     get admin_ship_path(@ship)
-    assert_select "details.ash__fold[open] #admin-ship-readme-body" do
+    assert_select "details.ash__readme:not([open]) #admin-ship-readme-body" do
       assert_select "h1", "Pong"
       assert_select "script", 0
       assert_select "img[src=?]", "https://raw.githubusercontent.com/ana/pong/HEAD/shot.png"

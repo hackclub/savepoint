@@ -23,7 +23,7 @@ module AdminMcp::Tools::Orders
     writes "mark_order_ordered", "Mark an order as ordered",
            "Marks a waiting prize order as ordered, once you've ordered it (the Orders page's Mark ordered button). The bot DMs the participant on Slack. " \
            "A sticker order is shipped through Theseus first (D-067) and only then marked ordered, so it can't be marked without being shipped; " \
-           "if Theseus refuses it, the order stays waiting and the error comes back. Answers { ordered }: false when it was ordered already.",
+           "if Theseus refuses it, or Hackatime has banned the account or it isn't YSWS-eligible (rechecked just before sending), the order stays waiting and the reason comes back. Answers { ordered }: false when it was ordered already.",
            { order_id: { type: "integer", description: "The order ID, from list_orders." } }, required: %w[order_id]
 
     def self.run(args, caller)
@@ -33,7 +33,7 @@ module AdminMcp::Tools::Orders
       elsif result == :already_sent then "Theseus had a letter for it already, so there's no letter ID."
       end
       { ordered: !!result, message:, order: AdminMcp::Present.order(order.reload) }
-    rescue TheseusClient::Error => e
+    rescue TheseusClient::Error, Order::NotSent => e
       { ordered: false, message: e.message, order: AdminMcp::Present.order(order.reload) }
     end
   end

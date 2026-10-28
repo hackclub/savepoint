@@ -183,6 +183,64 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
     assert @order.reload.waiting?
   end
 
+  test "Ship refuses a sticker order for a banned account and sends nothing" do
+    ENV["THESEUS_API_KEY"] = "k"
+    sticker = make_sticker(projects(:ana))
+    calls = stub_theseus
+    link_hackatime(users(:ana))
+    Hackatime.stubbed_trust_levels = { users(:ana).hackatime_uid => "red" }
+    sign_in_as(users(:orpheus))
+    patch admin_order_path(sticker)
+    assert_equal "Not sent: Hackatime has banned this account", flash[:alert]
+    assert sticker.reload.waiting?
+    assert_empty calls
+  ensure
+    Hackatime.stubbed_trust_levels = {}
+  end
+
+  test "Ship refuses a sticker order for an account that isn't YSWS-eligible" do
+    ENV["THESEUS_API_KEY"] = "k"
+    sticker = make_sticker(projects(:ana))
+    users(:ana).update_column(:ysws_eligible, false)
+    calls = stub_theseus
+    sign_in_as(users(:orpheus))
+    patch admin_order_path(sticker)
+    assert_equal "Not sent: this account isn't YSWS-eligible", flash[:alert]
+    assert sticker.reload.waiting?
+    assert_empty calls
+  end
+
+  test "Ship waits when Hackatime can't say" do
+    ENV["THESEUS_API_KEY"] = "k"
+    sticker = make_sticker(projects(:ana))
+    calls = stub_theseus
+    link_hackatime(users(:ana))
+    Hackatime.stubbed_trust_levels = { users(:ana).hackatime_uid => :unavailable }
+    sign_in_as(users(:orpheus))
+    patch admin_order_path(sticker)
+    assert_equal "Not sent: couldn't reach Hackatime to check this account", flash[:alert]
+    assert sticker.reload.waiting?
+    assert_empty calls
+  ensure
+    Hackatime.stubbed_trust_levels = {}
+  end
+
+  test "Ship all skips ineligible accounts, keeps them waiting, and names them" do
+    ENV["THESEUS_API_KEY"] = "k"
+    good = make_sticker(projects(:ana))
+    banned = make_sticker(projects(:orpheus))
+    link_hackatime(users(:orpheus))
+    Hackatime.stubbed_trust_levels = { users(:orpheus).hackatime_uid => "red" }
+    stub_theseus
+    sign_in_as(users(:orpheus))
+    post send_stickers_admin_orders_path
+    assert_equal "Shipped 1 sticker order. Not sent, still waiting: order #{banned.id} (Hackatime has banned this account).", flash[:alert]
+    assert good.reload.ordered?
+    assert banned.reload.waiting?
+  ensure
+    Hackatime.stubbed_trust_levels = {}
+  end
+
   test "Ship all is for admins only" do
     sign_in_as(users(:ana))
     post send_stickers_admin_orders_path
@@ -190,6 +248,10 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def link_hackatime(user)
+      user.update!(hackatime_uid: "hk#{user.id}", hackatime_access_token: "token")
+    end
+
     def make_sticker(project)
       project.orders.new(prize_key: "stickers", hours: 0, address: HQ_ADDRESS).tap { it.save!(validate: false) }
     end

@@ -74,7 +74,7 @@ class Metric
 
   def self.activities = StreakActivity.where(user_id: participants.select(:id))
 
-  def self.ships = Ship.where(project_id: projects.select(:id))
+  def self.ships = Ship.where(project_id: projects.select(:id)).where.not(status: "superseded")
 
   def self.nudges = Nudge.where(user_id: participants.select(:id))
 

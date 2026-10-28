@@ -2,6 +2,7 @@ require Rails.root.join("db/migrate/20261023150000_create_insights_views")
 require Rails.root.join("db/migrate/20261023160100_add_utm_to_insights_views")
 require Rails.root.join("db/migrate/20261024110100_add_hackatime_seen_to_insights_projects")
 require Rails.root.join("db/migrate/20261026100100_update_insights_ships_for_fraud_stage")
+require Rails.root.join("db/migrate/20261028110100_hide_superseded_ships_from_insights")
 require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
 require Rails.root.join("db/migrate/20261027140100_add_faq_reads_to_insights_views")
 require Rails.root.join("db/migrate/20261027160100_add_reader_id_to_insights_faq_reads")
@@ -52,6 +53,7 @@ module AdminMcpHelpers
       AddUtmToInsightsViews.new.up
       AddHackatimeSeenToInsightsProjects.new.up
       UpdateInsightsShipsForFraudStage.new.up
+      HideSupersededShipsFromInsights.new.up
       AddRetentionDataToInsightsViews.new.up
       AddFaqReadsToInsightsViews.new.up
       AddReaderIdToInsightsFaqReads.new.up

@@ -1,7 +1,7 @@
 # Rapid-fire review (D-063): /admin/review and /admin/fraud open the oldest ship waiting for that stage. "Next" skips
 # the ships another admin holds, the ones this admin skipped this session (n), and this admin's own.
 class Admin::QueuesController < Admin::BaseController
-  def review = next_in(Ship.in_review.order(:created_at, :id), "review")
+  def review = next_in(Ship.reviewable.order(:created_at, :id), "review")
   def fraud = next_in(Ship.awaiting_fraud.order(:reviewed_at, :id), "fraud")
 
   private

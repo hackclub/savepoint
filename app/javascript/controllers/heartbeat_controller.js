@@ -21,6 +21,8 @@ export default class extends Controller {
     if (!response.ok) return
 
     const claim = await response.json()
+    // D-109: the participant shipped again, so this ship is out of the queue. Reload to show that, not a verdict form.
+    if (claim.replaced) return window.location.reload()
     if (!claim.ok && this.hasBannerTarget) {
       this.bannerTarget.hidden = false
       if (this.hasHolderTarget) this.holderTarget.textContent = claim.holder

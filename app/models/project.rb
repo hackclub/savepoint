@@ -598,6 +598,16 @@ class Project < ApplicationRecord
     ships.pending.order(:created_at).last
   end
 
+  # D-109: the ship that still waits for its first review. Shipping again replaces it (Project#ship!).
+  def ship_awaiting_review
+    ships.in_review.order(:id).last
+  end
+
+  # D-109: the ship that passed its review and waits for the fraud check. Shipping again leaves it alone.
+  def ship_awaiting_fraud
+    ships.awaiting_fraud.order(:id).last
+  end
+
   # The newest ship, when an admin rejected it for good (D-063): there's no shipping again.
   def ship_rejected
     latest = ships.order(:id).last
@@ -637,9 +647,13 @@ class Project < ApplicationRecord
     ship.capture_hackatime_seconds
     ship.screenshot.attach(upload) if upload.present?
 
-    if ship.save
-      screenshot.attach(ship.screenshot.blob) if upload.present?
-      update!(name: ship.title, repo_url: ship.repo_url)
+    transaction do
+      if ship.save
+        screenshot.attach(ship.screenshot.blob) if upload.present?
+        update!(name: ship.title, repo_url: ship.repo_url)
+        # D-109: a ship still waiting for its first review is replaced by this one. One already past review stays.
+        ships.in_review.where.not(id: ship.id).find_each { it.supersede!(by: ship) }
+      end
     end
     ship
   end

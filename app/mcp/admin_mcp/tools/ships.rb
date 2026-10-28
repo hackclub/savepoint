@@ -3,10 +3,10 @@ module AdminMcp::Tools::Ships
   class FindShips < AdminMcp::Tool
     reads "find_ships", "Find ships",
           "Ships as the Ships page lists them: who, the project, what they shipped, hours, date and status (in_review is awaiting a review, awaiting_fraud " \
-          "is awaiting the fraud check, then approved, changes_needed, or rejected for good). status picks in_review (default, oldest first), awaiting_fraud, " \
-          "approved, changes_needed, rejected, decided (newest first) or all (waiting first). " \
+          "is awaiting the fraud check, then approved, changes_needed, or rejected for good; superseded is a ship the participant replaced by shipping again before its first review). status picks in_review (default, oldest first), awaiting_fraud, " \
+          "approved, changes_needed, rejected, superseded, decided (newest first) or all (waiting first). " \
           "query narrows by the ship's title or who it's by. Answers { total, ships }; get_ship opens one in full.",
-          { status: { type: "string", enum: %w[in_review awaiting_fraud approved changes_needed rejected decided all], description: "Default in_review." },
+          { status: { type: "string", enum: %w[in_review awaiting_fraud approved changes_needed rejected superseded decided all], description: "Default in_review." },
             query: { type: "string", description: "Part of the ship's title, or the person's name, email or Slack display name." },
             project_id: { type: "integer", description: "Only this project's ships." },
             user_id: { type: "integer", description: "Only this person's ships." },
@@ -19,6 +19,7 @@ module AdminMcp::Tools::Ships
       when "decided" then ships.decided.order(decided_at: :desc, id: :desc)
       when "awaiting_fraud" then ships.awaiting_fraud.order(:reviewed_at, :id)
       when "approved", "changes_needed", "rejected" then ships.where(status:).order(decided_at: :desc, id: :desc)
+      when "superseded" then ships.superseded.order(id: :desc)
       else ships.order(Arel.sql("status in ('in_review', 'awaiting_fraud') desc, case when status in ('in_review', 'awaiting_fraud') then created_at end asc, decided_at desc nulls last, id desc"))
       end
       ships = ships.where(project_id: args[:project_id]) if args[:project_id]
@@ -92,7 +93,7 @@ module AdminMcp::Tools::Ships
            "clamped to it: AI coding counts at a third, art at most 30% of the total; see get_ship's limits) and needs technical_features, and a deflation_reason when you go below what the rules allow. " \
            "It then moves to the fraud check (fraud_ship): the hours are not the participant's to spend until that passes. changes_needed sends it back and needs feedback: the note the participant sees (D-049). " \
            "rejected is final and needs judgement. banned is fraud found at review: it needs evidence, rejects the ship and bans the account. " \
-           "Nobody is told by this: the participant sees the result on the site. You can't review your own ship, or one another admin has open. " \
+           "Nobody is told by this: the participant sees the result on the site. You can't review your own ship, or one another admin has open, or one the participant replaced by shipping again (D-109), or one with an earlier ship of the project still in its fraud check. " \
            "Answers { decided, errors, message, ship }: when a field is missing, nothing is decided and errors says which. Read get_ship first.",
            { ship_id: { type: "integer", description: "The ship ID." },
              decision: { type: "string", enum: Ship::DECISIONS, description: "approved (to the fraud check), changes_needed, rejected (final), or banned (fraud: reject and ban)." },
@@ -121,6 +122,7 @@ module AdminMcp::Tools::Ships
                              checklist_defaults: ship.checklist_defaults(earlier: Ship::EarlierShip.for(ship)))
       ship.claims.where(stage: "review").delete_all if decided
       message = if decided then nil
+      elsif ship.superseded? then Ship::REPLACED_MESSAGE
       elsif ship.errors.none? then "That one's been decided already."
       else "Not decided: #{ship.errors.full_messages.to_sentence}."
       end

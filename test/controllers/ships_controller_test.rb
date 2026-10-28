@@ -40,11 +40,68 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".ship__done-title", "Shipped."
     assert_select ".ship__done-text", /Beat Sheet is in review/
 
-    assert_no_difference -> { Ship.count } do
+    assert_no_difference -> { Ship.count }, "the same screenshot can't ship twice (D-016)" do
       post project_ship_path, params: { ship: ship_params }
     end
     get project_path
     assert_select ".project__ship", /In review/
+  end
+
+  # D-109: a ship in review doesn't block the next one.
+
+  test "shipping again replaces a ship that waits for its first review" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    first = projects(:orpheus).ships.sole
+
+    get project_path
+    assert_select "a.project__ship-status", /In review/
+    assert_select "a.project__ship.sp-btn--gold[href=?]", project_ship_path(again: 1), /Ship/
+
+    get project_ship_path
+    assert_select ".ship__done-title", "Shipped.", "no `again`: the confirmation of the pending ship"
+    assert_select "a#ship-again[href=?]", project_ship_path(again: 1), /Ship again/
+    get project_ship_path(again: 1)
+    assert_select "form.ship__form"
+    assert_select ".ship__replacing", /Your ship from .+ hasn't been reviewed yet. Shipping again replaces it./
+
+    assert_difference -> { Ship.count }, 1 do
+      post project_ship_path, params: { ship: ship_params(title: "Beat Sheet 2", screenshot: other_screenshot) }
+    end
+    assert_redirected_to project_ship_path
+    second = projects(:orpheus).ships.order(:id).last
+    assert first.reload.superseded?
+    assert_equal second, first.superseded_by
+    assert second.in_review?
+    follow_redirect!
+    assert_select ".ship__done-text", /Beat Sheet 2 is in review/
+  end
+
+  test "shipping again leaves a ship that passed review alone and says the new one counts only the hours after it" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    first = projects(:orpheus).ships.sole
+    first.decide!("approved", by: users(:ana), technical_features: "A beat grid.")
+    assert first.reload.awaiting_fraud?
+
+    get project_ship_path(again: 1)
+    assert_select ".ship__replacing", /passed review and is in its final check. This ship counts only the hours after it./
+    assert_difference -> { Ship.count }, 1 do
+      post project_ship_path, params: { ship: ship_params(title: "Beat Sheet 2", screenshot: other_screenshot) }
+    end
+    assert first.reload.awaiting_fraud?
+    assert projects(:orpheus).ships.order(:id).last.in_review?
+  end
+
+  test "a failed second ship leaves the first one in review" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    first = projects(:orpheus).ships.sole
+    assert_no_difference -> { Ship.count } do
+      post project_ship_path, params: { ship: ship_params(title: "Beat Sheet 2", description: "Too short", screenshot: other_screenshot) }
+    end
+    assert_response :unprocessable_entity
+    assert first.reload.in_review?
   end
 
   test "while the ship waits for its fraud check the participant still sees it in review, and a final reject shows why (D-063)" do
@@ -580,6 +637,21 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def ready_to_ship
+      link_hackatime(users(:orpheus))
+      projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
+      sign_in_as_orpheus
+    end
+
+    # The fixture screenshot with a trailing byte, so its checksum is new (D-016).
+    def other_screenshot
+      file = Tempfile.new([ "shot", ".png" ], binmode: true)
+      file.write(file_fixture("screenshot.png").binread + "\n")
+      file.flush
+      (@tempfiles ||= []) << file
+      Rack::Test::UploadedFile.new(file.path, "image/png")
+    end
+
     # An approved earlier ship, then signed in. ship_hours: the hours that ship stored, as an offset from the hours counted now
     # (-1 leaves exactly one new hour). The default leaves two.
     def later_ship_project(ship_hours: -2)
@@ -607,9 +679,9 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
       follow_redirect!
     end
 
-    def ship_params
+    def ship_params(overrides = {})
       { title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
         changes_made: "Added a combo meter.", repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat",
-        screenshot: fixture_file_upload("screenshot.png", "image/png"), screenshot_shows_game: "1" }
+        screenshot: fixture_file_upload("screenshot.png", "image/png"), screenshot_shows_game: "1" }.merge(overrides)
     end
 end

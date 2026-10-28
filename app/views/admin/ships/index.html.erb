@@ -38,9 +38,10 @@
 
     <% sections = [ [ "In review", "admin-ships-review", @in_review, "Nothing's waiting.", "time-fill", "in_review" ],
                     [ "Fraud check", "admin-ships-fraud", @awaiting_fraud, "No fraud checks waiting.", "search-fill", "awaiting_fraud" ],
-                    [ "Decided", "admin-ships-decided", @decided, "None yet.", "check-circle-fill", nil ] ] %>
+                    [ "Decided", "admin-ships-decided", @decided, "None yet.", "check-circle-fill", nil ],
+                    [ "Replaced", "admin-ships-replaced", @superseded, "None replaced.", "refresh-2-fill", "superseded" ] ] %>
     <% sections.each do |heading, id, ships, empty, icon, stage| %>
-      <% next if @stage && (stage ? stage != @stage : @stage.in?(%w[in_review awaiting_fraud])) %>
+      <% next if @stage && (stage ? stage != @stage : @stage.in?(%w[in_review awaiting_fraud superseded])) %>
       <section class="pg-admin-ships__section" aria-labelledby="<%= id %>">
         <div class="pg-admin-ships__section-head">
           <h2 class="pg-admin-ships__heading" id="<%= id %>"><%= sp_icon icon, "pg-admin-ships__heading-icon" %><%= heading %></h2>

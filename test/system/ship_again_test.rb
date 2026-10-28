@@ -54,6 +54,43 @@ class ShipAgainTest < ApplicationSystemTestCase
     shot("later-form")
   end
 
+  test "a ship in review doesn't block the next one: Ship stays on the project page, and shipping again replaces it (D-109)" do
+    log_hours(@user, 4.0)
+    first = @project.ships.new(title: "v1", description: "x" * 50, repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://a.itch.io/b",
+                               hours: 2.0, created_at: 1.day.ago)
+    first.save!(validate: false)
+    Web.adapter = lambda do |_method, url, _headers|
+      body = if url.end_with?("/readme") then { encoding: "base64", content: Base64.encode64("Play it: https://example.com/beat") }.to_json
+      elsif url.include?("/commits") then "[]"
+      else { private: false }.to_json
+      end
+      Web::Response.new(status: 200, headers: {}, body:)
+    end
+    visit project_path
+
+    assert_selector ".project__ship-status", text: "In review"
+    assert_selector ".project__ship.sp-btn--gold", text: "Ship"
+    find(".project__ship.sp-btn--gold").click
+    assert_selector ".ship__replacing", text: "hasn't been reviewed yet. Shipping again replaces it."
+    fill_in "Title", with: "Beat Sheet 2"
+    fill_in "Description", with: "A rhythm game where every beat is a cell lighting up in time."
+    fill_in "What did you change since last time?", with: "Added a combo meter."
+    fill_in "Repo URL", with: "github.com/orpheus/beat-sheet"
+    fill_in "Playable link", with: "https://example.com/beat"
+    find(".ship__shot input[type=file]", visible: :all).attach_file(file_fixture("screenshot.png"), make_visible: true)
+    check "It shows the game running, not a mockup."
+    assert_selector ".ship__submit:not(:disabled)"
+    click_on "Ship it"
+
+    assert_selector ".ship__done-title", text: "Shipped."
+    assert_text "Beat Sheet 2 is in review."
+    assert first.reload.superseded?
+    assert_equal 1, @project.ships.in_review.count
+    click_on "Back to project"
+    assert_selector ".project__ship-status", text: "In review"
+    shot("ship-again")
+  end
+
   private
     def approved_ship(hours)
       @project.ships.new(title: "v1", description: "x" * 50, repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://a.itch.io/b",

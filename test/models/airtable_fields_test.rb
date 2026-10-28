@@ -73,12 +73,52 @@ class AirtableFieldsTest < ActiveSupport::TestCase
                  AirtableFields.ship(ship)["Justification - Additional Justification"]
   end
 
-  test "a deflated ship states the hours deflated to, then the reviewer's reason" do
-    ship = approved(at: Program::STARTS_AT + 2.days, hours: BigDecimal("5.71"), claimed: 10,
-                    deflation_reason: "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr).")
-    assert_equal "Deflated from 10 hours to 5.71 hours, Hackatime time since 10/23/2026. " \
-                 "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr).",
-                 AirtableFields.ship(ship)["Justification - Deflation Justification"]
+  def deflation_text(**review)
+    AirtableFields.ship(approved(at: Program::STARTS_AT + 2.days, claimed: 10, **review))["Justification - Deflation Justification"]
+  end
+
+  test "AI coding counted at a third is named with its hours" do
+    assert_equal "Deflated from 10 to 8 hours: 3 hrs of AI coding counted at a third (-2 hrs). Hackatime time since 10/23/2026.",
+                 deflation_text(hours: 8, ai_coding_seconds: 3 * 3600, review_coding_hours: 8, review_art_hours: 0)
+  end
+
+  test "art over the cap is named with its hours" do
+    assert_equal "Deflated from 10 to 8.57 hours: art over the 30% cap (-1.43 hrs). Hackatime time since 10/23/2026.",
+                 deflation_text(hours: BigDecimal("8.57"), art_seconds: 4 * 3600, review_coding_hours: 6, review_art_hours: BigDecimal("2.57"))
+  end
+
+  test "AI coding and the art cap are both named" do
+    assert_equal "Deflated from 10 to 5.71 hours: 3 hrs of AI coding counted at a third (-2 hrs), art over the 30% cap (-2.29 hrs). " \
+                 "Hackatime time since 10/23/2026.",
+                 deflation_text(hours: BigDecimal("5.71"), ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600,
+                                review_coding_hours: 4, review_art_hours: BigDecimal("1.71"))
+  end
+
+  test "the limits' own wording stored with the reason is not said twice" do
+    stored = "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr)."
+    assert_equal "Deflated from 10 to 8 hours: 3 hrs of AI coding counted at a third (-2 hrs). Hackatime time since 10/23/2026.",
+                 deflation_text(hours: 8, ai_coding_seconds: 3 * 3600, review_coding_hours: 8, review_art_hours: 0, deflation_reason: stored)
+  end
+
+  test "a reviewer cut below the limits is named, with the reviewer's reason when typed" do
+    base = { hours: 7, review_coding_hours: 7, review_art_hours: 0 }
+    assert_equal "Deflated from 10 to 7 hours: the reviewer's cut below the limits (-3 hrs). Hackatime time since 10/23/2026. " \
+                 "The reviewer's reason: Half the levels are copied.",
+                 deflation_text(**base, deflation_reason: "Half the levels are copied.")
+    assert_equal "Deflated from 10 to 7 hours: the reviewer's cut below the limits (-3 hrs). Hackatime time since 10/23/2026.",
+                 deflation_text(**base)
+  end
+
+  test "the fraud check deduction is named with its hours and notes" do
+    assert_equal "Deflated from 10 to 9 hours, Hackatime time since 10/23/2026. The fraud check deducted 1 hour: Idle time.",
+                 deflation_text(hours: 9, review_hours: 10, review_coding_hours: 10, review_art_hours: 0,
+                                fraud_deduction_hours: 1, fraud_notes: "Idle time.")
+  end
+
+  test "a gap of one hundredth that is only the limits' round-down says nothing" do
+    ship = approved(at: Program::STARTS_AT + 2.days, claimed: BigDecimal("5.3"), hours: BigDecimal("5.29"), ai_coding_seconds: 36,
+                    review_coding_hours: BigDecimal("5.29"), review_art_hours: 0)
+    assert_not AirtableFields.ship(ship).key?("Justification - Deflation Justification")
   end
 
   test "the additional justification links the review when APP_URL is set, and says when AI coding time was unknown" do

@@ -313,6 +313,25 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".project__event[data-kind=party]", /We'll play your game live/
   end
 
+  test "taking your game out of the play party queue" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true, party_queued: true)
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+    get project_path
+    assert_select ".project__party-queued", /In the queue/
+    assert_select "form[action='#{project_path}'] button", text: "Take my game out"
+    assert_select "button", text: "Add my game to the queue", count: 0
+
+    patch project_path, params: { project: { party_queued: false } }
+    assert_redirected_to project_path
+    assert_not projects(:orpheus).reload.party_queued?
+    follow_redirect!
+
+    assert_select ".project__party-queued", count: 0
+    assert_select "button", text: "Take my game out", count: 0
+    assert_select "button", text: "Add my game to the queue"
+  end
+
   test "the Hackatime list shows your Hackatime projects to tick, and only those can be linked" do
     link_hackatime(users(:orpheus))
     sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))

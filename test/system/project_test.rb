@@ -44,6 +44,10 @@ class ProjectTest < ApplicationSystemTestCase
     wait_for_side_sections
     click_on "Add my game to the queue"
     assert_selector ".project__party-queued", text: "In the queue"
+    click_on "Take my game out"
+    assert_no_selector ".project__party-queued"
+    assert_no_button "Take my game out"
+    assert_button "Add my game to the queue"
   end
 
   test "with nothing on Hackatime yet, the project step says how to get a first session there" do

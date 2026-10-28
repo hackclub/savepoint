@@ -1002,6 +1002,82 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr##{dom_id(@earlier)} [data-update]", 0
   end
 
+  # D-109: a ship the participant replaced by shipping again.
+
+  test "a verdict on a replaced ship is refused with why, and the heartbeat tells the page to reload" do
+    sign_in_as(@heidi)
+    get admin_ship_path(@ship)
+    assert_select "[data-controller=heartbeat]"
+    newer = projects(:ana).ship!(title: "Pong 2", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "More.",
+                                 repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", screenshot_shows_game: true,
+                                 screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"))
+    assert @ship.reload.superseded?
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal Ship::REPLACED_MESSAGE, flash[:alert]
+    post review_admin_ship_path(@ship), params: { decision: "changes_needed", review_feedback: "More." }
+    assert_equal Ship::REPLACED_MESSAGE, flash[:alert]
+    post review_admin_ship_path(@ship), params: { decision: "banned", evidence: "Copied." }
+    assert_equal Ship::REPLACED_MESSAGE, flash[:alert]
+    assert @ship.reload.superseded?, "no verdict was applied"
+    assert_not users(:ana).reload.banned?
+
+    post admin_claims_heartbeat_path, params: { id: @ship.id, stage: "review" }
+    assert_equal({ "ok" => false, "replaced" => true, "holder" => nil }, response.parsed_body)
+    assert_equal 0, @ship.claims.count, "a replaced ship takes no claim"
+
+    get admin_ship_path(@ship)
+    assert_select "[data-replaced]", /The participant shipped again, so this ship was replaced/
+    assert_select "[data-replaced] a[href=?]", admin_ship_path(newer)
+    assert_select "form[action=?]", review_admin_ship_path(@ship), 0
+  end
+
+  test "a reviewer who opened the verdict page before the ship was replaced has the claim removed, and the queue skips it" do
+    sign_in_as(@heidi)
+    get admin_ship_path(@ship)
+    assert_equal 1, @ship.claims.count
+    newer = projects(:ana).ship!(title: "Pong 2", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "More.",
+                                 repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", screenshot_shows_game: true,
+                                 screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"))
+    assert_equal 0, @ship.claims.count
+
+    get admin_review_path
+    assert_redirected_to admin_ship_path(newer, queue: 1)
+  end
+
+  test "the ships list shows a replaced ship plainly, and its own tab" do
+    newer = projects(:ana).ship!(title: "Pong 2", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "More.",
+                                 repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", screenshot_shows_game: true,
+                                 screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"))
+    sign_in_as(@heidi)
+    get admin_ships_path
+    assert_select "tr##{dom_id(@ship)}[data-status=superseded] .pg-admin-ships__status", "Replaced"
+    assert_select "tr##{dom_id(@ship)} small", /by a newer ship/
+    assert_select "#admin-ships-review ~ .pg-admin-ships__panel tr##{dom_id(@ship)}", 0
+    assert_select "a[data-stage=superseded]", /Replaced\s*1/
+    get admin_ships_path(stage: "superseded")
+    assert_select "tr##{dom_id(@ship)}"
+    assert_select "tr##{dom_id(newer)}", 0
+  end
+
+  test "a ship behind an earlier one in its fraud check is not offered to a reviewer, and its verdict waits" do
+    @ship.decide!("approved", by: @heidi, technical_features: "A second ball.")
+    assert @ship.reload.awaiting_fraud?
+    later = projects(:ana).ship!(title: "Pong 2", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "More.",
+                                 repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", screenshot_shows_game: true,
+                                 screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"))
+    sign_in_as(@heidi)
+    get admin_review_path
+    assert_response :success
+    assert_select "#admin-queue-empty"
+    get admin_ship_path(later)
+    assert_select "[data-waiting-on-earlier]", /still in its fraud check/
+    post review_admin_ship_path(later), params: { decision: "changes_needed", review_feedback: "More." }
+    assert_response :unprocessable_entity
+    assert later.reload.in_review?
+  end
+
   private
     def sign_in_as(user)
       mock_hack_club_auth(uid: user.hca_id, slack_id: user.slack_id, email: user.email, name: user.name, first_name: user.first_name)

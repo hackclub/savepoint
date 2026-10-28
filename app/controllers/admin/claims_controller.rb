@@ -4,6 +4,8 @@ class Admin::ClaimsController < Admin::BaseController
   def heartbeat
     ship = Ship.find(params[:id])
     return head(:forbidden) if ship.by?(current_user) || !params[:stage].in?(Claim::STAGES)
+    # D-109: a replaced ship takes no claim. The page shows its banner, so the reviewer stops typing into it.
+    return render(json: { ok: false, replaced: true, holder: nil }) if ship.superseded?
 
     claim, took = Claim.acquire(ship, params[:stage], current_user, force: params[:force].present?)
     render json: { ok: took, holder: claim.user.first_name.presence || "Someone" }

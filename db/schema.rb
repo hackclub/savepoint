@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_110100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -319,12 +319,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_100000) do
     t.decimal "lapse_coding_hours", precision: 6, scale: 2, default: "0.0", null: false
     t.decimal "reviewer_ai_coding_hours", precision: 6, scale: 2
     t.text "reviewer_ai_reason"
+    t.bigint "superseded_by_id"
     t.index ["decided_by_id"], name: "index_ships_on_decided_by_id"
     t.index ["fraud_reviewer_id"], name: "index_ships_on_fraud_reviewer_id"
     t.index ["project_id"], name: "index_ships_on_project_id"
     t.index ["reviewer_id"], name: "index_ships_on_reviewer_id"
     t.index ["snapshot_edited_by_id"], name: "index_ships_on_snapshot_edited_by_id"
     t.index ["status"], name: "index_ships_on_status"
+    t.index ["superseded_by_id"], name: "index_ships_on_superseded_by_id"
   end
 
   create_table "site_days", force: :cascade do |t|
@@ -604,6 +606,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_100000) do
   add_foreign_key "ship_send_backs", "ships"
   add_foreign_key "ship_send_backs", "users"
   add_foreign_key "ships", "projects"
+  add_foreign_key "ships", "ships", column: "superseded_by_id", on_delete: :nullify
   add_foreign_key "ships", "users", column: "decided_by_id"
   add_foreign_key "ships", "users", column: "fraud_reviewer_id"
   add_foreign_key "ships", "users", column: "reviewer_id"

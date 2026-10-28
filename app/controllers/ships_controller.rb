@@ -14,7 +14,11 @@ class ShipsController < ApplicationController
       return render json: checks
     end
 
-    @ship = @project.ship_in_review || build_ship
+    # D-109: a ship in review doesn't block the next one. The page shows the form when asked to ship again (`again`), and the
+    # confirmation of the pending ship otherwise, as it does right after shipping.
+    @ship = (params[:again].blank? && @project.ship_in_review) || build_ship
+    @replacing = @project.ship_awaiting_review unless @ship.persisted?
+    @past_review = @project.ship_awaiting_fraud unless @ship.persisted?
     @rejected = @project.ship_rejected unless @ship.persisted?
     @closed = !@ship.persisted? && !@project.may_ship? && @rejected.nil?
     @needs_nps = !@ship.persisted? && !@closed && @rejected.nil? && NpsResponse.due?(current_user)
@@ -25,7 +29,7 @@ class ShipsController < ApplicationController
   end
 
   def create
-    return redirect_to project_ship_path if @project.ship_in_review || !@project.may_ship? || @project.ship_waiting? || current_user.needs_address? || NpsResponse.due?(current_user)
+    return redirect_to project_ship_path if !@project.may_ship? || @project.ship_waiting? || current_user.needs_address? || NpsResponse.due?(current_user)
 
     @ship = @project.ship!(ship_attributes.merge(changes_required: true))
     if @ship.persisted?
@@ -33,6 +37,8 @@ class ShipsController < ApplicationController
       redirect_to project_ship_path
     else
       @changes_needed = changes_needed_ship
+      @replacing = @project.ship_awaiting_review
+      @past_review = @project.ship_awaiting_fraud
       @commits = since_last_ship_commits
       render :show, status: :unprocessable_entity
     end

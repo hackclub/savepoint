@@ -5,6 +5,8 @@
 #   in_review (awaiting review) -> awaiting_fraud -> approved
 #                               -> changes_needed (they fix it and ship again)
 #                               -> rejected (final; a fraud ban ends here too)
+#                               -> superseded (D-109: the participant shipped again before its first review; the newer
+#                                  ship is reviewed instead, and this one is out of every queue and count)
 #
 # Only a fraud check that passes makes a ship approved, with hours to spend (Project#hours_approved) and a row in
 # Airtable. Until then the participant sees "in review". Nobody is messaged by any of this (D-034).
@@ -18,14 +20,18 @@ class Ship < ApplicationRecord
   after_update -> { Project.where(id: project_id).update_all(synced_at: nil, updated_at: Time.current) }, if: -> { saved_change_to_status? || saved_change_to_approved_hours? }
   # D-098: the participant gets a DM once the fraud check passes (Nudge::Approved).
   after_update_commit -> { Nudge::Approved.queue(self) }, if: -> { saved_change_to_status?(to: "approved") }
-  STATUSES = %w[in_review awaiting_fraud approved changes_needed rejected].freeze
+  STATUSES = %w[in_review awaiting_fraud approved changes_needed rejected superseded].freeze
   # The verdicts of a review (decide!): approved moves the ship to its fraud check, banned is fraud found at review.
   DECISIONS = %w[approved changes_needed rejected banned].freeze
   # The verdicts of a fraud check (Admin::ShipsController#fraud): pass, pass with a deduction, or ban.
   FRAUD_VERDICTS = %w[pass deduct ban].freeze
   # Where a ship stands, for the admin tabs: the stored status, in the words an admin reads.
   STAGES = { "in_review" => "awaiting review", "awaiting_fraud" => "awaiting fraud check", "approved" => "approved",
-             "changes_needed" => "changes needed", "rejected" => "rejected" }.freeze
+             "changes_needed" => "changes needed", "rejected" => "rejected", "superseded" => "replaced" }.freeze
+  # D-109: what a reviewer is told when they try to judge a ship the participant has since replaced.
+  REPLACED_MESSAGE = "The participant shipped again, so this ship was replaced. Review their newer ship instead."
+  # D-109: what a reviewer is told when an earlier ship of the same project is still in its fraud check.
+  WAITING_ON_EARLIER_MESSAGE = "An earlier ship of this project is still in its fraud check. Judge this one after it."
   DESCRIPTION_MIN = 40
   # D-030: the Hackatime categories the handbook's limits read (Ship::Limits). Art is "designing", the category
   # Hackatime gives design and art tools, plus "timelapsing", the category Lapse gives its heartbeats (D-042;
@@ -40,6 +46,8 @@ class Ship < ApplicationRecord
   def self.human_attribute_name(attribute, options = {}) = attribute.to_s == "demo_url" ? "Playable link" : super
 
   belongs_to :project
+  # D-109: the newer ship that replaced this one while it was still waiting for its first review.
+  belongs_to :superseded_by, class_name: "Ship", optional: true
   belongs_to :decided_by, class_name: "User", optional: true
   belongs_to :reviewer, class_name: "User", optional: true
   belongs_to :fraud_reviewer, class_name: "User", optional: true
@@ -92,6 +100,14 @@ class Ship < ApplicationRecord
   scope :pending, -> { where(status: %w[in_review awaiting_fraud]) }
   scope :approved, -> { where(status: "approved") }
   scope :decided, -> { where(status: %w[approved changes_needed rejected]) }
+  scope :superseded, -> { where(status: "superseded") }
+  # D-109: ships a reviewer can pick up: in review, with no earlier ship of the project still in its fraud check. A ship that
+  # passed review but not yet its fraud check isn't an approval (D-097), so judging the later ship waits for it: then the
+  # later ship's new hours start from the right approval, and no hour counts twice.
+  scope :reviewable, -> {
+    in_review.where.not("EXISTS (SELECT 1 FROM ships earlier WHERE earlier.project_id = ships.project_id AND earlier.id < ships.id " \
+                        "AND earlier.status = 'awaiting_fraud')")
+  }
   # Each project's newest ship (of those in the scope so far): the one that stands, whatever came before it.
   scope :latest_per_project, -> { where(id: select("MAX(id)").group(:project_id)) }
 
@@ -101,6 +117,27 @@ class Ship < ApplicationRecord
   def approved? = status == "approved"
   def changes_needed? = status == "changes_needed"
   def rejected? = status == "rejected"
+  def superseded? = status == "superseded"
+
+  # D-109: an earlier ship of the project that is in its fraud check, when there is one. Its verdict comes first.
+  def waiting_on_earlier
+    return unless project && persisted?
+
+    project.ships.awaiting_fraud.where(id: ...id).order(:id).first
+  end
+
+  # D-109: the participant shipped again while this ship waited for its first review. It leaves the review queue and every
+  # count, stays on the project for the record, and keeps a link to the ship that replaced it. Any claim on it goes. False
+  # when it is no longer in review (a reviewer got there first: then it stays, and the newer ship waits on its fraud check).
+  def supersede!(by:)
+    with_lock do
+      next false unless in_review?
+
+      update_columns(status: "superseded", superseded_by_id: by.id, updated_at: Time.current)
+      claims.delete_all
+      true
+    end
+  end
 
   # An admin can't review or fraud-check their own ship.
   def by?(user) = project.user_id == user.id
@@ -288,9 +325,29 @@ class Ship < ApplicationRecord
   # - banned: fraud found at review. Needs the evidence, and bans the account.
   def decide!(decision, by:, coding_hours: nil, art_hours: nil, technical_features: nil, deflation_reason: nil, feedback: nil,
                 judgement: nil, evidence: nil, checklist_defaults: {})
-    return false unless in_review? && DECISIONS.include?(decision)
+    return false unless DECISIONS.include?(decision)
 
-    errors.clear
+    # D-109: under the row's lock, so a verdict can't land on a ship the participant replaces at the same moment.
+    transaction do
+      stored = Ship.lock.where(id:).pick(:status)
+      if superseded? || stored == "superseded"
+        errors.add(:base, REPLACED_MESSAGE)
+        next false
+      end
+      next false unless in_review? && stored == "in_review"
+
+      errors.clear
+      if waiting_on_earlier
+        errors.add(:base, WAITING_ON_EARLIER_MESSAGE)
+        next false
+      end
+      decide_in_review(decision, by:, coding_hours:, art_hours:, technical_features:, deflation_reason:, feedback:, judgement:,
+                       evidence:, checklist_defaults:)
+    end
+  end
+
+  def decide_in_review(decision, by:, coding_hours:, art_hours:, technical_features:, deflation_reason:, feedback:, judgement:,
+                       evidence:, checklist_defaults:)
     self.review_feedback = feedback.to_s.strip.presence
     self.review_judgement = judgement.to_s.strip.presence
     # D-050: the app's ticks freeze with the decision, under any the reviewer saved. Stored only when it decides.
@@ -306,6 +363,7 @@ class Ship < ApplicationRecord
     when "banned" then ban_for_fraud!(by:, notes: evidence, checklist: frozen)
     end
   end
+  private :decide_in_review
 
   # The fraud check passes, or passes with a deduction (hours taken off the review's, which need notes). The ship is
   # then approved: its hours are the participant's to spend, and it goes to Airtable. False when it isn't awaiting the check.

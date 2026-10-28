@@ -21,7 +21,9 @@
   <td><%= ship.created_at.strftime("%b %-d") %></td>
   <td data-decision="<%= ship.status %>">
     <span class="pg-admin-ships__status"><%= ship_status_label(ship) %></span>
-    <% unless ship.pending? %>
+    <% if ship.superseded? %>
+      <small class="admin__muted">by a newer ship · <%= ship.updated_at.strftime("%b %-d") %></small>
+    <% elsif !ship.pending? %>
       <small class="admin__muted"><%= ship.decided_by&.first_name.presence || "someone" %> · <%= ship.decided_at.strftime("%b %-d") %></small>
     <% end %>
   </td>

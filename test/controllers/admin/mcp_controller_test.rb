@@ -302,6 +302,19 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert ship.reload.awaiting_fraud?
   end
 
+  test "review_ship refuses a ship the participant replaced by shipping again (D-109)" do
+    ship = make_ship
+    ship.update_columns(status: "superseded")
+
+    result = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "changes_needed", feedback: "More." })
+    assert_equal false, result["decided"]
+    assert_equal Ship::REPLACED_MESSAGE, result["message"]
+    assert_equal "superseded", ship.reload.status
+    found = mcp_tool(@token, "find_ships", { status: "superseded" })
+    assert_equal [ ship.id ], found["ships"].map { it["id"] }
+    assert_equal "Replaced", found["ships"].first["status_label"]
+  end
+
   test "fraud_ship passes, deducts, bans or sends back a ship waiting for its fraud check" do
     ship = make_ship
     refused = mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "pass" })

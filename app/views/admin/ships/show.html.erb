@@ -3,7 +3,7 @@
 <% project = @ship.project %>
 <% user = project.user %>
 <% tone = { "approved" => "mint", "rejected" => "coral", "changes_needed" => "coral" }.fetch(@ship.status, "gold") %>
-<% status_icon = { "approved" => "check-circle-fill", "rejected" => "close-circle-fill", "changes_needed" => "refresh-2-fill", "awaiting_fraud" => "search-fill" }.fetch(@ship.status, "time-fill") %>
+<% status_icon = { "approved" => "check-circle-fill", "rejected" => "close-circle-fill", "changes_needed" => "refresh-2-fill", "awaiting_fraud" => "search-fill", "superseded" => "refresh-2-fill" }.fetch(@ship.status, "time-fill") %>
 <% own = @ship.by?(current_user) %>
 
 <%# One ship in full (D-002, D-106). What a reviewer reads on every review is open: who, the hours on one line, a problem line
@@ -52,6 +52,14 @@
           <p class="sp-toast ash__alert" role="status"><span class="sp-toast__icon"><%= sp_icon "check-fill" %></span><%= flash[:notice] %></p>
         <% end %>
         <%= render "admin/ships/claim", ship: @ship, claim: @claim, held: @held %>
+        <% if @ship.superseded? %>
+          <%# D-109: the participant shipped again before this one was reviewed. Their newer ship is the one to judge. %>
+          <p class="ash__problem" data-replaced="true"><%= sp_icon "refresh-2-fill" %>The participant shipped again, so this ship was replaced.
+            <% if @ship.superseded_by %><%= link_to "See the newer ship", admin_ship_path(@ship.superseded_by) %><% end %></p>
+        <% elsif @ship.in_review? && (earlier = @ship.waiting_on_earlier) %>
+          <p class="ash__problem" data-waiting-on-earlier="true"><%= sp_icon "time-fill" %>An earlier ship of this project is still in its fraud check. Judge this one after it.
+            <%= link_to "See the earlier ship", admin_ship_path(earlier) %></p>
+        <% end %>
         <% if own && @ship.pending? %>
           <p class="ash__problem" data-own="true"><%= sp_icon "lock-fill" %>This is your own ship. Someone else judges it.</p>
         <% end %>

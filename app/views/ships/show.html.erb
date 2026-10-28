@@ -71,6 +71,12 @@
             title: "Shipped.", ship: @ship, project: @project do %>
         <p class="ship__done-text"><%= @ship.title %> is in review.</p> <%# also while it waits for its fraud check (D-063) %>
         <div class="ship__done-actions">
+          <%# D-109: a ship in review doesn't block the next one. %>
+          <% if @project.may_ship? && !@project.ship_waiting? %>
+            <%= link_to project_ship_path(again: 1), class: "sp-btn sp-btn--lg ship__button", id: "ship-again" do %>
+              <%= sp_icon "rocket-fill" %>Ship again
+            <% end %>
+          <% end %>
           <%= link_to project_path, class: "sp-btn sp-btn--gold sp-btn--lg ship__button" do %>
             <%= sp_icon "left-fill" %>Back to project
           <% end %>
@@ -105,6 +111,19 @@
         <% if @changes_needed.review_feedback.present? %>
           <blockquote class="ship__reviewer-note"><%= @changes_needed.review_feedback %></blockquote>
         <% end %>
+      <% end %>
+      <% if @replacing %>
+        <%# D-109: a ship still waiting for its first review is replaced by this one. %>
+        <p class="sp-toast sp-toast--gold ship__replacing" role="status">
+          <span class="sp-toast__icon"><%= sp_icon "time-fill" %></span>
+          <span>Your ship from <%= @replacing.created_at.in_time_zone(current_user.time_zone).strftime("%b %-d") %> hasn't been reviewed yet. Shipping again replaces it.</span>
+        </p>
+      <% elsif @past_review %>
+        <%# D-109: a ship past review stays. This one covers only the hours after it. %>
+        <p class="sp-toast sp-toast--gold ship__replacing" role="status">
+          <span class="sp-toast__icon"><%= sp_icon "time-fill" %></span>
+          <span>Your last ship passed review and is in its final check. This ship counts only the hours after it.</span>
+        </p>
       <% end %>
       <%= form_with model: @ship, url: project_ship_path, method: :post, multipart: true, class: "ship__form",
             data: { controller: "ship", ship_description_min_value: Ship::DESCRIPTION_MIN, ship_carried_value: carried.present?,

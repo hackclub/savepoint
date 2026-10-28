@@ -6,6 +6,7 @@ require Rails.root.join("db/migrate/20261024130100_add_onboarding_progress_to_in
 require Rails.root.join("db/migrate/20261024110100_add_hackatime_seen_to_insights_projects")
 require Rails.root.join("db/migrate/20261026100100_update_insights_ships_for_fraud_stage")
 require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
+require Rails.root.join("db/migrate/20261028110100_hide_superseded_ships_from_insights")
 require Rails.root.join("db/migrate/20261027140100_add_faq_reads_to_insights_views")
 require Rails.root.join("db/migrate/20261027160100_add_reader_id_to_insights_faq_reads")
 
@@ -28,6 +29,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
       AddHackatimeSeenToInsightsProjects.new.up
       UpdateInsightsShipsForFraudStage.new.up
       AddRetentionDataToInsightsViews.new.up
+      HideSupersededShipsFromInsights.new.up
       AddFaqReadsToInsightsViews.new.up
       AddReaderIdToInsightsFaqReads.new.up
     end
@@ -143,6 +145,8 @@ class InsightsViewsTest < ActiveSupport::TestCase
     assert_equal %w[rejected rejected], row.call
     ship.update_columns(status: "approved")
     assert_equal %w[approved approved], row.call
+    ship.update_columns(status: "superseded")
+    assert_nil row.call, "a replaced ship is left out (D-109)"
   end
 
   test "insights.users shows when Hackatime was linked and when each onboarding step was reached" do

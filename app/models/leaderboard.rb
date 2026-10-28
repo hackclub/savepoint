@@ -46,7 +46,7 @@ module Leaderboard
     today = activities.for_range(date..date).group(:user_id).sum(:coded_seconds)
     projects.each { |project| project.preload_hours(logged: logged[project.user_id].to_i, today: today[project.user_id].to_i, on: date) }
 
-    ActiveRecord::Associations::Preloader.new(records: projects, associations: { pair_as_first: :second_project, pair_as_second: :first_project }).call
+    ActiveRecord::Associations::Preloader.new(records: projects, associations: { pair_as_first: { second_project: :user }, pair_as_second: { first_project: :user } }).call
     pairs = projects.filter_map { |project| project.pair_as_first || project.pair_as_second } # one record per project in a pair
     together = BuddyPomodoro.where(pair_id: pairs.map(&:id).uniq).where.not(joined_at: nil).distinct.pluck(:pair_id)
     pairs.each { |pair| pair.preload_together(together.include?(pair.id)) }

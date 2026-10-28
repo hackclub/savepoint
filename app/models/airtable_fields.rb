@@ -139,15 +139,55 @@ module AirtableFields
 
   def hours_text(hours) = "#{Ship::Limits.format(hours)} #{hours.to_d == 1 ? "hour" : "hours"}"
 
-  # The hours deflated to and why: the numbers from the ship, the reason as the reviewer wrote it. Only for a ship
-  # decided with its counted hours kept (claimed_hours) and approved below them. A deduction at the fraud check is part
-  # of it, with the fraud notes (D-063).
+  # The hours deflated to and why, each cause with its hours, worked from the same limits the review page shows
+  # (Ship#limits on the hours kept, claimed_hours): AI coding counted at a third, art over the cap, the reviewer's cut
+  # below the limits, and the fraud check's deduction (D-063), then the reviewer's own words. Only for a ship decided with
+  # its counted hours kept and approved below them. A gap of one hundredth with no cause named is the limits' round-down
+  # to the hundredth, not a deflation, so it says nothing.
   def deflation(s)
     return unless s.claimed_hours && s.approved_hours && s.claimed_hours - s.approved_hours >= Ship::Limits::TOLERANCE
 
+    limits = s.limits(s.claimed_hours)
+    causes = deflation_causes(s, limits)
+    typed = reviewer_reason(s, limits)
     deducted = ("The fraud check deducted #{hours_text(s.fraud_deduction_hours)}: #{s.fraud_notes}" if s.fraud_deduction_hours.positive?)
-    "Deflated from #{hours_text(s.claimed_hours)} to #{hours_text(s.approved_hours)}, Hackatime time since " \
-      "#{us_date(s.project.hours_start.utc.to_date)}. #{[ s.deflation_reason, deducted ].compact_blank.join(" ")}".strip
+    return if causes.empty? && typed.blank? && deducted.nil? && s.claimed_hours - s.approved_hours <= Ship::Limits::TOLERANCE
+
+    lead = "Deflated from #{Ship::Limits.format(s.claimed_hours)} to #{hours_text(s.approved_hours)}"
+    since = "Hackatime time since #{us_date(s.project.hours_start.utc.to_date)}."
+    head = causes.any? ? "#{lead}: #{causes.join(", ")}. #{since}" : "#{lead}, #{since}"
+    typed = "The reviewer's reason: #{typed}" if typed.present? && causes.any? { it.start_with?("the reviewer") }
+    [ head, typed, deducted ].compact_blank.join(" ")
+  end
+
+  # "1.5 hrs of AI coding counted at a third (-1 hr)", "art over the 30% cap (-0.07 hrs)", "the reviewer's cut below the limits (-0.5 hrs)"
+  def deflation_causes(s, limits)
+    causes = []
+    if limits.ai_cut >= Ship::Limits::TOLERANCE
+      raised = (" (the reviewer raised Hackatime's #{Ship::Limits.hrs(limits.hackatime_ai)})" if limits.ai_raised?)
+      causes << "#{Ship::Limits.hrs(limits.ai_coding)} of AI coding#{raised} counted at a third (-#{Ship::Limits.hrs(limits.ai_cut)})"
+    end
+    causes << "art over the #{Ship::Limits::ART_CAP_PERCENT}% cap (-#{Ship::Limits.hrs(limits.art_cut)})" if limits.art_cut >= Ship::Limits::TOLERANCE
+    cut = reviewer_cut(s, limits)
+    causes << "the reviewer's cut below the limits (-#{Ship::Limits.hrs(cut)})" if cut >= Ship::Limits::TOLERANCE
+    causes
+  end
+
+  # What the reviewer took off beyond the limits: the coding and art hours the limits allow, less those approved at review
+  # (the same tops Ship::Limits#approve holds them to). 0 when the review split isn't kept.
+  def reviewer_cut(s, limits)
+    return 0.to_d unless s.review_coding_hours && s.review_art_hours
+
+    coding = [ limits.coding_cap.floor(2) - s.review_coding_hours, 0 ].max
+    art = [ limits.art_allowed_for(s.review_coding_hours).floor(2) - s.review_art_hours, 0 ].max
+    coding + art
+  end
+
+  # approve_review keeps the limits' own wording ahead of the reviewer's reason in deflation_reason. The named causes now say
+  # that part, so only the reviewer's words are left.
+  def reviewer_reason(s, limits)
+    reason = s.deflation_reason.to_s
+    (limits.reason ? reason.sub(limits.reason, "") : reason).strip
   end
 
   # D-085: Lapse hours the reviewer called coding, for an editor Hackatime can't track (GameMaker Studio, say). Those hours

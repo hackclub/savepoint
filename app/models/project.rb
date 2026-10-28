@@ -537,7 +537,15 @@ class Project < ApplicationRecord
 
   # Hours on one calendar date, as of the last streak sync. The leaderboard passes the viewer's own today (Leaderboard.date_for).
   def hours_today(today: Program.today)
+    return @preloaded_hours_today[today] if @preloaded_hours_today&.key?(today)
+
     user.hours_in(today..today)
+  end
+
+  # Hours read ahead for a whole leaderboard (Leaderboard.ranked) from one grouped query, as hours_in would give them.
+  def preload_hours(logged:, today:, on:)
+    @hours_logged = (logged / 3600.0).round(1) if tracking?
+    (@preloaded_hours_today ||= {})[on] = (today / 3600.0).round(1)
   end
 
   # As of the last sync (see User::Streakable).

@@ -19,7 +19,13 @@ class Pair < ApplicationRecord
   def projects = [ first_project, second_project ]
 
   # Whether you've done a pomodoro together: it ran with both of you in it.
-  def pomodoro_together? = pomodoros.where.not(joined_at: nil).exists?
+  def pomodoro_together?
+    return @together unless @together.nil?
+    pomodoros.where.not(joined_at: nil).exists?
+  end
+
+  # Set ahead for a whole leaderboard (Leaderboard.ranked), so each row doesn't ask.
+  def preload_together(value) = @together = value
 
   # The pomodoro you're doing together right now, if there is one.
   def live_pomodoro

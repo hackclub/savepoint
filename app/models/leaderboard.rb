@@ -30,8 +30,28 @@ module Leaderboard
   # Set-up projects in order, with their users (and screenshots, for the board). Today is the viewer's `date`.
   def self.ranked(sort: "total", date: date_for(nil), projects: Project.includes(:user, screenshot_attachment: :blob))
     today = sort == "today"
-    projects.select { |project| project.set_up? && !project.user.listed_admin? }.sort_by { |project| [ -(today ? project.hours_today(today: date) : project.hours_logged), -project.hours_logged, project.id ] }
+    projects = projects.select { |project| project.set_up? && !project.user.listed_admin? }
+    preload_board(projects, date)
+    projects.sort_by { |project| [ -(today ? project.hours_today(today: date) : project.hours_logged), -project.hours_logged, project.id ] }
   end
+
+  # One query for everyone's hours, one for their pairs and one for who has done a pomodoro together, instead of
+  # a few queries for each person on the board (the project page drew about 1,200 for a real one).
+  def self.preload_board(projects, date)
+    return if projects.empty?
+
+    user_ids = projects.map(&:user_id)
+    activities = StreakActivity.where(user_id: user_ids)
+    logged = activities.for_range(Program::FIRST_STREAK_DATE..).group(:user_id).sum(:coded_seconds)
+    today = activities.for_range(date..date).group(:user_id).sum(:coded_seconds)
+    projects.each { |project| project.preload_hours(logged: logged[project.user_id].to_i, today: today[project.user_id].to_i, on: date) }
+
+    ActiveRecord::Associations::Preloader.new(records: projects, associations: { pair_as_first: :second_project, pair_as_second: :first_project }).call
+    pairs = projects.filter_map { |project| project.pair_as_first || project.pair_as_second } # one record per project in a pair
+    together = BuddyPomodoro.where(pair_id: pairs.map(&:id).uniq).where.not(joined_at: nil).distinct.pluck(:pair_id)
+    pairs.each { |pair| pair.preload_together(together.include?(pair.id)) }
+  end
+  private_class_method :preload_board
 
   # Everyone's place, in order.
   def self.places(sort: "total", projects: nil, date: date_for(nil))

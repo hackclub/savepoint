@@ -62,6 +62,8 @@ module AirtableFields
   # reviewer's edits in Airtable stay. The phone number is never sent. `earlier` is the ship's Ship::EarlierShip
   # result, when the caller has it already.
   def ship(s, earlier: nil)
+    earlier ||= unified(s)
+    window = claim_window(s, earlier)
     user = s.project.user
     address = ShippingAddress.for(user).attributes
     first = user.first_name.to_s
@@ -82,22 +84,22 @@ module AirtableFields
       "Country" => address["country"],
       "ZIP / Postal Code" => address["postal_code"],
       "Birthday" => user.birthdate.presence,
-      "Optional - Override Hours Spent" => new_hours(s),
-      **justifications(s, earlier: earlier || unified(s))
+      "Optional - Override Hours Spent" => new_hours(s, window),
+      **justifications(s, earlier:, window:)
     }.compact_blank
   end
 
   # The handbook's separate justification fields (D-030). "Optional - Override Hours Spent Justification" stays empty:
   # a small YSWS that writes to Airtable fills these instead. The admin ship page shows the same.
-  def justifications(s, earlier:)
+  def justifications(s, earlier:, window: claim_window(s, earlier))
     {
-      "Justification - Hackatime Project Name(s) + Date Range(s)" => hackatime_projects(s),
+      "Justification - Hackatime Project Name(s) + Date Range(s)" => hackatime_projects(s, window),
       "Justification - Submitter Hackatime ID" => s.project.user.hackatime_uid,
       "Justification - Specific Technical Features" => s.technical_features,
       "Justification - Deflation Justification" => deflation(s),
-      "Justification - Additional Justification" => additional(s),
+      "Justification - Additional Justification" => additional(s, window),
       "Justification - Alternate Tracking Method" => alternate_tracking(s),
-      "Optional - Override Duplicate Justification" => duplicate(s, earlier)
+      "Optional - Override Duplicate Justification" => duplicate(s, earlier, window)
     }.compact_blank
   end
 
@@ -120,21 +122,74 @@ module AirtableFields
 
   def earlier_hours(s) = earlier_ships(s).map { cumulative_hours(it) }.max.to_f
 
-  def new_hours(s) = [ (cumulative_hours(s) - earlier_hours(s)).round(2), 0 ].max
+  # D-110: the hours of the claim window before the participant's own hours start are added to the participant's counted hours.
+  def new_hours(s, window = nil) = [ (cumulative_hours(s) - earlier_hours(s) + (window || NO_WINDOW).hours).round(2), 0 ].max
 
-  # Where this ship's hours start: the project's hours start (D-065), or for an update the day of the last earlier approved ship.
-  def hours_from(s) = earlier_ships(s).last&.created_at&.utc&.to_date || s.project.hours_start.utc.to_date
+  # D-110: where the Unified YSWS DB record's time starts, and the hours between that start and the project's hours_start
+  # (the participant's own start, D-065). Only the Unified record sees them: the project page, prize hours and review limits
+  # still count from hours_start. `start` is nil when the window is the project's own (a later ship, or Hackatime can't say).
+  # `end_label` names where the gap ends ("sign-up"), `source` what set its start (:launch, :jame_gam or :unified).
+  ClaimWindow = Data.define(:start, :hours, :source, :claim_program)
+  NO_WINDOW = ClaimWindow.new(start: nil, hours: 0, source: nil, claim_program: nil)
+
+  # Unified start = the later of Program::STARTS_AT and the end of the latest known other-program claim on this game: the jame gam
+  # submission's created time (Project#jame_gam_submitted_at, D-066), or a Unified YSWS DB record of the same code URL. A
+  # record gives an approval time: "Approved At" is a plain date in that base, so a date is taken as the end of that day, UTC
+  # (it can only err late, which claims less). A reviewer's start later than that still wins. Only a project's first Unified record
+  # has a window: a later Save Point ship starts after the earlier approved one (hours_from). Gap hours are Hackatime's time on the
+  # ship's projects between the two starts (each moment once), cut by the ship's approved/claimed ratio so the AI and art
+  # deflation applies proportionally, never above Hackatime. If Hackatime can't answer, there is no gap: today's start, logged.
+  def claim_window(s, earlier)
+    project = s.project
+    return NO_WINDOW if earlier_ships(s).any?
+
+    claims = []
+    claims << [ project.jame_gam_submitted_at, :jame_gam, nil ] if project.jame_gam_submitted_at
+    (earlier&.found? ? earlier.entries : []).each do |entry|
+      at = claim_end(entry.approved_at)
+      claims << [ at, :unified, entry.program ] if at
+    end
+    latest = claims.max_by(&:first)
+    start, source, program = Program::STARTS_AT, :launch, nil
+    start, source, program = latest if latest && latest.first > start
+    start = [ start, project.hours_start_override ].compact.max if project.hours_start_override
+    return NO_WINDOW unless start < project.hours_start
+
+    seconds = Hackatime.seconds_between(project.user, Array(s.hackatime_projects).compact_blank, start..project.hours_start)
+    ratio = s.claimed_hours&.positive? && s.approved_hours ? [ s.approved_hours / s.claimed_hours, 1 ].min : 1
+    hours = (seconds / 3600.0 * ratio.to_f).floor(2)
+    hours.positive? ? ClaimWindow.new(start:, hours:, source:, claim_program: program) : NO_WINDOW
+  rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable => e
+    Rails.logger.warn("airtable sync: ship #{s.id} gap hours not read, #{e.class}, claiming from the project's hours start")
+    NO_WINDOW
+  end
+
+  def claim_end(value)
+    return if value.blank?
+
+    text = value.to_s
+    return Time.zone.parse(text).utc if text.length > 10
+
+    (Date.parse(text.first(10)) + 1).in_time_zone("UTC") - 1.second
+  rescue Date::Error, ArgumentError
+    nil
+  end
+
+  # Where this ship's hours start: the Unified start (claim_window), or for an update the day of the last earlier approved ship.
+  def hours_from(s, window = nil)
+    earlier_ships(s).last&.created_at&.utc&.to_date || (window || NO_WINDOW).start&.utc&.to_date || s.project.hours_start.utc.to_date
+  end
 
   # "7/20/2026", the handbook's date format.
   def us_date(date) = date.strftime("%-m/%-d/%Y")
 
-  def date_range(s) = "#{us_date(hours_from(s))}-#{us_date(s.created_at.utc.to_date)}"
+  def date_range(s, window = nil) = "#{us_date(hours_from(s, window))}-#{us_date(s.created_at.utc.to_date)}"
 
   # "rhythm-game 10/23/2026-10/27/2026, beat-sheet-art 10/23/2026-10/27/2026": each project with the one range
   # its time counts in.
-  def hackatime_projects(s)
+  def hackatime_projects(s, window = nil)
     names = Array(s.hackatime_projects).compact_blank
-    names.map { "#{it} #{date_range(s)}" }.join(", ").presence
+    names.map { "#{it} #{date_range(s, window)}" }.join(", ").presence
   end
 
   def hours_text(hours) = "#{Ship::Limits.format(hours)} #{hours.to_d == 1 ? "hour" : "hours"}"
@@ -167,8 +222,22 @@ module AirtableFields
       "because the code looked AI-generated: #{s.reviewer_ai_reason}"
   end
 
-  def additional(s)
+  # D-110: one sentence when the Unified record claims time before the participant's own start.
+  def gap_text(s, window)
+    return unless window.start
+
+    from = us_date(window.start.utc.to_date)
+    ends = s.project.hours_start_source == :sign_up ? "sign-up on #{us_date(s.project.hours_start.utc.to_date)}" : us_date(s.project.hours_start.utc.to_date)
+    case window.source
+    when :jame_gam then "Hours from #{from}, when this game's jame gam submission ended, to #{ends} are claimed here because no other program claims them."
+    when :unified then "Hours from #{from}, when this game's #{window.claim_program} record ended, to #{ends} are claimed here because no other program claims them."
+    else "Hours from #{from}, Save Point's launch, are claimed here, including time before sign-up, because no other program claims them."
+    end
+  end
+
+  def additional(s, window = nil)
     parts = []
+    parts << gap_text(s, window || NO_WINDOW) if window&.start
     parts << "Hackatime's AI coding time could not be read at review, so no AI coding cut applied." if s.claimed_hours && s.ai_coding_seconds.nil? && s.reviewer_ai_in_force.nil?
     parts << ai_raised(s)
     parts << "Reviewer judgement: #{s.review_judgement}" if s.review_judgement.present?
@@ -181,13 +250,13 @@ module AirtableFields
   # Filled when the code URL is already on a record: in the Unified YSWS DB from another program (a Save Point game
   # often continues a jame gam game), or an earlier approved Save Point ship of this game. It names each record and
   # says that only new hours are claimed (D-003).
-  def duplicate(s, earlier)
+  def duplicate(s, earlier, window = nil)
     parts = []
     others = earlier&.found? ? earlier.entries : []
-    start = s.project.hours_start.utc.to_date
+    start = (window&.start || s.project.hours_start).utc.to_date
     if others.any?
       parts << "This code URL is already in the Unified YSWS DB: #{others.map { record_text(it) }.join("; ")}."
-      parts << "Save Point counts only Hackatime time from #{us_date(start)}, when this project's hours began counting, so time those records counted before then is not claimed again."
+      parts << "Save Point counts only Hackatime time from #{us_date(start)}, when #{window&.start ? "this record's claim window began" : "this project's hours began counting"}, so time those records counted before then is not claimed again."
       later = others.select { (date = parse_date(it.approved_at)) && date > start }
       later.each do |entry|
         parts << "The #{entry.program} record was approved on #{us_date(parse_date(entry.approved_at))}, after this project's hours began counting, so its time from #{us_date(start)} may overlap this record."
@@ -198,7 +267,7 @@ module AirtableFields
     if same.any?
       parts << "This updates #{same.size == 1 ? "an earlier Save Point ship" : "#{same.size} earlier Save Point ships"} of this game " \
                "(#{same.map { "#{us_date(it.created_at.utc.to_date)}, #{hours_text(cumulative_hours(it))} since Save Point began" }.join("; ")})."
-      parts << "This record claims only the #{hours_text(new_hours(s))} since then, #{date_range(s)}."
+      parts << "This record claims only the #{hours_text(new_hours(s, window))} since then, #{date_range(s, window)}."
     end
     parts.join(" ").presence
   end

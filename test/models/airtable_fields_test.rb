@@ -157,4 +157,81 @@ class AirtableFieldsTest < ActiveSupport::TestCase
     Ship::EarlierShip.token = nil
     assert_raises(AirtableFields::UnifiedUnchecked) { AirtableFields.ship(ship) }
   end
+
+  # D-110: the Unified record claims from the later of launch and the latest other claim, to the participant's own start.
+  def span(from, hours) = { "start_time" => from.to_f, "end_time" => (from + hours.hours).to_f }
+
+  def sign_up_at(time)
+    @project.user.update!(hackatime_access_token: "token")
+    @project.user.update_columns(created_at: time)
+    @project.update_columns(hours_start_override: nil, jame_gam_submitted_at: nil)
+  end
+
+  teardown { Hackatime.stubbed_spans = {} }
+
+  test "no other claim: the Unified record starts at launch, before sign-up, and the participant's start is untouched" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 3) ] }
+    ship = first_ship
+    row = AirtableFields.ship(ship)
+    assert_equal 9.0, row["Optional - Override Hours Spent"], "6 approved plus the 3 hours before sign-up"
+    assert_match "rhythm-game 10/23/2026-10/25/2026", row["Justification - Hackatime Project Name(s) + Date Range(s)"]
+    assert_equal "Hours from 10/23/2026, Save Point's launch, are claimed here, including time before sign-up, because no other program claims them.",
+                 row["Justification - Additional Justification"]
+    assert_equal Program::STARTS_AT + 1.day, @project.hours_start
+    assert_equal 6.0, ship.approved_hours.to_f
+  end
+
+  test "a jame gam submission before sign-up starts the Unified record at its end" do
+    sign_up_at(Program::STARTS_AT + 2.days)
+    @project.update_columns(jame_gam_submitted_at: Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 3), span(Program::STARTS_AT + 1.day + 1.hour, 2) ] }
+    row = AirtableFields.ship(first_ship)
+    assert_equal 8.0, row["Optional - Override Hours Spent"], "only the 2 hours after the jame gam submission"
+    assert_match "rhythm-game 10/24/2026-10/25/2026", row["Justification - Hackatime Project Name(s) + Date Range(s)"]
+    assert_equal "Hours from 10/24/2026, when this game's jame gam submission ended, to sign-up on 10/25/2026 are claimed here because no other program claims them.",
+                 row["Justification - Additional Justification"]
+    assert_equal Program::STARTS_AT + 2.days, @project.hours_start
+  end
+
+  test "a jame gam submission after sign-up leaves no gap" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    @project.update_columns(jame_gam_submitted_at: Program::STARTS_AT + 2.days)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 3) ] }
+    row = AirtableFields.ship(first_ship)
+    assert_equal 6.0, row["Optional - Override Hours Spent"]
+    assert_not row.key?("Justification - Additional Justification")
+    assert_equal Program::STARTS_AT + 2.days, @project.hours_start, "participant hours still count after the submission"
+  end
+
+  test "another program's Unified record before sign-up starts the Unified record at the end of its approval day" do
+    sign_up_at(Program::STARTS_AT + 3.days)
+    @unified = [ unified_record("Sleepover", "2026-10-24", 4) ]
+    Hackatime.stubbed_spans = { "1001" => [ span(Time.utc(2026, 10, 24, 22), 2), span(Time.utc(2026, 10, 25, 3), 1) ] }
+    row = AirtableFields.ship(first_ship)
+    assert_equal 7.0, row["Optional - Override Hours Spent"], "the 1 hour after the end of 10/24 UTC"
+    assert_equal "Hours from 10/24/2026, when this game's Sleepover record ended, to sign-up on 10/26/2026 are claimed here because no other program claims them.",
+                 row["Justification - Additional Justification"]
+  end
+
+  test "a later Save Point ship starts at the earlier ship and has no gap" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 3) ] }
+    first_ship
+    row = AirtableFields.ship(approved(at: Program::STARTS_AT + 5.days, hours: 15))
+    assert_equal 9.0, row["Optional - Override Hours Spent"]
+    assert_match "10/25/2026-10/28/2026", row["Justification - Hackatime Project Name(s) + Date Range(s)"]
+    assert_not row.key?("Justification - Additional Justification")
+  end
+
+  test "gap hours follow the ship's deflation ratio and Hackatime failures fall back to the participant's start" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 4) ] }
+    ship = approved(at: Program::STARTS_AT + 2.days, hours: 5, claimed: 10)
+    assert_equal 7.0, AirtableFields.ship(ship)["Optional - Override Hours Spent"], "5 plus 4 hours at 5/10"
+    @project.user.update_columns(hackatime_access_token: nil)
+    row = AirtableFields.ship(ship)
+    assert_equal 5.0, row["Optional - Override Hours Spent"]
+    assert_not row.key?("Justification - Additional Justification")
+  end
 end

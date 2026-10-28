@@ -50,6 +50,7 @@ class SlackDemo
   # channel, one post a second, so only a DM is ever posted to.
   def deliver!
     self.class.check_target!(to)
+    raise Refused, "Slack sending is off outside production (set SLACK_LIVE=1)" unless @client || SlackBotToken.live?
     client = @client || Slack::Web::Client.new
     channel = nil
 

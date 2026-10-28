@@ -18,6 +18,11 @@ class SlackAnnouncement
     new(file.read)
   end
 
+  # Outside production a real post needs SLACK_LIVE=1, the same switch as the bot (SlackBotToken.live?).
+  def self.live!(live: SlackBotToken.live?)
+    raise Refused, "Slack sending is off outside production. Run with SLACK_LIVE=1 to post for real." unless live
+  end
+
   # The user token, checked without ever showing it.
   def self.token!(token = ENV["SLACK_USER_TOKEN"])
     raise Refused, "SLACK_USER_TOKEN is empty. Paste the User OAuth Token into .env (see announcements/README.md)." if token.blank?
@@ -57,14 +62,14 @@ class SlackAnnouncement
 
   # Posts to the token owner's own DM so Armand can see the real render. Returns the permalink, or the ts.
   def test!(client: nil)
-    client ||= Slack::Web::Client.new(token: self.class.token!)
+    client ||= (self.class.live!; Slack::Web::Client.new(token: self.class.token!))
     user_id = client.auth_test.user_id
     post(client, user_id)
   end
 
   def deliver!(channel, client: nil)
     self.class.check_channel!(channel)
-    client ||= Slack::Web::Client.new(token: self.class.token!)
+    client ||= (self.class.live!; Slack::Web::Client.new(token: self.class.token!))
     post(client, channel)
   end
 
@@ -72,7 +77,7 @@ class SlackAnnouncement
   def update!(channel, ts, client: nil)
     self.class.check_channel!(channel)
     self.class.check_timestamp!(ts)
-    client ||= Slack::Web::Client.new(token: self.class.token!)
+    client ||= (self.class.live!; Slack::Web::Client.new(token: self.class.token!))
     updated = client.chat_update(channel:, ts:, text:, blocks:)
     permalink(client, updated) || updated.ts
   end

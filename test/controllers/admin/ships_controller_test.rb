@@ -571,8 +571,8 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-participant", /ana@hackclub\.com.*verified/m
     assert_select "#admin-ship-person summary [data-trust=yellow]", "trust yellow"
     assert_select "#admin-ship-participant a[href='https://hackclub.slack.com/team/U0ANA']"
-    assert_select "#admin-ship-telescreen[href='https://telescreen.hackclub.com/subjects/1001']"
-    assert_select "#admin-ship-lapse-review[href='https://telescreen.hackclub.com/workbench/lapse']"
+    assert_select "#admin-ship-telescreen[href='https://telescreen.hackclub.com/workbench/hackatime/overview?u=1001&p=Gloobls,Halloween+Game']"
+    assert_select "#admin-ship-lapse-review[href='https://telescreen.hackclub.com/workbench/lapse?u=1001']"
     assert_select "[data-lapses=unavailable]", /session list is unavailable.*admin API key/
   ensure
     Hackatime.define_singleton_method(:project_seconds, original) if original

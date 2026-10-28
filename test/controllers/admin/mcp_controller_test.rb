@@ -223,7 +223,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal "error", full.dig("evidence", "repo", "status"), "the stubbed answer isn't a repository"
     assert_equal "unknown", full.dig("evidence", "stardance", "status")
     assert_equal "ana@hackclub.com", full.dig("evidence", "participant", "email")
-    assert_equal "https://telescreen.hackclub.com/workbench/lapse", full.dig("evidence", "links", "lapse_review")
+    assert_equal "https://telescreen.hackclub.com/workbench/lapse", full.dig("evidence", "links", "lapse_review"), "no Hackatime id, so the bare workbench"
+    assert_equal "https://telescreen.hackclub.com/workbench/hackatime/overview", full.dig("evidence", "links", "telescreen")
   end
 
   test "get_ship returns the feedback, judgement and frozen checklist of a decided ship" do

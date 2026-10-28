@@ -126,6 +126,38 @@ class ProjectTest < ActiveSupport::TestCase
     assert project.valid?
   end
 
+  test "a pick when Hackatime didn't answer says so, and an empty answer still says the pick is missing (D-103)" do
+    project = projects(:orpheus)
+    link_hackatime(project.user)
+    project.hackatime_project_names = [ "rhythm-game" ]
+
+    project.available_hackatime_projects = nil
+    assert_not project.valid?
+    assert_equal [ "Hackatime didn't answer. Try again in a moment." ], project.errors.full_messages
+    assert_predicate project, :hackatime_no_answer?
+
+    project.available_hackatime_projects = []
+    assert_not project.valid?
+    assert_equal [ "Hackatime projects don't include rhythm-game on Hackatime" ], project.errors.full_messages
+    assert_not_predicate project, :hackatime_no_answer?
+
+    project.available_hackatime_projects = [ Hackatime::Project.new("dotfiles", 600) ]
+    assert_not project.valid?
+    assert_equal [ "Hackatime projects don't include rhythm-game on Hackatime" ], project.errors.full_messages
+
+    project.available_hackatime_projects = [ Hackatime::Project.new("rhythm-game", 600) ]
+    assert project.valid?
+  end
+
+  test "no answer from Hackatime is fine for picks that are already linked" do
+    project = projects(:orpheus)
+    link_hackatime(project.user)
+    project.update_columns(hackatime_projects: [ "rhythm-game" ])
+    project.available_hackatime_projects = nil
+    project.hackatime_project_names = [ "rhythm-game" ]
+    assert project.valid?
+  end
+
   test "the ticked Hackatime projects are the linked ones, and new ones have to be on Hackatime" do
     project = projects(:orpheus)
     link_hackatime(project.user)

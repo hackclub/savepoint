@@ -105,6 +105,7 @@ class ProjectsHelperTest < ActionView::TestCase
     with_hours_needed(0.5) do
       assert_equal "Today: 30 min, this evening", project_today(project)
       assert_equal "30m", project_schedule(project, today: Date.new(2026, 10, 23)).first[:value]
+      assert_equal "0m of 30m today", project_schedule(project, today: Date.new(2026, 10, 23)).first[:title]
     end
 
     with_hours_needed(0.0) do

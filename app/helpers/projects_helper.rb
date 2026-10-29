@@ -289,7 +289,7 @@ module ProjectsHelper
         else [ nil, sessions[day] ]
         end
       { date: label, state:, value:, note:, built: (how if day == today && !built.zero?),
-        title: (day == today ? "#{project_day_time(built)} of #{project_day_time([ project.pace_minutes * 60, built + plan.fetch(day, 0) * 60 ].min)} today" : nil) }
+        title: (day == today ? "#{project_day_time(built)} of #{project_day_time([ project.pace_minutes * 60, built + plan.fetch(day, 0).round * 60 ].min)} today" : nil) }
     end
     cells = days.zip(cells).reject { |day, _| day > deadline }.map(&:last)
     if days.last < deadline

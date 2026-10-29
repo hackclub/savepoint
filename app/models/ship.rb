@@ -68,6 +68,13 @@ class Ship < ApplicationRecord
   validates :status, inclusion: { in: STATUSES }
   # D-097: a later ship's approval is the earlier approval plus the new hours, so it never falls below the earlier one.
   validate :hours_hold_earlier_approval
+  # D-111: every deflation has a reason. From the review on (awaiting its fraud check, approved), hours below the hours claimed need a
+  # deflation reason, the approved hours are the review's less the fraud deduction, and a deduction needs its notes. A blank
+  # text is no reason. The database holds the same three rules (ships_deflation_has_reason, ships_approved_hours_add_up,
+  # ships_deduction_has_notes), for a write that skips these.
+  validate :deflation_has_reason, if: -> { awaiting_fraud? || approved? }
+  validate :approved_hours_add_up, if: :approved?
+  validates :fraud_notes, presence: { message: "Say why you deduct hours" }, if: -> { fraud_deduction_hours.to_d.positive? }
   validates :title, presence: { message: "Set the title" }, length: { maximum: 80, too_long: "Make the title %{count} characters or fewer" }
   validates :description, presence: { message: "Write a description" }
   validates :description, length: { minimum: DESCRIPTION_MIN, too_short: "Make the description %{count}+ characters" }, allow_blank: true
@@ -439,9 +446,23 @@ class Ship < ApplicationRecord
       errors.add(:approved_hours, "Approved hours can't be below the #{Ship::Limits.hrs(held)} already approved")
     end
 
+    def deflation_has_reason
+      return unless claimed_hours && review_hours && review_hours < claimed_hours && deflation_reason.blank?
+
+      errors.add(:deflation_reason, "Say why the hours went down from the #{Ship::Limits.hrs(claimed_hours)} claimed")
+    end
+
+    def approved_hours_add_up
+      return if approved_hours && review_hours && approved_hours == review_hours - fraud_deduction_hours
+
+      errors.add(:approved_hours, "Approved hours are the review's hours less the fraud deduction")
+    end
+
     def approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen)
-      claimed = counted_hours
-      limits = limits(claimed)
+      # D-111: the limits read the counted hours to the hundredth, as claimed_hours stores them, so approving the most the rules
+      # allow stores exactly the most (Ship::Limits#coding_top).
+      limits = limits(counted_hours)
+      claimed = limits.claimed
       # D-097: on a later ship the figures typed are the new hours. The limits are read on the whole project, and the
       # earlier approval's coding and art are added back, so the ship keeps cumulative totals.
       earlier = earlier_approval
@@ -456,12 +477,14 @@ class Ship < ApplicationRecord
       reason = deflation_reason.to_s.strip.presence
       errors.add(:technical_features, "Name the specific technical features that explain the hours") if self.technical_features.nil?
       errors.add(:deflation_reason, "Say why you approve fewer hours than the rules allow") if below && reason.nil?
+      total = coding + art
+      # Only when the hours went down, by a hundredth too (D-111): the limits' own words for an AI or art cut, then the reviewer's,
+      # so the Airtable justification has both. A reason given when nothing was cut isn't kept. Hours that went down with no
+      # words to say why can't be approved.
+      cut = ([ limits.reason, reason ].compact.join(" ").presence if claimed > total)
+      errors.add(:deflation_reason, "Say why you approve fewer than the #{Ship::Limits.hrs(claimed)} claimed") if claimed > total && cut.nil? && errors[:deflation_reason].empty?
       return false if errors.any?
 
-      total = coding + art
-      # Only when the hours went down: the limits' own words for an AI or art cut, then the reviewer's, so the Airtable
-      # justification has both. A reason given when nothing was cut isn't kept.
-      cut = ([ limits.reason, reason ].compact.join(" ").presence if claimed - total >= Ship::Limits::TOLERANCE)
       update!(status: "awaiting_fraud", fraud_status: "pending", reviewer: by, reviewed_at: Time.current, claimed_hours: claimed,
               review_coding_hours: coding, review_art_hours: art, review_hours: total, deflation_reason: cut,
               approved_hours: nil, decided_by: nil, decided_at: nil, review_checklist: frozen)

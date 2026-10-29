@@ -22,7 +22,9 @@ class AirtableFieldsTest < ActiveSupport::TestCase
     ENV.delete("APP_URL")
   end
 
-  # An approved ship, shipped `at`, with what the review kept.
+  # An approved ship, shipped `at`, with what the review kept. `hours` are the approved hours, from a review of the same hours
+  # unless the test says otherwise. D-111: a review below the hours claimed carries its reason, the limits' own words when the
+  # test gives none, as approve_review keeps them, because the database refuses a deflation without one.
   def approved(at:, hours:, claimed: hours, repo: REPO, **review)
     ship = travel_to(at) do
       @project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
@@ -30,8 +32,11 @@ class AirtableFieldsTest < ActiveSupport::TestCase
                              hours: claimed, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"),
                              screenshot_shows_game: true)
     end
-    ship.update_columns({ status: "approved", approved_hours: hours, claimed_hours: claimed, technical_features: "A beat grid and a combo meter.",
-                          ai_coding_seconds: 0, art_seconds: 0 }.merge(review))
+    columns = approved_columns(hours, claimed_hours: claimed, technical_features: "A beat grid and a combo meter.", ai_coding_seconds: 0, art_seconds: 0).merge(review)
+    if columns[:review_hours] < claimed && !columns.key?(:deflation_reason)
+      columns[:deflation_reason] = Ship::Limits.new(claimed:, ai_coding_seconds: columns[:ai_coding_seconds], art_seconds: columns[:art_seconds]).reason
+    end
+    ship.update_columns(columns)
     ship
   end
 
@@ -100,25 +105,91 @@ class AirtableFieldsTest < ActiveSupport::TestCase
                  deflation_text(hours: 8, ai_coding_seconds: 3 * 3600, review_coding_hours: 8, review_art_hours: 0, deflation_reason: stored)
   end
 
-  test "a reviewer cut below the limits is named, with the reviewer's reason when typed" do
-    base = { hours: 7, review_coding_hours: 7, review_art_hours: 0 }
+  test "a reviewer cut below the limits is named, with the reviewer's reason" do
     assert_equal "Deflated from 10 to 7 hours: the reviewer's cut below the limits (-3 hrs). Hackatime time since 10/23/2026. " \
                  "The reviewer's reason: Half the levels are copied.",
-                 deflation_text(**base, deflation_reason: "Half the levels are copied.")
-    assert_equal "Deflated from 10 to 7 hours: the reviewer's cut below the limits (-3 hrs). Hackatime time since 10/23/2026.",
-                 deflation_text(**base)
+                 deflation_text(hours: 7, review_coding_hours: 7, review_art_hours: 0, deflation_reason: "Half the levels are copied.")
   end
 
-  test "the fraud check deduction is named with its hours and notes" do
-    assert_equal "Deflated from 10 to 9 hours, Hackatime time since 10/23/2026. The fraud check deducted 1 hour: Idle time.",
+  test "the limits' cut and the reviewer's cut are both named, each with its hours (D-111)" do
+    stored = "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr). Only the first level is new work."
+    assert_equal "Deflated from 10 to 6 hours: 3 hrs of AI coding counted at a third (-2 hrs), the reviewer's cut below the limits (-2 hrs). " \
+                 "Hackatime time since 10/23/2026. The reviewer's reason: Only the first level is new work.",
+                 deflation_text(hours: 6, ai_coding_seconds: 3 * 3600, review_coding_hours: 6, review_art_hours: 0, deflation_reason: stored)
+  end
+
+  test "the fraud check deduction is named with its hours, then its notes" do
+    assert_equal "Deflated from 10 to 9 hours: the fraud check's deduction (-1 hr). Hackatime time since 10/23/2026. " \
+                 "The fraud check deducted 1 hour: Idle time.",
                  deflation_text(hours: 9, review_hours: 10, review_coding_hours: 10, review_art_hours: 0,
                                 fraud_deduction_hours: 1, fraud_notes: "Idle time.")
   end
 
-  test "a gap of one hundredth that is only the limits' round-down says nothing" do
+  test "a cut of a hundredth or less is named too, however small its cause (D-111)" do
     ship = approved(at: Program::STARTS_AT + 2.days, claimed: BigDecimal("5.3"), hours: BigDecimal("5.29"), ai_coding_seconds: 36,
                     review_coding_hours: BigDecimal("5.29"), review_art_hours: 0)
+    assert_equal "Deflated from 5.3 to 5.29 hours: 0.01 hrs of AI coding counted at a third (-0.0067 hrs). Hackatime time since 10/23/2026.",
+                 AirtableFields.ship(ship)["Justification - Deflation Justification"]
+  end
+
+  test "a ship whose hours are not below the hours claimed has no deflation text" do
+    assert_not AirtableFields.ship(first_ship).key?("Justification - Deflation Justification")
+    ship = approved(at: Program::STARTS_AT + 2.days, claimed: BigDecimal("5.3"), hours: BigDecimal("5.3"), review_coding_hours: BigDecimal("3.76"), review_art_hours: BigDecimal("1.54"))
     assert_not AirtableFields.ship(ship).key?("Justification - Deflation Justification")
+    assert_nil AirtableFields.deflation_problem(ship)
+  end
+
+  # D-111: every deflation has a reason. The database refuses a row like these, so each is a ship held in memory with its words taken
+  # away, as a row from before the rule might be.
+  def unexplained(**review)
+    ship = approved(at: Program::STARTS_AT + 2.days, claimed: 10, **review)
+    yield ship
+    ship
+  end
+
+  test "a reviewer's cut with no reason raises, names the part, and leaves the field out on the page" do
+    ship = unexplained(hours: 7, review_coding_hours: 7, review_art_hours: 0, deflation_reason: "Half the levels are copied.") { it.deflation_reason = nil }
+    error = assert_raises(AirtableFields::UnexplainedDeflation) { AirtableFields.ship(ship) }
+    assert_equal "ship #{ship.id}: the reviewer's cut of 3 hrs has no reason", error.message
+    assert_equal "the reviewer's cut of 3 hrs has no reason", AirtableFields.deflation_problem(ship)
+    fields = AirtableFields.justifications(ship, earlier: Ship::EarlierShip.for(ship), strict: false)
+    assert_not fields.key?("Justification - Deflation Justification"), "nothing is drawn for the part that has no words"
+  end
+
+  test "the limits' own words are not a reason for the reviewer's cut" do
+    stored = "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr)."
+    ship = approved(at: Program::STARTS_AT + 2.days, claimed: 10, hours: 6, ai_coding_seconds: 3 * 3600, review_coding_hours: 6, review_art_hours: 0, deflation_reason: stored)
+    error = assert_raises(AirtableFields::UnexplainedDeflation) { AirtableFields.ship(ship) }
+    assert_match "the reviewer's cut of 2 hrs has no reason", error.message
+    ship.update_columns(deflation_reason: "#{stored} Only the first level is new work.")
+    assert_nothing_raised { AirtableFields.ship(ship) }
+  end
+
+  test "a fraud deduction with no notes raises" do
+    ship = unexplained(hours: 9, review_hours: 10, review_coding_hours: 10, review_art_hours: 0, fraud_deduction_hours: 1, fraud_notes: "Idle time.") { it.fraud_notes = "  " }
+    assert_raises(AirtableFields::UnexplainedDeflation) { AirtableFields.ship(ship) }
+    assert_equal "the fraud check's deduction of 1 hr has no notes", AirtableFields.deflation_problem(ship)
+  end
+
+  test "every part with no words is told, and a ship that explains itself raises nothing" do
+    ship = unexplained(hours: 5, review_hours: 6, review_coding_hours: 6, review_art_hours: 0, fraud_deduction_hours: 1, fraud_notes: "Idle time.",
+                       deflation_reason: "Half the levels are copied.") { it.assign_attributes(deflation_reason: nil, fraud_notes: nil) }
+    assert_equal "the reviewer's cut of 4 hrs has no reason and the fraud check's deduction of 1 hr has no notes", AirtableFields.deflation_problem(ship)
+    ship.assign_attributes(deflation_reason: "Half the levels are copied.", fraud_notes: "Idle time.")
+    assert_nil AirtableFields.deflation_problem(ship)
+    assert_equal "Deflated from 10 to 5 hours: the reviewer's cut below the limits (-4 hrs), the fraud check's deduction (-1 hr). " \
+                 "Hackatime time since 10/23/2026. The reviewer's reason: Half the levels are copied. The fraud check deducted 1 hour: Idle time.",
+                 AirtableFields.ship(ship)["Justification - Deflation Justification"]
+  end
+
+  test "a ship approved before the limits rounded, a hundredth under them with the limits' cut named, is the limits' own" do
+    # claimed 10, 3 hrs of AI coding and 4 of art: the most is 5.71, and an earlier floor of each part kept 5.70
+    stored = "Hackatime has 3 hrs of AI coding on this game, which counts at a third (1 hr). Hackatime has 4 hrs of art (designing and Lapse), which counts at most 30% of the approved hours (1.71 hrs)."
+    ship = approved(at: Program::STARTS_AT + 2.days, claimed: 10, hours: BigDecimal("5.7"), ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600,
+                    review_coding_hours: 4, review_art_hours: BigDecimal("1.7"), deflation_reason: stored)
+    assert_nil AirtableFields.deflation_problem(ship)
+    assert_equal "Deflated from 10 to 5.7 hours: 3 hrs of AI coding counted at a third (-2 hrs), art over the 30% cap (-2.29 hrs). Hackatime time since 10/23/2026.",
+                 AirtableFields.ship(ship)["Justification - Deflation Justification"]
   end
 
   test "the additional justification links the review when APP_URL is set, and says when AI coding time was unknown" do
@@ -267,11 +338,43 @@ class AirtableFieldsTest < ActiveSupport::TestCase
   test "gap hours follow the ship's deflation ratio and Hackatime failures fall back to the participant's start" do
     sign_up_at(Program::STARTS_AT + 1.day)
     Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 4) ] }
-    ship = approved(at: Program::STARTS_AT + 2.days, hours: 5, claimed: 10)
+    ship = approved(at: Program::STARTS_AT + 2.days, hours: 5, claimed: 10, deflation_reason: "Half the levels are copied.")
     assert_equal 7.0, AirtableFields.ship(ship)["Optional - Override Hours Spent"], "5 plus 4 hours at 5/10"
     @project.user.update_columns(hackatime_access_token: nil)
     row = AirtableFields.ship(ship)
     assert_equal 5.0, row["Optional - Override Hours Spent"]
     assert_not row.key?("Justification - Additional Justification")
+  end
+
+  # D-111, D-110: the sentence runs from the hours claimed plus the gap's hours to the record's hours, from where the claim window
+  # starts, and says the gap was cut by the same share.
+  test "a first ship with a claim window deflates from the claimed hours plus the gap to the record's hours" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 4) ] }
+    ship = approved(at: Program::STARTS_AT + 2.days, hours: 5, claimed: 10, deflation_reason: "Half the levels are copied.")
+    row = AirtableFields.ship(ship)
+    assert_equal 7.0, row["Optional - Override Hours Spent"]
+    assert_equal "Deflated from 14 to 7 hours: the reviewer's cut below the limits (-5 hrs). Hackatime time since 10/23/2026. " \
+                 "The hours before 10/24/2026 are cut by the same share (4 to 2 hours). The reviewer's reason: Half the levels are copied.",
+                 row["Justification - Deflation Justification"]
+    assert_match "rhythm-game 10/23/2026-10/25/2026", row["Justification - Hackatime Project Name(s) + Date Range(s)"], "the record starts where the sentence does"
+  end
+
+  test "a ship with a claim window and no deflation says nothing of the gap in the deflation field" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 3) ] }
+    row = AirtableFields.ship(first_ship)
+    assert_equal 9.0, row["Optional - Override Hours Spent"]
+    assert_not row.key?("Justification - Deflation Justification")
+  end
+
+  test "a later ship keeps its cumulative hours in the deflation sentence, with no gap clause" do
+    sign_up_at(Program::STARTS_AT + 1.day)
+    Hackatime.stubbed_spans = { "1001" => [ span(Program::STARTS_AT + 2.hours, 3) ] }
+    first_ship
+    row = AirtableFields.ship(approved(at: Program::STARTS_AT + 5.days, hours: 12, claimed: 15, deflation_reason: "Half the levels are copied."))
+    assert_equal 6.0, row["Optional - Override Hours Spent"]
+    assert_equal "Deflated from 15 to 12 hours: the reviewer's cut below the limits (-3 hrs). Hackatime time since 10/24/2026. " \
+                 "The reviewer's reason: Half the levels are copied.", row["Justification - Deflation Justification"]
   end
 end

@@ -5,9 +5,11 @@ import { Controller } from "@hotwired/stimulus"
 // at its percent of the total, so changing coding moves the art limit and lowers the art field when it is over. Values are
 // hours, to the hundredth. On a later ship (D-097) the fields hold the new hours: the art limit is read on the earlier
 // coding plus the new, less the earlier art, and the total adds the earlier approval back. The reviewer still presses a verdict, and can type any value.
+// D-111: at the top coding the art limit is the figure the server works out (Ship::Limits#art_top), what is left of the most the rules
+// allow, so the form's own numbers add up to that most to the hundredth.
 export default class extends Controller {
   static targets = [ "coding", "art", "artMax", "total", "hold", "why" ]
-  static values = { claimed: Number, cap: Number, artClaimed: Number, artPercent: Number, earlierCoding: { type: Number, default: 0 }, earlierArt: { type: Number, default: 0 } }
+  static values = { claimed: Number, cap: Number, artClaimed: Number, artTop: Number, artPercent: Number, earlierCoding: { type: Number, default: 0 }, earlierArt: { type: Number, default: 0 } }
 
   setCoding(event) {
     const percent = Number(event.currentTarget.dataset.percent)
@@ -34,13 +36,12 @@ export default class extends Controller {
       this.#toggleWhy()
       return
     }
-    const artMax = Math.max(this.#round((this.earlierCodingValue + coding) * this.artPercentValue / (100 - this.artPercentValue) - this.earlierArtValue), 0)
-    const allowed = Math.min(this.artClaimedValue, artMax)
+    const allowed = this.#artAllowed(coding)
     let art = Number(this.artTarget.value) || 0
     const held = art > allowed
     if (held) { art = allowed; this.artTarget.value = allowed }
-    this.holdTarget.hidden = !(held || (this.artClaimedValue > artMax && art >= allowed))
-    if (this.hasArtMaxTarget) this.artMaxTarget.textContent = artMax
+    this.holdTarget.hidden = !(held || (this.artClaimedValue > this.#artHold(coding) && art >= allowed))
+    if (this.hasArtMaxTarget) this.artMaxTarget.textContent = this.#artMax(coding)
     this.totalTarget.textContent = this.#round(this.earlierCodingValue + this.earlierArtValue + coding + art)
     this.#toggleWhy()
   }
@@ -50,14 +51,27 @@ export default class extends Controller {
   #toggleWhy() {
     if (!this.hasWhyTarget) return
     const coding = Number(this.codingTarget.value) || 0
-    let below = coding < this.capValue - 0.01
-    if (this.hasArtTarget) {
-      const artMax = Math.max(this.#round((this.earlierCodingValue + Math.min(coding, this.capValue)) * this.artPercentValue / (100 - this.artPercentValue) - this.earlierArtValue), 0)
-      below = below || (Number(this.artTarget.value) || 0) < Math.min(this.artClaimedValue, artMax) - 0.01
-    }
+    let below = this.#short(this.capValue, coding)
+    if (this.hasArtTarget) below = below || this.#short(this.#artAllowed(Math.min(coding, this.capValue)), Number(this.artTarget.value) || 0)
     const typed = this.whyTarget.querySelector("textarea")?.value.trim() || this.whyTarget.querySelector(".ash__error")
     this.whyTarget.hidden = !(below || typed)
   }
 
+  // The most art that counts beside this coding: the art hold, not yet rounded.
+  #artHold(coding) { return Math.max((this.earlierCodingValue + coding) * this.artPercentValue / (100 - this.artPercentValue) - this.earlierArtValue, 0) }
+
+  // The art hold as the page names it, to the hundredth.
+  #artMax(coding) { return this.#round(this.#artHold(coding)) }
+
+  // The art that counts beside this coding. At the top coding it is the server's figure. Below it the claimed art held to the art
+  // hold and rounded down, so it never passes the hold (Ship::Limits#art_top).
+  #artAllowed(coding) { return coding >= this.capValue ? this.artTopValue : this.#floor(Math.min(this.artClaimedValue, this.#artHold(coding))) }
+
+  // A figure a hundredth or more under its top is a deflation, as the server counts it (Ship::Limits#approve).
+  #short(top, value) { return top - value > 0.01 - 1e-9 }
+
   #round(hours) { return Math.round(hours * 100) / 100 }
+
+  // Down to the hundredth. The small addition keeps 1.53, which a float holds as 152.99999999999997 hundredths, at 1.53.
+  #floor(hours) { return Math.floor(hours * 100 + 1e-6) / 100 }
 }

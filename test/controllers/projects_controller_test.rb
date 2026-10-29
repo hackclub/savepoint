@@ -990,7 +990,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       ship = projects(:orpheus).ships.create!(title: "Beat Sheet", description: "A rhythm game where every cell is a drum pad, and it is a game.",
                                               repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://beat.sheet", hours: Prize.find("micro").hours,
                                               screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
-      ship.update_columns(status:, approved_hours: (Prize.find("micro").hours if status == "approved"))
+      ship.update_columns(status == "approved" ? approved_columns(Prize.find("micro").hours) : { status: })
     end
 
   test "the pomodoro strip and the hours poll's stickers go quiet for an ineligible or Hackatime-banned account" do

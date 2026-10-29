@@ -35,7 +35,7 @@ class NudgeShipPromptTest < ActiveSupport::TestCase
 
   def ship!(status, hours, at: now)
     travel_to(at) do
-      @user.project.ships.new(title: "v1", description: "x" * 50, repo_url: "https://github.com/a/b", demo_url: "https://a.itch.io/b", hours:, status:).save!(validate: false)
+      @user.project.ships.new(title: "v1", description: "x" * 50, repo_url: "https://github.com/a/b", demo_url: "https://a.itch.io/b", hours:, **(status == "approved" ? approved_columns(hours) : { status: })).save!(validate: false)
     end
   end
 

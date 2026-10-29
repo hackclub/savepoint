@@ -7,19 +7,21 @@
     review. What was typed before an error wins, then that review, then the defaults. %>
 <% earlier = send_backs.last&.earlier_review || {} %>
 <%# D-097: a later ship judges only the new hours. The earlier approval is fixed, and the coding and art boxes take the hours
-    since it. The limits are read on the whole project (Ship::Limits#new_coding_top, #new_art_top). %>
+    since it. The limits are read on the whole project (Ship::Limits#new_coding_top, #new_art_top). D-111: the tops are the
+    limits' own, for a first ship too (no earlier approval is 0 and 0), so the form's defaults are what approving the most stores. %>
 <% prior = ship.earlier_approval %>
 <% prior_coding = prior ? prior.coding : 0.to_d %>
 <% prior_art = prior ? prior.art : 0.to_d %>
 <% coding_claimed = prior ? limits.new_coding_claimed(prior_coding) : limits.coding %>
 <% art_claimed = prior ? limits.new_art_claimed(prior_art) : limits.art %>
 <% art = limits.art_known? && art_claimed.positive? %>
-<% coding_top = prior ? limits.new_coding_top(prior_coding) : limits.coding_cap.floor(2) %>
+<% coding_top = limits.new_coding_top(prior_coding, prior_art) %>
 <%# A send-back keeps the earlier review's cumulative figures, so a later ship takes the earlier approval off them. %>
 <% earlier_coding = earlier["coding_hours"] && [ earlier["coding_hours"].to_d - prior_coding, 0 ].max %>
 <% earlier_art = earlier["art_hours"] && [ earlier["art_hours"].to_d - prior_art, 0 ].max %>
 <% coding_now = params[:coding_hours].presence || (earlier_coding ? [ earlier_coding, coding_top ].min : coding_top) %>
-<% art_top = prior ? limits.new_art_top(prior_coding, prior_art, coding_now.to_d) : limits.art_allowed_for(coding_now.to_d).floor(2) %>
+<% art_top = limits.new_art_top(prior_coding, prior_art, [ coding_now.to_d, coding_top ].min) %>
+<% art_top_at_cap = limits.new_art_top(prior_coding, prior_art, coding_top) %>
 <% art_now = params[:art_hours].presence || (earlier_art ? [ earlier_art, art_top ].min : art_top) %>
 <% art_max_now = prior ? [ limits.art_max_for(prior_coding + coding_now.to_d) - prior_art, 0 ].max : limits.art_max_for(coding_now.to_d) %>
 <% format = Ship::Limits.method(:format) %>
@@ -27,7 +29,8 @@
 <% approve_off = @evidence&.stardance_shipped? %>
 
 <%# D-106: below Approve's limits a reason is due, so "Why deflated" shows only then (deflate_controller.js keeps it current). %>
-<% why_due = coding_now.to_d < coding_top - 0.01 || (art && art_now.to_d < [ art_claimed, art_max_now ].min - 0.01) || ship.errors[:deflation_reason].any? ||
+<% tolerance = Ship::Limits::TOLERANCE %>
+<% why_due = coding_top - coding_now.to_d >= tolerance || (art && art_top - art_now.to_d >= tolerance) || ship.errors[:deflation_reason].any? ||
              params[:deflation_reason].present? %>
 <% picked = params[:decision].to_s.presence_in(Ship::DECISIONS) %>
 <%# Which verdicts each field belongs to. A field shows only when its verdict is picked. %>
@@ -65,7 +68,8 @@
 <%= form_with url: review_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "verdict", html: { novalidate: true },
       data: { turbo: false, controller: "deflate verdict", verdict_picked_value: picked.to_s,
               deflate_claimed_value: coding_claimed.to_f, deflate_cap_value: coding_top.to_f,
-              deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT,
+              deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_top_value: (art ? art_top_at_cap.to_f : 0),
+              deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT,
               deflate_earlier_coding_value: prior_coding.to_f, deflate_earlier_art_value: prior_art.to_f } do |form| %>
   <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
 
@@ -106,7 +110,7 @@
       <div class="sp-field">
         <%= form.label :art_hours, (prior ? "New art hours" : "Art hours"), class: "sp-label" %>
         <span class="ash__hours-box">
-          <%= form.number_field :art_hours, value: art_now.to_f, min: 0, max: art_claimed.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
+          <%= form.number_field :art_hours, value: art_now.to_f, min: 0, max: [ art_claimed, art_top_at_cap ].max.to_f, step: 0.01, class: "sp-input admin__hours ash__hours",
                 data: { deflate_target: "art", action: "input->deflate#changed" }, aria: { describedby: "admin-ship-art-help" } %>
           <span class="ash__hours-unit" aria-hidden="true">hrs</span>
         </span>

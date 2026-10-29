@@ -34,7 +34,7 @@ class NudgeApprovedTest < ActiveSupport::TestCase
 
   # The fraud check passes: the ship is approved with these hours, as Ship#pass_fraud! does.
   def approve!(ship, hours = ship.hours)
-    ship.assign_attributes(status: "approved", approved_hours: hours)
+    ship.assign_attributes(approved_columns(hours))
     ship.save!(validate: false)
     ship
   end

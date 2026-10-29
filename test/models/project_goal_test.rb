@@ -89,7 +89,7 @@ class ProjectGoalTest < ActiveSupport::TestCase
                              demo_url: "https://beat.sheet", hours:, screenshot_shows_game: true)
       ship.screenshot.attach(Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png")) unless ship.screenshot.attached?
       ship.save!
-      ship.update_columns(status: "approved", approved_hours: hours)
+      ship.update_columns(approved_columns(hours))
       @project.ships.reset
     end
 end

@@ -39,7 +39,7 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
     end
     assert_match(/0 approved to spend/, flash[:shop_error])
 
-    ship.update_columns(status: "approved", fraud_status: "passed", approved_hours: 7)
+    ship.update_columns(approved_columns(7))
     users(:orpheus).update_columns(banned_at: Time.current, ban_reason: "Fraud.")
     assert_no_difference -> { @project.orders.count } do
       post shop_order_path, params: { order: { prize_key: "micro" } }

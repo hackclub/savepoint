@@ -15,9 +15,10 @@ class Ship::Limits
   attr_reader :claimed, :ai_coding, :hackatime_ai, :reviewer_ai, :art, :lapse, :lapse_coding
 
   # D-102: reviewer_ai_hours is the AI coding time the reviewer set (nil when none). The limits use the larger of that and
-  # Hackatime's figure, never more than the claimed hours.
+  # Hackatime's figure, never more than the claimed hours. D-111: the claimed hours are read to the hundredth, as the
+  # decimal(6,2) column keeps them, so the most the rules allow is measured from the figure that is stored.
   def initialize(claimed:, ai_coding_seconds:, art_seconds:, lapse_seconds: nil, lapse_coding_hours: 0, reviewer_ai_hours: nil)
-    @claimed = [ claimed.to_d, 0 ].max
+    @claimed = [ claimed.to_d.round(2), 0 ].max
     @reviewer_ai = reviewer_ai_hours&.to_d
     @ai_known = !ai_coding_seconds.nil? || !@reviewer_ai.nil?
     @art_known = !art_seconds.nil?
@@ -55,68 +56,89 @@ class Ship::Limits
   # Rounded down to the hundredth, so it never passes a limit.
   def most = (coding_cap + art_allowed).floor(2)
 
+  # D-111: the coding and art figures that add up to `most`. Each rounds down to the hundredth on its own, and the two floors can
+  # sit a hundredth under it (coding 3.76 and art 1.53 make 5.29 under 5.30). That hundredth goes to the part that lost the
+  # larger share of one in its rounding, so approving the most stores exactly `most`, which is the claimed hours when
+  # nothing is cut.
+  def coding_top
+    low = coding_cap.floor(2)
+    carried = most - low - art_allowed.floor(2)
+    carried.positive? && coding_cap - low >= art_allowed - art_allowed.floor(2) ? low + carried : low
+  end
+
+  # The most art that counts beside this much approved coding. At the top coding it is what is left of `most`, and below it the
+  # art hold on that coding, rounded down.
+  def art_top(coding) = coding >= coding_top ? [ most - coding, 0 ].max : art_allowed_for(coding).floor(2)
+
   # The coding and art hours the reviewer asked for, held to the limits as playground's approve_review! does: coding
   # to the AI cap, art to the art hold on that coding. nil asks for the most; a figure within a rounding of the most is
   # the most. Returns [coding, art, below], where below says the reviewer went under what the rules allow, so "why
-  # deflated" is due. The AI cut and the art hold need no reason. Both figures are rounded down to the hundredth.
-  def approve(coding_hours, art_hours)
-    top_coding = coding_cap.floor(2)
-    coding = coding_hours.nil? ? top_coding : coding_hours.to_d.clamp(0, top_coding)
-    coding = top_coding if top_coding - coding < TOLERANCE
-    top_art = art_allowed_for(coding).floor(2)
-    art = art_hours.nil? ? top_art : art_hours.to_d.clamp(0, top_art)
-    art = top_art if top_art - art < TOLERANCE
-    [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
-  end
+  # deflated" is due. The AI cut and the art hold need no reason. Both figures are in hundredths.
+  def approve(coding_hours, art_hours) = approve_new(0, 0, coding_hours, art_hours)
 
   # D-097: a later ship's review judges only the new hours, with the limits read on the whole project. These hold what the
-  # earlier approval (its cumulative coding and art) already used. The most new coding is the cumulative coding cap less the
-  # earlier coding, and the most new art is the art hold on the cumulative coding less the earlier art. Never below 0.
-  def new_coding_top(earlier_coding) = [ coding_cap.floor(2) - earlier_coding.to_d, 0 ].max
-  def new_art_top(earlier_coding, earlier_art, new_coding) = [ art_allowed_for(earlier_coding.to_d + new_coding.to_d).floor(2) - earlier_art.to_d, 0 ].max
+  # earlier approval (its cumulative coding and art) already used. The most new coding is the cumulative coding top less the
+  # earlier coding, and the most new art is the art top on the cumulative coding less the earlier art. Both are kept to what is
+  # left of `most` (D-111), so the total never passes it whichever way an earlier approval was rounded. Never below 0.
+  def new_coding_top(earlier_coding, earlier_art = 0) = [ [ coding_top - earlier_coding.to_d, 0 ].max, [ most - earlier_coding.to_d - earlier_art.to_d, 0 ].max ].min
+  def new_art_top(earlier_coding, earlier_art, new_coding) = [ art_top(earlier_coding.to_d + new_coding.to_d) - earlier_art.to_d, 0 ].max
   def new_art_claimed(earlier_art) = [ art - earlier_art.to_d, 0 ].max
   def new_coding_claimed(earlier_coding) = [ coding - earlier_coding.to_d, 0 ].max
 
   # approve, for the new hours of a later ship. Returns [new coding, new art, below].
   def approve_new(earlier_coding, earlier_art, coding_hours, art_hours)
-    top_coding = new_coding_top(earlier_coding)
-    coding = coding_hours.nil? ? top_coding : coding_hours.to_d.clamp(0, top_coding)
-    coding = top_coding if top_coding - coding < TOLERANCE
+    top_coding = new_coding_top(earlier_coding, earlier_art)
+    coding = typed(coding_hours, top_coding)
     top_art = new_art_top(earlier_coding, earlier_art, coding)
-    art = art_hours.nil? ? top_art : art_hours.to_d.clamp(0, top_art)
-    art = top_art if top_art - art < TOLERANCE
+    art = typed(art_hours, top_art)
     [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
   end
 
   def ai_cut = coding - coding_cap
   def art_cut = art - art_allowed
-  def cut? = claimed - most >= TOLERANCE
 
-  # Why the limits cut, for the reviewer to keep or rewrite as the deflation reason. nil when they cut nothing.
-  def reason
-    parts = []
-    if ai_cut >= TOLERANCE
-      parts << if ai_raised?
-        "Hackatime has #{self.class.hrs(hackatime_ai)} of AI coding on this game, and the reviewer raised it to #{self.class.hrs(ai_coding)}, " \
-          "which counts at a third (#{self.class.hrs(ai_coding / 3)})."
-      else
-        "Hackatime has #{self.class.hrs(ai_coding)} of AI coding on this game, which counts at a third " \
-          "(#{self.class.hrs(ai_coding / 3)})."
-      end
-    end
-    if art_cut >= TOLERANCE
-      parts << "Hackatime has #{self.class.hrs(art)} of art (designing and Lapse#{", not counting the Lapse coding" if lapse_coding.positive?}), " \
-               "which counts at most #{ART_CAP_PERCENT}% of the approved hours (#{self.class.hrs(art_allowed)})."
-    end
-    parts.join(" ").presence
+  # D-111: `most` rounds down, so a cut of any size, a few seconds of AI coding even, takes at least a hundredth off the stored
+  # total. Whatever lowers it is a deflation, and has to be named (#reason).
+  def cut? = claimed > most
+
+  # Why the limits cut, for the reviewer to keep or rewrite as the deflation reason. Each cut that lowers the total is named,
+  # however small. nil when they cut nothing.
+  def reason = [ ai_reason, art_reason ].compact.join(" ").presence
+
+  # 5.71, or 4 rather than 4.0. An amount under a hundredth keeps two digits (0.0028), so a cut that small still reads as one.
+  def self.format(hours)
+    hours = hours.to_d
+    (hours.positive? && hours < TOLERANCE ? hours.round(2 - hours.exponent) : hours.round(2)).to_s("F").delete_suffix(".0")
   end
-
-  # 5.71, or 4 rather than 4.0
-  def self.format(hours) = hours.to_d.round(2).to_s("F").delete_suffix(".0")
 
   # "1 hr", "5.71 hrs"
   def self.hrs(hours) = "#{format(hours)} #{format(hours) == "1" ? "hr" : "hrs"}"
 
   private
     def hours(seconds) = seconds.to_i.to_d / 3600
+
+    # A figure the reviewer typed, held between 0 and its top and kept to the hundredth. nil is the top, and so is a figure
+    # within a rounding of it.
+    def typed(figure, top)
+      value = figure.nil? ? top : figure.to_d.clamp(0, top)
+      top - value < TOLERANCE ? top : value.round(2)
+    end
+
+    def ai_reason
+      return unless ai_cut.positive?
+
+      if ai_raised?
+        "Hackatime has #{self.class.hrs(hackatime_ai)} of AI coding on this game, and the reviewer raised it to #{self.class.hrs(ai_coding)}, " \
+          "which counts at a third (#{self.class.hrs(ai_coding / 3)})."
+      else
+        "Hackatime has #{self.class.hrs(ai_coding)} of AI coding on this game, which counts at a third (#{self.class.hrs(ai_coding / 3)})."
+      end
+    end
+
+    def art_reason
+      return unless art_cut.positive?
+
+      "Hackatime has #{self.class.hrs(art)} of art (designing and Lapse#{", not counting the Lapse coding" if lapse_coding.positive?}), " \
+        "which counts at most #{ART_CAP_PERCENT}% of the approved hours (#{self.class.hrs(art_allowed)})."
+    end
 end

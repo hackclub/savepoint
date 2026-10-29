@@ -370,7 +370,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
     assert_select "input[name=readme][checked]"
 
-    @ship.update!(status: "approved", decided_at: Time.current)
+    @ship.update!(approved_columns(@ship.hours, decided_at: Time.current))
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
     assert_response :unprocessable_entity
     assert_equal false, @ship.reload.review_checklist["runs"]
@@ -501,6 +501,71 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_equal BigDecimal("6.5"), @ship.review_hours, "held to the limit"
     assert_equal BigDecimal("7.5"), @ship.claimed_hours
     assert_match(/AI coding on this game, which counts at a third/, @ship.deflation_reason, "the limits' words go to Airtable")
+  end
+
+  # D-111: a participant's ship of 5.3 counted hours with 5542 s of art. The form's own figures, posted back as they are, store the
+  # 5.3 claimed and ask for no reason: they were 3.76 and 1.53 once, which made 5.29.
+  test "the form's own figures, posted back, store the hours claimed and ask for no reason (D-111)" do
+    unified_ysws_has_no_record
+    users(:ana).streak_activities.update_all(coded_seconds: 19_080)
+    @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_response :success
+    assert_select "#admin-ship-limits", text: /Claimed\s*5\.3 hrs.*Most to approve\s*5\.3 hrs/m
+    coding = css_select("input[name=coding_hours]").first["value"]
+    art = css_select("input[name=art_hours]").first["value"]
+    assert_equal [ "3.76", "1.54" ], [ coding, art ]
+    assert_select "[data-deflate-target=why][hidden]", 1, "no reason is due on the defaults"
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: coding, art_hours: art, technical_features: "Two-ball physics." }
+    assert_redirected_to admin_ship_path(@ship)
+    @ship.reload
+    assert_equal [ BigDecimal("5.3"), BigDecimal("5.3") ], [ @ship.claimed_hours, @ship.review_hours ]
+    assert_nil @ship.deflation_reason
+
+    post fraud_admin_ship_path(@ship), params: { verdict: "pass" }
+    assert_equal BigDecimal("5.3"), @ship.reload.approved_hours
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-deflation-problem", 0
+    assert_select "#admin-ship-airtable", { text: /Deflation Justification/, count: 0 }, "nothing was deflated"
+  end
+
+  test "a reason is due once a figure goes below the most, even by a hundredth (D-111)" do
+    users(:ana).streak_activities.update_all(coded_seconds: 19_080)
+    @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.75", art_hours: "1.54", technical_features: "Two-ball physics." }
+    assert_response :unprocessable_entity
+    assert_select ".ash__error", "Say why you approve fewer hours than the rules allow"
+    assert_select "[data-deflate-target=why]:not([hidden])", 1, "the box for it is open"
+    assert @ship.reload.in_review?
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.75", art_hours: "1.54", technical_features: "Two-ball physics.",
+                                                  deflation_reason: "A menu was cut." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal [ BigDecimal("3.75"), BigDecimal("1.53"), "A menu was cut." ], [ @ship.reload.review_coding_hours, @ship.review_art_hours, @ship.deflation_reason ],
+                 "the art is held to its share of the coding, rounded down"
+  end
+
+  test "an approved ship with a cut that has no reason is not sent, and the page says so (D-111)" do
+    unified_ysws_has_no_record
+    @ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 0, hours: 10)
+    users(:ana).streak_activities.update_all(coded_seconds: 10 * 3600)
+    limits_say = @ship.limits(10).reason
+    # The limits cut 3 of the 10 hours claimed (AI coding at a third: 10 less 2). The reviewer took 5 more and wrote nothing.
+    @ship.update_columns(approved_columns(5, claimed_hours: 10, review_coding_hours: 5, review_art_hours: 0, deflation_reason: limits_say,
+                                          decided_by_id: users(:orpheus).id, decided_at: Time.current))
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_response :success
+    assert_select "#admin-ship-deflation-problem[role=alert]", /Not sent to Airtable: the reviewer's cut of 3 hrs has no reason\. Every deflation needs a reason\./
+    assert_select "#admin-ship-airtable", { text: /Deflation Justification/, count: 0 }
+
+    @ship.update_columns(deflation_reason: "#{limits_say} A menu was cut.")
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-deflation-problem", 0
+    assert_select "#admin-ship-airtable", /Deflation Justification\s*Deflated from 10 to 5 hours: .*The reviewer's reason: A menu was cut\./m
   end
 
   test "approving without the technical features or a reason comes back with what was typed" do
@@ -1087,5 +1152,14 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
     def screenshot_upload
       Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png")
+    end
+
+    # The Unified YSWS DB answers with no earlier record of the game, so the page draws the fields the sync would send.
+    def unified_ysws_has_no_record
+      Ship::EarlierShip.token = "pat-test"
+      Web.adapter = lambda do |_method, url, _headers|
+        body = URI(url).host == "api.github.com" ? [].to_json : { records: [] }.to_json
+        Web::Response.new(status: 200, headers: {}, body:)
+      end
     end
 end

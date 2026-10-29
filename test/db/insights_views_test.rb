@@ -143,7 +143,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
     assert_equal %w[rejected changes_needed], row.call
     ship.update_columns(status: "rejected")
     assert_equal %w[rejected rejected], row.call
-    ship.update_columns(status: "approved")
+    ship.update_columns(approved_columns(ship.hours))
     assert_equal %w[approved approved], row.call
     ship.update_columns(status: "superseded")
     assert_nil row.call, "a replaced ship is left out (D-109)"

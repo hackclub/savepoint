@@ -54,9 +54,17 @@ module AirtableFields
     }.compact
   end
 
+  # The deflation field of the submission row, and how every sentence the app writes into it begins.
+  DEFLATION_FIELD = "Justification - Deflation Justification"
+  DEFLATION_START = "Deflated from "
+
   # The Unified YSWS DB couldn't be asked about a ship's code URL, so its duplicate justification can't be written.
   # The row fails to build and waits its hour (Airtable::SyncJob), rather than going without one.
   class UnifiedUnchecked < StandardError; end
+
+  # D-111: a ship approved below its claimed hours with a part of the cut that has no words. Every deflation has a reason, so the
+  # row doesn't build and waits its hour too, until the reason is there. The message names the part.
+  class UnexplainedDeflation < StandardError; end
 
   # An approved ship, in the YSWS template's field names. The screenshot goes only when the row is made, so a
   # reviewer's edits in Airtable stay. The phone number is never sent. `earlier` is the ship's Ship::EarlierShip
@@ -90,13 +98,14 @@ module AirtableFields
   end
 
   # The handbook's separate justification fields (D-030). "Optional - Override Hours Spent Justification" stays empty:
-  # a small YSWS that writes to Airtable fills these instead. The admin ship page shows the same.
-  def justifications(s, earlier:, window: claim_window(s, earlier))
+  # a small YSWS that writes to Airtable fills these instead. The admin ship page shows the same, and asks for strict: false
+  # so a deflation with no reason (D-111) leaves its field out and shows a warning (deflation_problem), where the sync raises.
+  def justifications(s, earlier:, window: claim_window(s, earlier), strict: true)
     {
       "Justification - Hackatime Project Name(s) + Date Range(s)" => hackatime_projects(s, window),
       "Justification - Submitter Hackatime ID" => s.project.user.hackatime_uid,
       "Justification - Specific Technical Features" => s.technical_features,
-      "Justification - Deflation Justification" => deflation(s),
+      DEFLATION_FIELD => deflation(s, window, strict:),
       "Justification - Additional Justification" => additional(s, window),
       "Justification - Alternate Tracking Method" => alternate_tracking(s),
       "Optional - Override Duplicate Justification" => duplicate(s, earlier, window)
@@ -128,9 +137,10 @@ module AirtableFields
   # D-110: where the Unified YSWS DB record's time starts, and the hours between that start and the project's hours_start
   # (the participant's own start, D-065). Only the Unified record sees them: the project page, prize hours and review limits
   # still count from hours_start. `start` is nil when the window is the project's own (a later ship, or Hackatime can't say).
-  # `end_label` names where the gap ends ("sign-up"), `source` what set its start (:launch, :jame_gam or :unified).
-  ClaimWindow = Data.define(:start, :hours, :source, :claim_program)
-  NO_WINDOW = ClaimWindow.new(start: nil, hours: 0, source: nil, claim_program: nil)
+  # `end_label` names where the gap ends ("sign-up"), `source` what set its start (:launch, :jame_gam or :unified). `hours` is
+  # the gap after the ship's deflation share, `raw_hours` what Hackatime has in it (D-111: the deflation text runs from it).
+  ClaimWindow = Data.define(:start, :hours, :raw_hours, :source, :claim_program)
+  NO_WINDOW = ClaimWindow.new(start: nil, hours: 0, raw_hours: 0, source: nil, claim_program: nil)
 
   # Unified start = the later of Program::STARTS_AT and the end of the latest known other-program claim on this game: the jame gam
   # submission's created time (Project#jame_gam_submitted_at, D-066), or a Unified YSWS DB record of the same code URL. A
@@ -158,7 +168,7 @@ module AirtableFields
     seconds = Hackatime.seconds_between(project.user, Array(s.hackatime_projects).compact_blank, start..project.hours_start)
     ratio = s.claimed_hours&.positive? && s.approved_hours ? [ s.approved_hours / s.claimed_hours, 1 ].min : 1
     hours = (seconds / 3600.0 * ratio.to_f).floor(2)
-    hours.positive? ? ClaimWindow.new(start:, hours:, source:, claim_program: program) : NO_WINDOW
+    hours.positive? ? ClaimWindow.new(start:, hours:, raw_hours: (seconds / 3600.0).floor(2), source:, claim_program: program) : NO_WINDOW
   rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable => e
     Rails.logger.warn("airtable sync: ship #{s.id} gap hours not read, #{e.class}, claiming from the project's hours start")
     NO_WINDOW
@@ -195,47 +205,79 @@ module AirtableFields
   def hours_text(hours) = "#{Ship::Limits.format(hours)} #{hours.to_d == 1 ? "hour" : "hours"}"
 
   # The hours deflated to and why, each cause with its hours, worked from the same limits the review page shows
-  # (Ship#limits on the hours kept, claimed_hours): AI coding counted at a third, art over the cap, the reviewer's cut
-  # below the limits, and the fraud check's deduction (D-063), then the reviewer's own words. Only for a ship decided with
-  # its counted hours kept and approved below them. A gap of one hundredth with no cause named is the limits' round-down
-  # to the hundredth, not a deflation, so it says nothing.
-  def deflation(s)
-    return unless s.claimed_hours && s.approved_hours && s.claimed_hours - s.approved_hours >= Ship::Limits::TOLERANCE
+  # (Ship#limits on the hours kept, claimed_hours): AI coding counted at a third, art over the cap, the reviewer's cut below the
+  # limits and the fraud check's deduction (D-063), then the reviewer's own words and the fraud notes. Only for a ship decided
+  # with its counted hours kept and approved below them. D-111: every deflation has a reason, so a cut with a part that has no
+  # words raises UnexplainedDeflation. The admin page and get_ship ask for strict: false and show deflation_problem instead.
+  # D-110: a first ship's record also claims the gap before the participant's start, so its sentence runs from the claimed hours
+  # plus the gap's hours to the record's hours (Optional - Override Hours Spent), and says the gap was cut by the same share.
+  def deflation(s, window = NO_WINDOW, strict: true)
+    return unless s.claimed_hours && s.approved_hours && s.claimed_hours > s.approved_hours
 
-    limits = s.limits(s.claimed_hours)
-    causes = deflation_causes(s, limits)
-    typed = reviewer_reason(s, limits)
+    parts = deflation_parts(s, s.limits(s.claimed_hours))
+    raise UnexplainedDeflation, "ship #{s.id}: #{parts.missing.to_sentence}" if strict && parts.missing.any?
+    return if parts.missing.any? || parts.causes.empty?
+
+    from = s.claimed_hours + window.raw_hours.to_d
+    to = window.start ? new_hours(s, window) : s.approved_hours
+    since = us_date((window.start || s.project.hours_start).utc.to_date)
+    gap = (" The hours before #{us_date(s.project.hours_start.utc.to_date)} are cut by the same share (#{Ship::Limits.format(window.raw_hours)} to #{hours_text(window.hours)})." if window.start && window.raw_hours > window.hours)
+    typed = ("The reviewer's reason: #{parts.typed}" if parts.typed.present?)
     deducted = ("The fraud check deducted #{hours_text(s.fraud_deduction_hours)}: #{s.fraud_notes}" if s.fraud_deduction_hours.positive?)
-    return if causes.empty? && typed.blank? && deducted.nil? && s.claimed_hours - s.approved_hours <= Ship::Limits::TOLERANCE
-
-    lead = "Deflated from #{Ship::Limits.format(s.claimed_hours)} to #{hours_text(s.approved_hours)}"
-    since = "Hackatime time since #{us_date(s.project.hours_start.utc.to_date)}."
-    head = causes.any? ? "#{lead}: #{causes.join(", ")}. #{since}" : "#{lead}, #{since}"
-    typed = "The reviewer's reason: #{typed}" if typed.present? && causes.any? { it.start_with?("the reviewer") }
+    head = "#{DEFLATION_START}#{Ship::Limits.format(from)} to #{hours_text(to)}: #{parts.causes.join(", ")}. Hackatime time since #{since}.#{gap}"
     [ head, typed, deducted ].compact_blank.join(" ")
   end
 
-  # "1.5 hrs of AI coding counted at a third (-1 hr)", "art over the 30% cap (-0.07 hrs)", "the reviewer's cut below the limits (-0.5 hrs)"
-  def deflation_causes(s, limits)
-    causes = []
-    if limits.ai_cut >= Ship::Limits::TOLERANCE
+  # D-111: a ship corrected to its claimed hours has no deflation now, but its row may still hold the sentence sent before. The
+  # upsert leaves out a field with no value, so that sentence would stay beside the corrected hours. Given the fields to send
+  # and the row as Airtable has it, this adds the deflation field as nil, which the upsert clears, when the row holds a sentence
+  # of the app's own. Words written in Airtable stay.
+  def clearing_stale_deflation(fields, record)
+    old = record&.dig("fields", DEFLATION_FIELD).to_s
+    return fields if fields.key?(DEFLATION_FIELD) || !old.start_with?(DEFLATION_START)
+
+    fields.merge(DEFLATION_FIELD => nil)
+  end
+
+  # D-111: what keeps a deflation from being sent, for the admin page and get_ship to warn about: the parts of the cut that have
+  # no words, in one sentence. nil when every part has its words, and when the ship is not deflated.
+  def deflation_problem(s)
+    return unless s.claimed_hours && s.approved_hours && s.claimed_hours > s.approved_hours
+
+    deflation_parts(s, s.limits(s.claimed_hours)).missing.to_sentence.presence
+  end
+
+  # `causes` are the named parts, each with its hours: "1.5 hrs of AI coding counted at a third (-1 hr)", "art over the 30% cap
+  # (-0.07 hrs)", "the reviewer's cut below the limits (-0.5 hrs)", "the fraud check's deduction (-1 hr)". `missing` are the
+  # parts with no words, and `typed` is the reviewer's own words. The parts add up to the whole cut from the claimed hours to
+  # the approved hours (D-111): what the limits cut, what the reviewer took off beyond them, and the fraud check's deduction.
+  DeflationParts = Data.define(:causes, :missing, :typed)
+
+  def deflation_parts(s, limits)
+    review = s.review_hours || s.approved_hours + s.fraud_deduction_hours
+    limited = [ s.claimed_hours - [ limits.most, review ].max, 0 ].max
+    reviewer = [ limits.most - review, 0 ].max
+    # A ship approved before D-111 can sit a hundredth under the limits' most, the round-down its floors made. When the limits
+    # cut something, that hundredth is theirs, not the reviewer's.
+    reviewer = 0.to_d if reviewer <= Ship::Limits::TOLERANCE && limited.positive?
+    typed = reviewer_reason(s, limits)
+    deduction = s.fraud_deduction_hours
+    causes, missing = [], []
+    if limits.ai_cut.positive?
       raised = (" (the reviewer raised Hackatime's #{Ship::Limits.hrs(limits.hackatime_ai)})" if limits.ai_raised?)
       causes << "#{Ship::Limits.hrs(limits.ai_coding)} of AI coding#{raised} counted at a third (-#{Ship::Limits.hrs(limits.ai_cut)})"
     end
-    causes << "art over the #{Ship::Limits::ART_CAP_PERCENT}% cap (-#{Ship::Limits.hrs(limits.art_cut)})" if limits.art_cut >= Ship::Limits::TOLERANCE
-    cut = reviewer_cut(s, limits)
-    causes << "the reviewer's cut below the limits (-#{Ship::Limits.hrs(cut)})" if cut >= Ship::Limits::TOLERANCE
-    causes
-  end
-
-  # What the reviewer took off beyond the limits: the coding and art hours the limits allow, less those approved at review
-  # (the same tops Ship::Limits#approve holds them to). 0 when the review split isn't kept.
-  def reviewer_cut(s, limits)
-    return 0.to_d unless s.review_coding_hours && s.review_art_hours
-
-    coding = [ limits.coding_cap.floor(2) - s.review_coding_hours, 0 ].max
-    art = [ limits.art_allowed_for(s.review_coding_hours).floor(2) - s.review_art_hours, 0 ].max
-    coding + art
+    causes << "art over the #{Ship::Limits::ART_CAP_PERCENT}% cap (-#{Ship::Limits.hrs(limits.art_cut)})" if limits.art_cut.positive?
+    missing << "the limits' cut of #{Ship::Limits.hrs(limited)} has no cause" if limited.positive? && causes.empty?
+    if reviewer.positive?
+      causes << "the reviewer's cut below the limits (-#{Ship::Limits.hrs(reviewer)})"
+      missing << "the reviewer's cut of #{Ship::Limits.hrs(reviewer)} has no reason" if typed.blank?
+    end
+    if deduction.positive?
+      causes << "the fraud check's deduction (-#{Ship::Limits.hrs(deduction)})"
+      missing << "the fraud check's deduction of #{Ship::Limits.hrs(deduction)} has no notes" if s.fraud_notes.blank?
+    end
+    DeflationParts.new(causes:, missing:, typed:)
   end
 
   # approve_review keeps the limits' own wording ahead of the reviewer's reason in deflation_reason. The named causes now say

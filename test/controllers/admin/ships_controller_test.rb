@@ -258,6 +258,23 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[data-shortcut=n][href=?]", admin_review_path(skip: @ship.id)
   end
 
+  # D-112: the note to the participant and the judgement belong to no verdict. They are in the form from the start, in none of the
+  # groups the verdict controller hides, and the note's help says where it goes under each verdict.
+  test "the note to the participant and the judgement are in the form from the start, under no verdict's fields (D-112)" do
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+
+    assert_select "form#verdict textarea[name=review_feedback][data-shortcut=f]", 1
+    assert_select "form#verdict textarea[name=review_judgement][data-shortcut=j]", 1
+    assert_select "[data-verdict-target=fields] textarea[name=review_feedback], [data-verdict-target=fields] textarea[name=review_judgement]", 0,
+                  "in none of the groups a verdict picks"
+    assert_select "[hidden] textarea[name=review_feedback], [hidden] textarea[name=review_judgement]", 0, "and not hidden"
+    assert_select "[data-verdict-target=fields][data-verdict-for=approved] textarea[name=technical_features]", 1, "Approve's own fields still are"
+    assert_select "[data-verdict-target=fields][data-verdict-for=banned] textarea[name=evidence]", 1, "and so is the ban evidence"
+    assert_select "#admin-ship-feedback-help", "Shown to them. With Approve, it goes in their approval DM and on their project page. With Changes needed, " \
+                                               "it is required and shows on their ship page: say exactly what to change. With Reject or Ban, it shows on their rejected ship page."
+  end
+
   test "the Lapse split saves, moves the limits, and refuses more than the Lapse hours (D-085)" do
     @ship.update_columns(ai_coding_seconds: 0, art_seconds: 3 * 3600, lapse_seconds: 2 * 3600)
     sign_in_as(users(:orpheus))
@@ -354,6 +371,24 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball with its own physics.",
                                                   deflation_reason: "A menu was cut.", review_judgement: "Solid." }
     assert_equal "Solid.", @ship.reload.review_judgement
+  end
+
+  test "approving stores the note to the participant from the form (D-112)" do
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball with its own physics.",
+                                                  deflation_reason: "A menu was cut.", review_feedback: "The second ball is a joy." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal "The second ball is a joy.", @ship.reload.review_feedback
+  end
+
+  test "changes needed, a reject and a ban each keep the note to the participant and the judgement they are given (D-112)" do
+    sign_in_as(users(:orpheus))
+    { "changes_needed" => {}, "rejected" => {}, "banned" => { evidence: "Someone else's hours." } }.each do |decision, more|
+      ship = projects(:ana).ships.create!(@ship.attributes.slice("title", "description", "repo_url", "demo_url").merge(hours: 3, screenshot: screenshot_upload,
+                                                                                                                       screenshot_shows_game: true))
+      post review_admin_ship_path(ship), params: { decision:, review_feedback: "Note for #{decision}.", review_judgement: "Judgement for #{decision}." }.merge(more)
+      assert_equal [ "Note for #{decision}.", "Judgement for #{decision}." ], [ ship.reload.review_feedback, ship.review_judgement ], decision
+    end
   end
 
   test "the checklist saves each tick while the ship is in review, and not after" do
@@ -566,6 +601,123 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
     assert_select "#admin-ship-deflation-problem", 0
     assert_select "#admin-ship-airtable", /Deflation Justification\s*Deflated from 10 to 5 hours: .*The reviewer's reason: A menu was cut\./m
+  end
+
+  # D-112: 4.4 of the 7.5 counted hours are AI coding and none is art. Coding is held to 7.5 less two thirds of 4.4, which is 4.56. That
+  # cut is the rules' own, so "Why deflated" opens with their words beside it and the reviewer's words are optional.
+  AI_WORDS = "Hackatime has 4.4 hrs of AI coding on this game, which counts at a third (1.47 hrs)."
+
+  test "an AI cut alone opens Why deflated with the limits' words, and approving at the most needs no words (D-112)" do
+    @ship.update_columns(ai_coding_seconds: (4.4 * 3600).to_i, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_response :success
+    assert_select "input[name=coding_hours][value='4.56'][max='4.56']"
+    assert_select "form#verdict[data-deflate-hours-claimed-value='7.5']"
+    assert_select "[data-deflate-target=why]:not([hidden])", 1, "the rules cut 7.5 to 4.56 on their own"
+    assert_select "#admin-ship-deflation-says", /\AThe app already writes this into the record: #{Regexp.escape(AI_WORDS)}\z/
+    assert_select "[data-deflate-target=whyOptional]:not([hidden])", /Optional: the app's words above already cover this cut/
+    assert_select "[data-deflate-target=whyRequired][hidden]", 1
+    assert_select "textarea[name=deflation_reason][aria-describedby='admin-ship-deflation-says admin-ship-deflation-help']", ""
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "4.56", technical_features: "Two-ball physics." }
+    assert_redirected_to admin_ship_path(@ship)
+    @ship.reload
+    assert_equal [ BigDecimal("7.5"), BigDecimal("4.56"), AI_WORDS ], [ @ship.claimed_hours, @ship.review_hours, @ship.deflation_reason ]
+  end
+
+  # D-112: 3 of the 7.5 counted hours are art and none is AI coding. Coding is 4.5, and art is held at 30% of the total, 1.92 beside it.
+  test "the art hold alone opens Why deflated with its limits' words, and approving at the most needs no words (D-112)" do
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 3 * 3600)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "input[name=coding_hours][value='4.5']"
+    assert_select "input[name=art_hours][value='1.92']"
+    assert_select "[data-deflate-target=why]:not([hidden])", 1, "the art hold cuts 7.5 to 6.42 on its own"
+    art_words = "Hackatime has 3 hrs of art (designing and Lapse), which counts at most 30% of the approved hours (1.93 hrs)."
+    assert_select "#admin-ship-deflation-says", /\AThe app already writes this into the record: #{Regexp.escape(art_words)}\z/
+    assert_select "[data-deflate-target=whyOptional]:not([hidden])", 1
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "4.5", art_hours: "1.92", technical_features: "Two-ball physics." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal [ BigDecimal("6.42"), art_words ], [ @ship.reload.review_hours, @ship.deflation_reason ]
+  end
+
+  test "words typed beside the limits' words are stored after them, and reach the Unified text after its causes (D-112)" do
+    unified_ysws_has_no_record
+    @ship.update_columns(ai_coding_seconds: (4.4 * 3600).to_i, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "4.56", technical_features: "Two-ball physics.",
+                                                  deflation_reason: "Most of it is one pasted file." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal "#{AI_WORDS} Most of it is one pasted file.", @ship.reload.deflation_reason
+
+    post fraud_admin_ship_path(@ship), params: { verdict: "pass" }
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-deflation-problem", 0
+    assert_select "#admin-ship-airtable", /Deflation Justification\s*Deflated from 7\.5 to 4\.56 hours: 4\.4 hrs of AI coding counted at a third \(-2\.93 hrs\)\..*The reviewer's reason: Most of it is one pasted file\./m
+  end
+
+  test "below the most a missing reason still fails, with the limits' words showing, and the box says it is required (D-112)" do
+    @ship.update_columns(ai_coding_seconds: (4.4 * 3600).to_i, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3", technical_features: "Two-ball physics." }
+    assert_response :unprocessable_entity
+    assert @ship.reload.in_review?
+    assert_select ".ash__error", "Say why you approve fewer hours than the rules allow"
+    assert_select "#admin-ship-deflation-says", 1
+    assert_select "[data-deflate-target=why]:not([hidden])", 1
+    assert_select "[data-deflate-target=whyRequired]:not([hidden])", /Required: you approve less coding or art than the rules allow\. Say why\./
+    assert_select "[data-deflate-target=whyOptional][hidden]", 1
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3", technical_features: "Two-ball physics.", deflation_reason: "A menu was cut." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal [ BigDecimal("3"), "#{AI_WORDS} A menu was cut." ], [ @ship.reload.review_hours, @ship.deflation_reason ]
+  end
+
+  test "with nothing cut Why deflated stays hidden with no limits' words, and a reason typed anyway is not kept (D-112)" do
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "input[name=coding_hours][value='7.5']"
+    assert_select "[data-deflate-target=why][hidden]", 1
+    assert_select "#admin-ship-deflation-says", 0
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "7.5", technical_features: "Two-ball physics.", deflation_reason: "Typed anyway." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_nil @ship.reload.deflation_reason
+  end
+
+  test "a send-back puts only the reviewer's words back in the box, so the limits' words are not written twice (D-112)" do
+    @ship.update_columns(ai_coding_seconds: (4.4 * 3600).to_i, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "4.56", technical_features: "Two-ball physics.",
+                                                  deflation_reason: "Most of it is one pasted file." }
+    post send_back_admin_ship_path(@ship), params: { reason: "Check the AI hours." }
+    assert @ship.reload.in_review?
+
+    get admin_ship_path(@ship)
+    assert_select "textarea[name=deflation_reason]", "Most of it is one pasted file."
+    assert_select "[data-deflate-target=why]:not([hidden])", 1
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "4.56", technical_features: "Two-ball physics.",
+                                                  deflation_reason: css_select("textarea[name=deflation_reason]").first.text.strip }
+    assert_equal "#{AI_WORDS} Most of it is one pasted file.", @ship.reload.deflation_reason
+  end
+
+  test "on a later ship Why deflated follows the hours claimed on the whole project (D-112)" do
+    make_later_ship
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "input[name=coding_hours][value='4.5']"
+    assert_select "form#verdict[data-deflate-hours-claimed-value='7.5'][data-deflate-earlier-coding-value='3.0']"
+    assert_select "[data-deflate-target=why][hidden]", 1, "the 3 approved and the 4.5 new make the 7.5 claimed"
+
+    @ship.update_columns(ai_coding_seconds: 90 * 60, art_seconds: 2 * 3600)
+    get admin_ship_path(@ship)
+    assert_select "[data-deflate-target=why]:not([hidden])", 1, "the rules cut the 7.5 to 6.42"
+    assert_select "#admin-ship-deflation-says", /Hackatime has 1\.5 hrs of AI coding.*Hackatime has 2 hrs of art/
   end
 
   test "approving without the technical features or a reason comes back with what was typed" do

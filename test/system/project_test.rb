@@ -21,7 +21,7 @@ class ProjectTest < ApplicationSystemTestCase
     assert_no_button "Pick a project"
     find(".hkp__row", text: "rhythm-game").click # ticking links it
 
-    assert_selector ".project__note", text: "Hours count now. A couple of quick things and you're in."
+    assert_selector ".project__note", text: "Hours count now. One quick thing and you're in."
     assert_selector ".project__step[data-state=current]", text: "Add your git repo"
     click_on "Later"
     assert_no_selector ".project__step", text: "buddy" # D-120: the full page opens, with an optional card

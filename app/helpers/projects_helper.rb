@@ -140,7 +140,7 @@ module ProjectsHelper
     if !project.hackatime_linked? then "Nothing's linked yet, so your hours won't count."
     elsif project.hackatime_projects.none? && !project.waiting_for_hackatime_project? then "Hackatime's linked. Which project is yours?"
     elsif !project.setup_finished?
-      project.tracking? ? "Hours count now. A couple of quick things and you're in." : "Hackatime's linked. #{project_links_itself(project)}"
+      project.tracking? ? "Hours count now. One quick thing and you're in." : "Hackatime's linked. #{project_links_itself(project)}"
     elsif project.waiting_for_hackatime_project? then "All set. #{project_links_itself(project)}"
     end
   end

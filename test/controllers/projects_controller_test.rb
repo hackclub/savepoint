@@ -324,7 +324,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       patch project_path, params: { project: { hackatime_project_names: [ "rhythm-game" ] } }
       follow_redirect!
       assert_select ".project__step[data-state=current] .project__step-title", /Add your git repo/
-      assert_select ".project__note", "Hours count now. A couple of quick things and you're in."
+      assert_select ".project__note", "Hours count now. One quick thing and you're in."
       assert_select ".project__schedule", count: 0
 
       patch project_path, params: { project: { repo_later: true } }

@@ -105,11 +105,44 @@ class ProjectsHelperTest < ActionView::TestCase
     with_hours_needed(0.5) do
       assert_equal "Today: 30 min, this evening", project_today(project)
       assert_equal "30m", project_schedule(project, today: Date.new(2026, 10, 23)).first[:value]
+      assert_equal "0m of 30m today", project_schedule(project, today: Date.new(2026, 10, 23)).first[:title]
     end
 
     with_hours_needed(0.0) do
       assert_equal "Today: 45 min, this evening", project_today(project), "nothing left to cap it"
     end
+  end
+
+  test "once today's pace is met the plan starts tomorrow and the count is of sessions still to do" do
+    travel_to Time.utc(2026, 10, 29, 12)
+    project = projects(:orpheus)
+    project.update!(pace_minutes: 120)
+    project.define_singleton_method(:hours_to_go) { 4.2 } # 17 hrs, 12.8 logged
+    project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: 132 * 60)
+
+    with_play_party_on(Date.new(2026, 10, 30)) do
+      days = project_schedule(project, today: Date.new(2026, 10, 29))
+      assert_equal [ "today", "party", nil, "goal", "due" ], days.last(5).map { _1[:state] }
+      assert_equal [ "2.2h", "2h", "2h", "12m", "Due" ], days.last(5).map { _1[:value] }
+      assert_equal "2.2h of 2h today", days[-5][:title]
+      assert_equal "Nov 1", project_done_by(project)[:value]
+      assert_equal "3 sessions of 2 hrs gets you there by Nov 1. Ship any time up to Nov 2.", project_schedule_note(project)
+      assert_equal "Today: done", project_today(project)
+    end
+  end
+
+  test "a partly built today shows what's left of its pace" do
+    travel_to Time.utc(2026, 10, 29, 12)
+    project = projects(:orpheus)
+    project.update!(pace_minutes: 120)
+    project.define_singleton_method(:hours_to_go) { 4.2 }
+    project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: 45 * 60)
+
+    assert_equal "Today: 1 hr 15 min, this evening", project_today(project)
+    assert_equal "3 sessions of 2 hrs gets you there by Oct 31. Ship any time up to Nov 2.", project_schedule_note(project)
+    today = project_schedule(project, today: Date.new(2026, 10, 29)).find { _1[:state] == "today" }
+    assert_equal "45m", today[:value]
+    assert_equal "45m of 2h today", today[:title]
   end
 
   test "the schedule has a goal day, a gap and the deadline when your hours would be in well before it" do

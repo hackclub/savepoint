@@ -76,37 +76,67 @@ class Project < ApplicationRecord
     build_time != "weekends" || day.on_weekend?
   end
 
-  # Your build days: the ones gone (to see how they went), then one per session of pace_minutes until the hours you
-  # still need are in, from today on. Building on weekends, only Saturdays and Sundays count.
-  def build_days(today: user.streak_today_date, to_go: hours_to_go, pace: pace_minutes)
+  # Whole minutes built on one streak day, from Hackatime's streak sync (0 for a day with none).
+  def built_minutes_on(day)
+    user.streak_activities.for_range(day..day).sum(:coded_seconds) / 60
+  end
+
+  # The sessions still to do, as { day => minutes }: the hours you still need, at `pace` minutes a build day, from today on.
+  # Your hours logged already count today's building, so today only takes what's left of its pace (nothing, once you've
+  # met it) and the rest starts tomorrow. The last session is only what's left of your goal.
+  def upcoming_minutes(today: user.streak_today_date, to_go: hours_to_go, pace: pace_minutes)
     first = [ today, build_start ].max
-    days = (build_start...first).select { |day| build_day?(day) }
-    sessions = (to_go * 60.0 / pace).ceil
-    sessions = 1 if sessions.zero? && days.empty?
+    left = (to_go * 60.0).round(6)
+    plan = {}
     day = first
-    added = 0
-    while added < sessions
-      if build_day?(day)
-        days << day
-        added += 1
+    if left.positive? && day == today && build_day?(today)
+      share = [ [ pace - built_minutes_on(today), 0 ].max, left ].min
+      if share.positive?
+        plan[today] = share
+        left -= share
       end
       day += 1
     end
-    days
+    while left.positive?
+      if build_day?(day)
+        plan[day] = [ pace, left ].min
+        left -= pace
+      end
+      day += 1
+    end
+    # With nothing to do and no day gone, there's still one day to show.
+    if plan.empty? && (build_start...first).none? { |past| build_day?(past) } && !today_built?(today)
+      day = first
+      day += 1 until build_day?(day)
+      plan[day] = pace
+    end
+    plan
+  end
+
+  # Your build days: the ones gone (to see how they went), today if it's one with some building (it keeps its cell once
+  # its session is done), then one per session still to do. Building on weekends, only Saturdays and Sundays count.
+  def build_days(today: user.streak_today_date, to_go: hours_to_go, pace: pace_minutes)
+    first = [ today, build_start ].max
+    plan = upcoming_minutes(today:, to_go:, pace:)
+    days = (build_start...first).select { |day| build_day?(day) }
+    days << today if !plan.key?(today) && today_built?(today)
+    days + plan.keys
   end
 
   def finish_on(**)
     build_days(**).last
   end
 
-  # How many days you've left to build in, today included, up to the deadline.
+  # How many days you've left to build in, today included, up to the deadline. (A calendar count: what today has
+  # already built is in feasibility, below.)
   def days_left(today: user.streak_today_date)
     (([ today, build_start ].max)..deadline).count { |day| build_day?(day) }
   end
 
   # Whether building `minutes` a day on the days left covers the hours you still need (always, once you have them).
+  # Today only takes what's left of its pace, as in upcoming_minutes.
   def pace_feasible?(minutes, today: user.streak_today_date)
-    hours_to_go.zero? || minutes * days_left(today:) >= hours_to_go * 60
+    hours_to_go.zero? || minutes * days_left(today:) - today_built_share(minutes, today) >= hours_to_go * 60 - 1e-6
   end
 
   # Any 5-minute multiple, not one of the presets: what "Just enough" stores.
@@ -120,7 +150,8 @@ class Project < ApplicationRecord
     return if hours_to_go.zero?
 
     days = [ days_left(today:) - 1, 1 ].max
-    [ [ (hours_to_go * 60.0 / days / 5).ceil * 5, CUSTOM_PACES.first ].max, CUSTOM_PACES.last ].min
+    need = hours_to_go * 60.0
+    CUSTOM_PACES.step(5).find { |minutes| minutes * days - today_built_share(minutes, today) >= need - 1e-6 } || CUSTOM_PACES.last
   end
 
   def feasible_paces(today: user.streak_today_date)
@@ -659,6 +690,20 @@ class Project < ApplicationRecord
   end
 
   private
+
+    # Today is a build day in your window.
+    def today_in_window?(today)
+      today >= build_start && today <= deadline && build_day?(today)
+    end
+
+    def today_built?(today)
+      today_in_window?(today) && built_minutes_on(today).positive?
+    end
+
+    # What today has built towards a pace of `minutes`, at most that pace.
+    def today_built_share(minutes, today)
+      today_in_window?(today) ? [ built_minutes_on(today), minutes ].min : 0
+    end
     # The first time a Hackatime project is linked (picked, or linked by itself): a later change keeps the time.
     def note_when_first_hackatime_project_picked
       self.hackatime_picked_at ||= Time.current if hackatime_projects.present?

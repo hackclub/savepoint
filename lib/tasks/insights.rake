@@ -1,6 +1,9 @@
 # schema.rb doesn't dump views, so a fresh database has no `insights` schema until the migrations that create them
 # run. After a schema load, run those migrations' `up` (the one place the view SQL lives) when the views are absent.
 # An existing database gets its views from `db:migrate`, so this does nothing there.
+#
+# A schema load marks every migration as run, so one left out of this list never runs on that database: add each new
+# migration that creates or replaces an insights view. The files run in the order of their timestamps, whatever the order here.
 INSIGHTS_VIEW_MIGRATIONS ||= %w[
   CreateInsightsViews
   AddUtmToInsightsViews
@@ -9,6 +12,9 @@ INSIGHTS_VIEW_MIGRATIONS ||= %w[
   AddHackatimeSeenToInsightsProjects
   UpdateInsightsShipsForFraudStage
   AddRetentionDataToInsightsViews
+  AddFaqReadsToInsightsViews
+  AddReaderIdToInsightsFaqReads
+  HideSupersededShipsFromInsights
 ].freeze
 
 namespace :insights do

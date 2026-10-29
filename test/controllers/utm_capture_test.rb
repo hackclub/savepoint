@@ -47,8 +47,8 @@ class UtmCaptureTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin's page views are not visits, nor are those of an admin viewing as someone" do
+    admins = Rails.configuration.x.admin_slack_ids # first, so the ensure below puts the list back even if the next line raises
     create_insights_views # the admin home reads the funnel from them
-    admins = Rails.configuration.x.admin_slack_ids
     Rails.configuration.x.admin_slack_ids = [ users(:orpheus).slack_id ]
     sign_in_as(users(:orpheus))
 

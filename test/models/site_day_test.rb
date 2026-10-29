@@ -26,12 +26,12 @@ class SiteDayTest < ActiveSupport::TestCase
   end
 
   test "compares who built with who also opened the site, leaving admins out" do
+    original = Rails.configuration.x.admin_slack_ids # first, so the ensure puts the list back even if a line before the swap raises
     builder_seen = built("seen")
     built("unseen")
     built("short", seconds: Growth::ACTIVE_SECONDS - 1)
     admin = users(:orpheus)
     admin.streak_activities.create!(activity_date: DAY, coded_seconds: 3600)
-    original = Rails.configuration.x.admin_slack_ids
     Rails.configuration.x.admin_slack_ids = [ admin.slack_id ]
     [ builder_seen, admin ].each { |user| SiteDay.create!(user:, date: DAY, created_at: Time.current) }
     SiteDay.create!(user: builder_seen, date: DAY + 1, created_at: Time.current)

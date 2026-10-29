@@ -5,8 +5,8 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
   include AdminMcpHelpers
 
   setup do
+    @admins = Rails.configuration.x.admin_slack_ids # first: the teardown runs even when a line below raises
     create_insights_views
-    @admins = Rails.configuration.x.admin_slack_ids
     Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS" ]
   end
 

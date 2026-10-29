@@ -13,6 +13,10 @@ module ActiveSupport
     # Nothing asks for the NPS (no popup, and a ship needs no answer) unless a test of it turns asking on.
     setup { NpsResponse.asking = false }
 
+    # Every test, system tests too, starts with the stubbed Hackatime below as this file leaves it, whatever the test before it
+    # stubbed and forgot to put back. A class's own setup runs after this, so the stubs it sets still apply.
+    setup { HackatimeStubs.reset }
+
     # Add more helper methods to be used by all tests here...
   end
 end
@@ -23,17 +27,28 @@ OmniAuth.config.test_mode = true
 Rails.application.config.x.hack_club_auth_whoami_url = nil
 
 # Nobody asks the real Hackatime either: who each token belongs to, the projects each Hackatime user has
-# logged time on, and when they were building (none of the time, unless a test says otherwise).
-Hackatime.stubbed_users = { "token-orpheus" => "1001", "token-heidi" => "1002" }
-Hackatime.stubbed_projects = {
-  "1001" => [ Hackatime::Project.new("rhythm-game", 5400), Hackatime::Project.new("beat-sheet-art", 900),
-              Hackatime::Project.new("dotfiles", 11_160) ],
-  "1002" => [ Hackatime::Project.new("heidis-game", 600) ]
-}
-Hackatime.stubbed_spans = {}
-Hackatime.stubbed_category_seconds = {}
-Hackatime.stubbed_trust_levels = {} # nobody is banned unless a test says so
-Hackatime.stubbed_repo_urls = {} # no project has a repo link on Hackatime unless a test says so
+# logged time on, and when they were building (none of the time, unless a test says otherwise). Every stub is set here
+# once, and again before each test (ActiveSupport::TestCase above), so one a test sets and leaves does not reach the next.
+module HackatimeStubs
+  def self.reset
+    # Every stub a test may set, even one that is not set below (stubbed_all_projects, the picker's list, or one added later),
+    # goes back to nil, which is not stubbed.
+    Hackatime.singleton_methods.grep(/\Astubbed_\w+=\z/).each { |writer| Hackatime.public_send(writer, nil) }
+
+    Hackatime.stubbed_users = { "token-orpheus" => "1001", "token-heidi" => "1002" }
+    Hackatime.stubbed_projects = {
+      "1001" => [ Hackatime::Project.new("rhythm-game", 5400), Hackatime::Project.new("beat-sheet-art", 900),
+                  Hackatime::Project.new("dotfiles", 11_160) ],
+      "1002" => [ Hackatime::Project.new("heidis-game", 600) ]
+    }
+    Hackatime.stubbed_spans = {}
+    Hackatime.stubbed_category_seconds = {}
+    Hackatime.stubbed_trust_levels = {} # nobody is banned unless a test says so
+    Hackatime.stubbed_repo_urls = {} # no project has a repo link on Hackatime unless a test says so
+  end
+end
+
+HackatimeStubs.reset
 
 module HackClubAuthHelpers
   def mock_hack_club_auth(uid: "ident!heidi", email: "heidi@hackclub.com", name: "Heidi Hakkuun", first_name: "Heidi",

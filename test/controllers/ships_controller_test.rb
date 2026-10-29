@@ -7,6 +7,11 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
   setup { @spans_before = Hackatime.stubbed_spans }
   teardown { Hackatime.stubbed_spans = @spans_before }
 
+  # Shipping closes at the end of the second day after Save Point's last day (Project#ship_cutoff), so on the real clock these
+  # tests fail from 2026-11-05 00:00 UTC: "Shipping's closed." A fixed day inside the program keeps them as they are. The tests
+  # that travel to the cutoff do it in a block, which overrides this.
+  setup { travel_to Time.utc(2026, 10, 28, 12) }
+
   test "shipping opens once you're set up" do
     get project_ship_path
     assert_redirected_to onboarding_path

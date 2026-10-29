@@ -7,8 +7,8 @@ class AdminReviewTest < ApplicationSystemTestCase
   include AdminMcpHelpers
 
   setup do
+    @admins = Rails.configuration.x.admin_slack_ids # first: the teardown runs even when a line below raises
     create_insights_views
-    @admins = Rails.configuration.x.admin_slack_ids
     Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS" ]
     travel_to(Program::STARTS_AT + 2.days) do
       users(:ana).streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 7.5 * 3600)

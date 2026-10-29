@@ -242,6 +242,12 @@ module ProjectsHelper
     end
   end
 
+  # D-112: what the reviewer wrote to the participant on their latest approved ship, or nil when they wrote nothing there. An earlier
+  # approved ship's message doesn't stand in for a later one's.
+  def project_reviewer_note(project)
+    project.latest_approved_ship&.review_feedback.presence
+  end
+
   # The milestones along your hours track: just your prize, at the hours it takes (D-018 took the 5-hour shoutout
   # off). Whether you've reached it. `logged` is what's counted towards it: your logged hours less what you've spent,
   # or any number (the /dev gallery).

@@ -664,3 +664,12 @@
 .pg-project .project__ship-counter[data-due="true"] { border-color: var(--gold); }
 .pg-project .project__ship-counter-action { flex: none; border-radius: var(--inner); margin-bottom: var(--lip-depth); }
 @media (prefers-reduced-motion: reduce) { .pg-project .project__ship-counter-fill { transition: none; } }
+
+/* ---------- The reviewer's note (D-112) ----------
+   What the reviewer wrote to you on your latest approved ship, under the approval: a label and a quote with the same gold bar as
+   the ship page's note (ship.css). Nothing rounded sits inside the panel here, so no corner has to be concentric with it. The text is
+   theirs: a line break stays, and a long word wraps instead of widening the panel. */
+.pg-project .project__reviewer-note { display: grid; gap: var(--space-2); min-inline-size: 0; }
+.pg-project .project__reviewer-note-title { display: flex; align-items: center; gap: 6px; font: 800 13px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-ink); }
+.pg-project .project__reviewer-note-title .sp-icon { flex: none; font-size: 16px; color: var(--coral-ink); }
+.pg-project .project__reviewer-note-text { margin: 0; padding: var(--space-1) var(--space-4); border-inline-start: 4px solid var(--gold-line); font: 600 16px/24px var(--font-body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }

@@ -212,10 +212,11 @@ class Nudge < ApplicationRecord
     0
   end
 
-  # A DM from the bot. If the bot can't DM them, why is kept (Slack's error code) and it's tried again after
-  # DM_RETRY_AFTER. A DM that goes through clears that.
-  def deliver!(vars)
-    self.variant, self.text = Nudge::Copy.render(self, vars)
+  # A DM from the bot. `note` is a message in someone else's words to add after its text (D-112: the reviewer's, on an approval). The
+  # text kept here is the whole of what Slack gets. If the bot can't DM them, why is kept (Slack's error code) and it's tried again
+  # after DM_RETRY_AFTER. A DM that goes through clears that.
+  def deliver!(vars, note: nil)
+    self.variant, self.text = Nudge::Copy.render(self, vars, note:)
     save! # for the token in its links
     error = nil
     message = SlackBot.dm(user.slack_id, text:, blocks: Nudge::Message.new(self).blocks, on_error: ->(code) { error = code })

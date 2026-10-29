@@ -878,6 +878,33 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # D-112: the reviewer's message on the latest approved ship shows under the approval, whatever the next step is.
+  test "approved with a message from the reviewer: the note shows with the claim button, and without a message there is none" do
+    ship_for_next_step("approved")
+    next_step_page(hours: 7) do
+      assert_select ".project__next[data-state=ready]"
+      assert_select ".project__reviewer-note", 0
+
+      projects(:orpheus).ships.sole.update_column(:review_feedback, "Loved the boss fight!\nSee you in the shop :yay:")
+      get project_path
+      assert_select ".project__next[data-state=ready] a.sp-btn--gold", text: /Claim it/
+      assert_select ".project__reviewer-note-title", "A note from your reviewer"
+      assert_equal "Loved the boss fight!\nSee you in the shop :yay:", css_select(".project__reviewer-note-text").sole.text, "the line break is kept"
+    end
+  end
+
+  test "approved short of your prize, with a message from the reviewer: the note shows with the schedule note" do
+    projects(:orpheus).ships.create!(title: "Beat Sheet", description: "A rhythm game where every cell is a drum pad, and it is a game.",
+                                     repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://beat.sheet", hours: 2,
+                                     screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+                                    .update_columns(approved_columns(2, review_feedback: "So close to the micro!"))
+    next_step_page(hours: 2) do
+      assert_select ".project__next", 0
+      assert_select ".project__schedule-note", /gets you there by/
+      assert_select ".project__reviewer-note-text", "So close to the micro!"
+    end
+  end
+
   test "claimed: it says the prize is in the queue, then ordered" do
     ship_for_next_step("approved")
     order = Order.new(project: projects(:orpheus), prize_key: "micro", hours: 0)

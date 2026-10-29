@@ -185,6 +185,13 @@ module Nudge::Copy
 
   SLACK_MUTE = "stop these messages"
 
+  # D-112: the reviewer's message to the participant, after an approval DM's usual line (Nudge::Approved): this lead-in, then
+  # their words as a Slack quote, so it reads as theirs and not the bot's.
+  REVIEWER_NOTE_LEAD_IN = "your reviewer left you a note:"
+  # Slack refuses a section of more than 3000 characters, and the whole DM with it. The usual line and the lead-in take under 500,
+  # so the quote stops well short of that, with an ellipsis.
+  REVIEWER_NOTE_LIMIT = 2000
+
   def self.variants_for(arm)
     ARMS[arm] || FIXED.fetch(arm)
   end
@@ -198,12 +205,25 @@ module Nudge::Copy
     renderable(arm, vars).any?
   end
 
-  # Returns [variant, text]: the next variant this person hasn't just had.
-  def self.render(nudge, vars)
+  # Returns [variant, text]: the next variant this person hasn't just had. `note` is the reviewer's message (D-112), which goes after it.
+  def self.render(nudge, vars, note: nil)
     options = renderable(nudge.arm, vars)
     last = nudge.user.nudges.where(arm: nudge.arm).order(:sent_at).last&.variant
     text, variant = options.reject { |_, index| index == last }.sample || options.sample
-    [ variant, format(text, **vars) ]
+    [ variant, with_reviewer_note(format(text, **vars), note) ]
+  end
+
+  # `text` with the reviewer's message after it (D-112), or `text` as it is when they wrote nothing. The message is theirs, so each
+  # line is escaped for Slack (SlackText) before its quote mark goes on. It is added to the finished copy, never put in a template:
+  # a % in their words would break format. A blank line is quoted too, or Slack ends the quote there and starts a second one.
+  def self.with_reviewer_note(text, message)
+    body = SlackText.escape(message.to_s.tr("\t", " ").gsub(/\r\n?/, "\n").strip).gsub(/[ \t]+$/, "").gsub(/\n{3,}/, "\n\n")
+    return text if body.empty?
+
+    quote = body.lines(chomp: true).map { |line| line.empty? ? ">" : "> #{line}" }.join("\n")
+    # The limit counts the quote marks, and a cut never lands inside an escape (&amp;).
+    quote = "#{quote[0, REVIEWER_NOTE_LIMIT].sub(/&[a-z]{0,3}\z/, "").rstrip}…" if quote.length > REVIEWER_NOTE_LIMIT
+    "#{text}\n\n#{REVIEWER_NOTE_LEAD_IN}\n#{quote}"
   end
 
   def self.link_for(arm)

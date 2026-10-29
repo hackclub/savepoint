@@ -140,6 +140,63 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # D-112: what the reviewer writes to the participant under a verdict reaches them. A rejected ship's page shows it (the reject
+  # test above); here it is an approval's message on the project page, and a ban's on the rejected ship's page.
+
+  test "the project page shows what the reviewer wrote on the latest approved ship, as typed" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    ship = projects(:orpheus).ships.sole
+    get project_path
+    assert_select ".project__reviewer-note", 0, "nothing while the ship is in review"
+
+    approve_through_fraud(ship, feedback: "Loved the boss fight!\r\nThe <b>music</b> gave me chills :yay:")
+    assert ship.reload.approved?
+    get project_path
+    assert_select ".project__reviewer-note-title", "A note from your reviewer"
+    assert_select ".project__reviewer-note-text", text: /\ALoved the boss fight!\s+The <b>music<\/b> gave me chills :yay:\z/
+    assert_select ".project__reviewer-note-text b", 0, "markup shows as typed"
+  end
+
+  test "an approved ship with no message from the reviewer shows no note, and an earlier ship's message does not stand in for it" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    first = projects(:orpheus).ships.sole
+    approve_through_fraud(first)
+    get project_path
+    assert_select ".project__reviewer-note", 0
+
+    first.update_column(:review_feedback, "Lovely game!")
+    get project_path
+    assert_select ".project__reviewer-note-text", "Lovely game!"
+    projects(:orpheus).ships.new(title: "Beat Sheet 2", description: "x" * 50, repo_url: "https://github.com/orpheus/beat-sheet",
+                                 demo_url: "https://example.com/beat", hours: 1, **approved_columns(1)).save!(validate: false)
+    get project_path
+    assert_select ".project__reviewer-note", 0, "the latest approved ship has none"
+  end
+
+  test "after a ban the rejected ship's page shows the reviewer's own words, and without any the default" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    ship = projects(:orpheus).ships.sole
+
+    assert ship.decide!("banned", by: users(:ana), evidence: "The hours are another person's.", feedback: "This is a copy of Pong Remix, so it can't count.")
+    assert users(:orpheus).reload.banned?
+    get project_ship_path
+    assert_select ".ship__reviewer-note", "This is a copy of Pong Remix, so it can't count."
+    assert_select ".ship__done-text", /can't be shipped again/
+    assert_no_match(/This project was rejected/, response.body)
+  end
+
+  test "after a ban with no message from the reviewer the rejected ship's page says the project was rejected" do
+    ready_to_ship
+    post project_ship_path, params: { ship: ship_params }
+    assert projects(:orpheus).ships.sole.decide!("banned", by: users(:ana), evidence: "The hours are another person's.")
+
+    get project_ship_path
+    assert_select ".ship__reviewer-note", "This project was rejected."
+  end
+
   test "a participant who is due answers the NPS questions before shipping" do
     NpsResponse.asking = true
     link_hackatime(users(:orpheus))

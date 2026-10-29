@@ -213,7 +213,7 @@ module ProjectsHelper
 
   # "14 sessions of 45 min gets you there by Oct 16. Ship any time up to Oct 20."
   def project_schedule_note(project)
-    to_go = project.build_days.count { |day| day >= [ project.user.streak_today_date, project.build_start ].max }
+    to_go = project.upcoming_minutes.size
     "#{pluralize(to_go, "session")} of #{project_pace_label(project.pace_minutes)} gets you there by " \
       "#{project_date(project.finish_on)}. Ship any time up to #{project_date(project.deadline)}."
   end
@@ -269,13 +269,10 @@ module ProjectsHelper
   def project_schedule(project, today: project.user.streak_today_date)
     days = project.build_days(today:)
     deadline = project.deadline
-    # Each day still to come takes your pace, but the last one only what's left of your goal.
-    left = project_minutes_left(project)
-    sessions = days.select { |day| day >= today }.to_h do |day|
-      minutes = left.positive? ? [ project.pace_minutes, left ].min : project.pace_minutes
-      left -= project.pace_minutes
-      [ day, project_day_time(minutes * 60) ]
-    end
+    # Each day still to come takes your pace, but the last one only what's left of your goal, and today only what's left of
+    # its pace (your hours logged already count what it has built).
+    plan = project.upcoming_minutes(today:)
+    sessions = plan.transform_values { |minutes| project_day_time(minutes.round * 60) }
     seconds = project.user.streak_activities.for_range(days.first..today).pluck(:activity_date, :coded_seconds).to_h
     cells = days.map.with_index do |day, index|
       label = index.zero? || day.day == 1 ? project_date(day) : day.day.to_s
@@ -292,7 +289,7 @@ module ProjectsHelper
         else [ nil, sessions[day] ]
         end
       { date: label, state:, value:, note:, built: (how if day == today && !built.zero?),
-        title: (day == today ? "#{project_day_time(built)} of #{sessions[day]} today" : nil) }
+        title: (day == today ? "#{project_day_time(built)} of #{project_day_time([ project.pace_minutes * 60, built + plan.fetch(day, 0) * 60 ].min)} today" : nil) }
     end
     cells = days.zip(cells).reject { |day, _| day > deadline }.map(&:last)
     if days.last < deadline
@@ -313,9 +310,14 @@ module ProjectsHelper
     safe_join([ tag.span(date.strftime("%b"), class: "project__event-month"), tag.span(date.day, class: "project__event-day") ])
   end
 
-  # "Today: 45 min, this evening". Your pace, or what's left of your goal if that's less.
+  # "Today: 45 min, this evening". What's left of your pace today, or of your goal if that's less. "Today: done" once
+  # you've met your pace.
   def project_today(project)
-    minutes = project.hours_to_go.positive? ? [ project.pace_minutes, project_minutes_left(project) ].min : project.pace_minutes
+    today = project.user.streak_today_date
+    plan = project.hours_to_go.positive? ? project.upcoming_minutes(today:) : {}
+    return "Today: done" if plan.any? && !plan.key?(today) && project.build_day?(today) && today >= project.build_start
+
+    minutes = plan.key?(today) ? plan[today].round : project.hours_to_go.positive? ? [ project.pace_minutes, project_minutes_left(project) ].min : project.pace_minutes
     "Today: #{project_pace_label(minutes)}, #{BUILD_TIME_SOON.fetch(project.build_time)}"
   end
 

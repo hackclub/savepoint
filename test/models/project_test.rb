@@ -63,6 +63,57 @@ class ProjectTest < ActiveSupport::TestCase
     end
   end
 
+  test "a met pace today starts the sessions tomorrow, since the hours logged already count today (reported case)" do
+    travel_to Time.utc(2026, 10, 29, 12)
+    project = projects(:orpheus)
+    project.update!(pace_minutes: 120)
+    project.define_singleton_method(:hours_to_go) { 4.2 } # 17 hrs needed, 12.8 logged, 2.2 of them today
+    project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: 132 * 60)
+
+    assert_equal({ Date.new(2026, 10, 30) => 120, Date.new(2026, 10, 31) => 120, Date.new(2026, 11, 1) => 12 }, project.upcoming_minutes)
+    assert_equal Date.new(2026, 11, 1), project.finish_on
+    assert_equal Date.new(2026, 10, 29), project.build_days[-4], "today keeps its cell"
+    assert_equal project.finish_on, project.build_days.last
+  end
+
+  test "a partly built today only keeps what's left of its pace" do
+    travel_to Time.utc(2026, 10, 29, 12)
+    project = projects(:orpheus)
+    project.update!(pace_minutes: 120)
+    project.define_singleton_method(:hours_to_go) { 4.2 }
+    project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: 45 * 60)
+
+    assert_equal({ Date.new(2026, 10, 29) => 75, Date.new(2026, 10, 30) => 120, Date.new(2026, 10, 31) => 57 }, project.upcoming_minutes)
+    assert_equal Date.new(2026, 10, 31), project.finish_on
+  end
+
+  test "building today up to your pace doesn't move the finish, building past it only moves it earlier" do
+    travel_to Time.utc(2026, 10, 29, 12)
+    project = projects(:orpheus)
+    project.update!(pace_minutes: 120)
+    finishes = [ 0, 60, 120, 240 ].map do |built|
+      project.user.streak_activities.where(activity_date: Date.new(2026, 10, 29)).delete_all
+      project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: built * 60) if built.positive?
+      # The same total of 8 hrs needed from before today: what's left drops by what today built.
+      project.define_singleton_method(:hours_to_go) { (480 - built) / 60.0 }
+      project.finish_on
+    end
+    assert_equal 1, finishes.first(3).uniq.size
+    assert_operator finishes.last, :<=, finishes.first
+  end
+
+  test "feasibility counts only what's left of today's pace" do
+    travel_to Time.utc(2026, 10, 29, 12) # 29th to Nov 2: 5 days left
+    project = projects(:orpheus)
+    project.define_singleton_method(:hours_to_go) { 8.3 } # 498 min
+    assert_not project.pace_feasible?(99) # 5 x 99 = 495 is short of 498
+    assert project.pace_feasible?(100)
+    project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: 100 * 60)
+    project.define_singleton_method(:hours_to_go) { 398 / 60.0 } # today's 100 are out of what's left
+    assert_not project.pace_feasible?(99), "today only has its 99 to give: 99 x 5 - 99 = 396"
+    assert project.pace_feasible?(100), "100 x 5 - 100 = 400"
+  end
+
   test "setting up takes linking Hackatime; your project, a repo and a buddy can wait" do
     project = projects(:orpheus)
     assert_equal 0, project.required_steps_done

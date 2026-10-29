@@ -75,39 +75,34 @@ class Project < ApplicationRecord
   TRACKING_SQL = "(#{LINKED_SQL} AND json_array_length(projects.hackatime_projects) > 0)".freeze
 
   # SQL for a user's counted seconds since Hackatime time started counting, for the project's user (0 unless tracking).
-  def self.admin_seconds_sql
-    "(CASE WHEN #{TRACKING_SQL} THEN COALESCE((SELECT SUM(sa.coded_seconds) FROM streak_activities sa " \
-      "WHERE sa.user_id = projects.user_id AND sa.activity_date >= #{connection.quote(Program::FIRST_STREAK_DATE)}), 0) ELSE 0 END)"
-  end
+  ADMIN_SECONDS_SQL = "(CASE WHEN #{TRACKING_SQL} THEN COALESCE((SELECT SUM(sa.coded_seconds) FROM streak_activities sa " \
+                      "WHERE sa.user_id = projects.user_id AND sa.activity_date >= '#{Program::FIRST_STREAK_DATE.iso8601}'), 0) ELSE 0 END)".freeze
 
-  def self.admin_sort_sql(key)
-    case key
-    when "project" then "LOWER(COALESCE(projects.name, projects.idea))"
-    when "who" then "LOWER(COALESCE(NULLIF(users.name, ''), NULLIF(users.slack_display_name, ''), NULLIF(users.slack_username, ''), ''))"
-    when "pledge"
-      whens = Prize::ALL.each_with_index.map { |prize, index| "WHEN #{connection.quote(prize.key)} THEN #{index}" }.join(" ")
-      "(CASE projects.prize_key #{whens} ELSE #{Prize::ALL.size} END)"
-    when "hackatime" then "(CASE WHEN #{TRACKING_SQL} THEN 2 WHEN #{LINKED_SQL} THEN 1 ELSE 0 END)"
-    when "hours" then admin_seconds_sql
-    when "streak" then "users.current_streak"
-    when "buddy"
-      "(CASE WHEN EXISTS (SELECT 1 FROM pairs WHERE pairs.first_project_id = projects.id OR pairs.second_project_id = projects.id) THEN 3 " \
-        "WHEN projects.buddy_invited THEN 2 WHEN projects.buddy_skipped THEN 1 ELSE 0 END)"
-    when "ship"
-      "(CASE WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id AND s.status IN ('in_review', 'awaiting_fraud')) THEN 4 " \
-        "WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id AND s.status = 'approved') THEN 3 " \
-        "WHEN (SELECT s.status FROM ships s WHERE s.project_id = projects.id ORDER BY s.id DESC LIMIT 1) = 'rejected' THEN 1 " \
-        "WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id) THEN 2 ELSE 0 END)"
-    end
-  end
+  # Each key's SQL, from constants only (prize keys are fixed words), never from a parameter.
+  ADMIN_SORT_SQL = {
+    "project" => "LOWER(COALESCE(projects.name, projects.idea))",
+    "who" => "LOWER(COALESCE(NULLIF(users.name, ''), NULLIF(users.slack_display_name, ''), NULLIF(users.slack_username, ''), ''))",
+    "pledge" => "(CASE projects.prize_key #{Prize::ALL.each_with_index.map { |prize, index| "WHEN '#{prize.key}' THEN #{index}" }.join(" ")} ELSE #{Prize::ALL.size} END)",
+    "hackatime" => "(CASE WHEN #{TRACKING_SQL} THEN 2 WHEN #{LINKED_SQL} THEN 1 ELSE 0 END)",
+    "hours" => ADMIN_SECONDS_SQL,
+    "streak" => "users.current_streak",
+    "buddy" => "(CASE WHEN EXISTS (SELECT 1 FROM pairs WHERE pairs.first_project_id = projects.id OR pairs.second_project_id = projects.id) THEN 3 " \
+               "WHEN projects.buddy_invited THEN 2 WHEN projects.buddy_skipped THEN 1 ELSE 0 END)",
+    "ship" => "(CASE WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id AND s.status IN ('in_review', 'awaiting_fraud')) THEN 4 " \
+              "WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id AND s.status = 'approved') THEN 3 " \
+              "WHEN (SELECT s.status FROM ships s WHERE s.project_id = projects.id ORDER BY s.id DESC LIMIT 1) = 'rejected' THEN 1 " \
+              "WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id) THEN 2 ELSE 0 END)"
+  }.freeze
+  # The whole ORDER BY term for each key and direction, built once.
+  ADMIN_ORDER_SQL = ADMIN_SORT_SQL.to_h { |key, sql| [ key, { "asc" => "#{sql} ASC NULLS LAST".freeze, "desc" => "#{sql} DESC NULLS LAST".freeze }.freeze ] }.freeze
 
   # Newest first by default. With a key, by that column in `dir` ("asc" or "desc"; the key's own direction when blank or
   # unknown), the newest project first among equals. Unknown keys sort as the default. Needs `users` joined.
   def self.admin_sorted(key, dir = nil)
     return order(created_at: :desc, id: :desc) unless ADMIN_SORT_KEYS.include?(key)
 
-    dir = %w[asc desc].include?(dir) ? dir : ADMIN_SORT_DEFAULT_DIRECTIONS.fetch(key)
-    order(Arel.sql("#{admin_sort_sql(key)} #{dir.upcase} NULLS LAST"), created_at: :desc, id: :desc)
+    dir = ADMIN_SORT_DEFAULT_DIRECTIONS.fetch(key) unless %w[asc desc].include?(dir)
+    order(Arel.sql(ADMIN_ORDER_SQL.fetch(key).fetch(dir)), created_at: :desc, id: :desc)
   end
 
   # Your game's name, or its idea.

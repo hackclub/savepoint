@@ -66,7 +66,7 @@ class Project < ApplicationRecord
   # 2 tracking, 1 linked with no project yet, 0 not linked; buddy is 3 paired, 2 invited, 1 skipped, 0 none; ship is 4 in
   # review, 3 approved, 2 sent back, 1 rejected, 0 none (the cell's own order). `hours` is the cell's: 0 unless tracking.
   ADMIN_SORT_DEFAULT_DIRECTIONS = { "project" => "asc", "who" => "asc", "pledge" => "asc", "hackatime" => "desc", "hours" => "desc",
-                                    "streak" => "desc", "buddy" => "desc", "ship" => "desc" }.freeze
+                                    "streak" => "desc", "buddy" => "desc", "ship" => "desc", "jame_gam" => "desc" }.freeze
   ADMIN_SORT_KEYS = ADMIN_SORT_DEFAULT_DIRECTIONS.keys.freeze
 
   # SQL that is true for a project whose user linked Hackatime (User#hackatime_linked?).
@@ -88,13 +88,17 @@ class Project < ApplicationRecord
     "streak" => "users.current_streak",
     "buddy" => "(CASE WHEN EXISTS (SELECT 1 FROM pairs WHERE pairs.first_project_id = projects.id OR pairs.second_project_id = projects.id) THEN 3 " \
                "WHEN projects.buddy_invited THEN 2 WHEN projects.buddy_skipped THEN 1 ELSE 0 END)",
+    "jame_gam" => "projects.jame_gam_flagged_match_count",
     "ship" => "(CASE WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id AND s.status IN ('in_review', 'awaiting_fraud')) THEN 4 " \
               "WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id AND s.status = 'approved') THEN 3 " \
               "WHEN (SELECT s.status FROM ships s WHERE s.project_id = projects.id ORDER BY s.id DESC LIMIT 1) = 'rejected' THEN 1 " \
               "WHEN EXISTS (SELECT 1 FROM ships s WHERE s.project_id = projects.id) THEN 2 ELSE 0 END)"
   }.freeze
-  # The whole ORDER BY term for each key and direction, built once.
-  ADMIN_ORDER_SQL = ADMIN_SORT_SQL.to_h { |key, sql| [ key, { "asc" => "#{sql} ASC NULLS LAST".freeze, "desc" => "#{sql} DESC NULLS LAST".freeze }.freeze ] }.freeze
+  # The whole ORDER BY term for each key and direction, built once. D-121: the jame gam column orders by flagged submissions, then by
+  # submissions, this game's only (the newest project breaks any tie, as for every key).
+  ADMIN_ORDER_SQL = ADMIN_SORT_SQL.to_h { |key, sql| [ key, { "asc" => "#{sql} ASC NULLS LAST".freeze, "desc" => "#{sql} DESC NULLS LAST".freeze }.freeze ] }
+                                  .merge("jame_gam" => { "asc" => "projects.jame_gam_flagged_match_count ASC, projects.jame_gam_match_count ASC",
+                                                         "desc" => "projects.jame_gam_flagged_match_count DESC, projects.jame_gam_match_count DESC" }.freeze).freeze
 
   # Newest first by default. With a key, by that column in `dir` ("asc" or "desc"; the key's own direction when blank or
   # unknown), the newest project first among equals. Unknown keys sort as the default. Needs `users` joined.
@@ -605,7 +609,15 @@ class Project < ApplicationRecord
 
     latest = result.submissions.select { it.matches?(self) }.max_by(&:submitted_at)
     moved = latest&.submitted_at&.to_f&.round(3) != jame_gam_submitted_at&.to_f&.round(3)
-    update_columns(jame_gam_submitted_at: latest&.submitted_at, jame_gam_submission_id: latest&.id, jame_gam_review_status: latest&.review_status)
+    # D-121: every submission by this person, newest first, with nothing personal in it, and the counts the admin list sorts by.
+    everything = result.submissions.sort_by(&:submitted_at).reverse.map do
+      { "id" => it.id, "jam" => it.jam, "game_title" => it.game_title, "review_status" => it.review_status, "submitted_at" => it.submitted_at.utc.iso8601,
+        "matches" => it.matches?(self) }
+    end
+    update_columns(jame_gam_submitted_at: latest&.submitted_at, jame_gam_submission_id: latest&.id, jame_gam_review_status: latest&.review_status,
+                   jame_gam_checked_at: Time.current, jame_gam_submissions: everything,
+                   jame_gam_match_count: everything.count { it["matches"] },
+                   jame_gam_flagged_match_count: everything.count { it["matches"] && JameGam.flagged?(it["review_status"]) })
     refresh_streak if moved
     result
   end

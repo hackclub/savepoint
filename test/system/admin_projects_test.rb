@@ -36,6 +36,52 @@ class AdminProjectsTest < ApplicationSystemTestCase
     end
   end
 
+  test "D-121: the jame gam column sorts by this game's flags and fits at every width, even with a long status" do
+    visit admin_projects_path(sort: "jame_gam", dir: "desc")
+    assert_selector "th[aria-sort=descending] a[data-sort=jame_gam]"
+    assert_equal "Rejected after a long review by the jam team, needs a rewrite of the whole game", find("tbody tr:first-child .pg-admin-projects__jame").text
+    assert_match(/of 14\z/, find("tbody tr:first-child td[data-label='Jame gam']").text)
+    [ 1024, 1280, 1440, 390 ].each do |width|
+      resize(width, 1000)
+      visit admin_projects_path(sort: "jame_gam", dir: "desc")
+      sizes = measure
+      puts "jame gam width #{width}: panel #{sizes['panelScroll']}/#{sizes['panelClient']}, page #{sizes['pageScroll']}/#{sizes['pageClient']}, table #{sizes['table']}"
+      assert_operator sizes["panelScroll"], :<=, sizes["panelClient"], "the panel scrolls sideways at #{width}px"
+      assert_operator sizes["pageScroll"], :<=, sizes["pageClient"], "the page scrolls sideways at #{width}px"
+      assert_operator sizes["table"], :<=, sizes["panelClient"], "the table is wider than its panel at #{width}px"
+    end
+  end
+
+  test "D-121: screenshots, when D121_SHOTS names a folder" do
+    dir = ENV["D121_SHOTS"]
+    skip "set D121_SHOTS to a folder to take screenshots" unless dir
+    FileUtils.mkdir_p(dir)
+    resize(1280, 1100)
+    visit admin_projects_path(sort: "jame_gam", dir: "desc")
+    page.save_screenshot(File.join(dir, "list-1280-jame-gam.png"))
+    resize(390, 1100)
+    visit admin_projects_path(sort: "jame_gam", dir: "desc")
+    page.save_screenshot(File.join(dir, "list-390-jame-gam.png"))
+    resize(1280, 1400)
+    project = Project.find_by!(idea: "A long idea about 0 games, with a great many words in it, so that it must wrap onto several lines of the table")
+    visit admin_project_path(project)
+    find("#admin-project-jamegam-panel").native.save_screenshot(File.join(dir, "project-section.png"))
+    puts "radii #{evaluate_script(<<~JS)}"
+      (() => {
+        const panel = document.querySelector("#admin-project-jamegam-panel"), cs = getComputedStyle(panel)
+        const th = document.querySelector("#admin-project-jamegam-mine thead th:first-child")
+        const pr = panel.getBoundingClientRect(), tr = th.getBoundingClientRect()
+        return { panelRadius: cs.borderRadius, panelBorder: cs.borderTopWidth, panelPadLeft: cs.paddingLeft, headRadius: getComputedStyle(th).borderRadius,
+                 gapLeft: tr.left - pr.left, gapBottomTable: pr.bottom - document.querySelector("#admin-project-jamegam-mine").getBoundingClientRect().bottom }
+      })()
+    JS
+    ship = project.ships.first
+    ship.update_columns(status: "in_review")
+    visit admin_ship_path(ship)
+    find("#admin-ship-jame-gam").native.save_screenshot(File.join(dir, "ship-review-flag.png"))
+    page.save_screenshot(File.join(dir, "ship-review-1280.png"))
+  end
+
   test "a heading sorts the list, a second click reverses it, and the search is kept" do
     resize(1280, 1000)
     visit admin_projects_path(q: "hackclub.com")
@@ -83,6 +129,18 @@ class AdminProjectsTest < ApplicationSystemTestCase
         user.streak_activities.create!(activity_date: Program::DATES.begin, coded_seconds: (index + 1) * 3000)
       end
       seed_states
+      seed_jame_gam
+    end
+
+    # D-121: the first project is flagged with a status long enough to wrap, among 14 of this game's submissions; the second has 3, none flagged.
+    def seed_jame_gam
+      mine = Project.where("idea LIKE 'A long idea about %'").order(:id).to_a
+      entry = ->(index, status, matches) { { "id" => "rec#{index}", "jam" => "Jame Gam #{index}", "game_title" => "A game with a long title number #{index}", "review_status" => status,
+                                            "submitted_at" => (Time.utc(2026, 10, 25) - index.days).iso8601, "matches" => matches } }
+      long = "Rejected after a long review by the jam team, needs a rewrite of the whole game"
+      mine[0].update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 14, jame_gam_flagged_match_count: 1,
+                             jame_gam_submissions: (0...14).map { entry.(it, it.zero? ? long : "Approved", true) } + [ entry.(99, "Rejected", false) ])
+      mine[1].update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 3, jame_gam_submissions: (0...3).map { entry.(it, "Pending", true) })
     end
 
     def seed_states

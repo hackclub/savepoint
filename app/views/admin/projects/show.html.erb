@@ -142,6 +142,22 @@
         <% end %>
       </section>
 
+      <%# D-121: this game's jame gam submissions, newest first, then the person's other games under their own heading. Only this
+          game's count or flag anywhere else. %>
+      <section class="sp-panel ap__panel" id="admin-project-jamegam-panel" aria-labelledby="admin-project-jamegam">
+        <h2 class="sp-ribbon sp-ribbon--gold ap__ribbon" id="admin-project-jamegam"><span><%= sp_icon "game-2-fill" %>Jame gam</span></h2>
+        <% mine, others = @project.jame_gam_submissions.partition { it["matches"] } %>
+        <% if mine.empty? %>
+          <p class="leaderboard__note ap__empty"><%= @project.jame_gam_checked_at ? "This game has no jame gam submissions." : "Jame gam not checked yet." %></p>
+        <% else %>
+          <%= render "admin/projects/jame_gam_table", entries: mine, id: "admin-project-jamegam-mine" %>
+        <% end %>
+        <% if others.any? %>
+          <h3 class="sp-label" id="admin-project-jamegam-others-title">Other jame gam games</h3>
+          <%= render "admin/projects/jame_gam_table", entries: others, id: "admin-project-jamegam-others" %>
+        <% end %>
+      </section>
+
       <% if @project.screenshot.attached? %>
         <section class="sp-panel ap__panel" aria-labelledby="admin-project-shot">
           <h2 class="sp-ribbon sp-ribbon--gold ap__ribbon" id="admin-project-shot"><span><%= sp_icon "pic-fill" %>Screenshot</span></h2>

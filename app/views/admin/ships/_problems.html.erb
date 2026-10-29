@@ -35,3 +35,27 @@
     </div>
   </div>
 <% end %>
+<%# D-121: a flag on THIS game at the jame gam (same repo or Hackatime project, Submission#matches?; a status that rejects, flags,
+    or calls it fraud or a ban, JameGam.flagged?) is a signal for fraud review. Other games the person submitted do not raise it.
+    Read from what the sweep stored (Project#refresh_jame_gam!), never from Airtable here. A project the sweep has not reached says
+    so, so no line is not mistaken for a clean record. %>
+<% project = ship.project %>
+<% if project.jame_gam_flagged_match_count.positive? %>
+  <div class="ash__problem" id="admin-ship-jame-gam" data-jame-gam="flagged"><%= sp_icon "warning-fill" %>
+    <div>
+      <% flagged = project.jame_gam_submissions.select { it["matches"] && JameGam.flagged?(it["review_status"]) } %>
+      <% if flagged.one? %>
+        <strong>This game was flagged at the jame gam: <%= flagged.first["review_status"] %></strong>
+      <% else %>
+        <strong>This game was flagged at the jame gam <%= pluralize(flagged.size, "time") %></strong>
+      <% end %>
+      <ul class="ash__files" id="admin-ship-jame-gam-list">
+        <% flagged.each do |entry| %>
+          <li><%= entry["game_title"].presence || "Untitled" %> <small class="admin__muted"><%= entry["review_status"] %> · <%= entry["jam"].presence || "no jam named" %> · <%= project_date(Time.iso8601(entry["submitted_at"]).utc.to_date) %></small></li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% elsif project.jame_gam_checked_at.nil? %>
+  <p class="admin__muted ash__quiet" id="admin-ship-jame-gam" data-jame-gam="unchecked"><%= sp_icon "information-fill" %>Jame gam not checked yet.</p>
+<% end %>

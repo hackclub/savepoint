@@ -53,6 +53,7 @@
               <%= sortable_header "streak", sort: @sort, dir: @dir, query: @query, class: "pg-admin-projects__num" %>
               <%= sortable_header "buddy", sort: @sort, dir: @dir, query: @query %>
               <%= sortable_header "ship", sort: @sort, dir: @dir, query: @query %>
+              <%= sortable_header "jame_gam", sort: @sort, dir: @dir, query: @query %>
             </tr>
           </thead>
           <tbody>
@@ -120,6 +121,7 @@
                     <span class="pg-admin-projects__muted">—</span>
                   <% end %>
                 </td>
+                <td data-label="Jame gam" class="pg-admin-projects__jame-cell"><%= jame_gam_summary(project) %></td>
               </tr>
             <% end %>
           </tbody>

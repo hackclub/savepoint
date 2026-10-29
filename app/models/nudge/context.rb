@@ -66,10 +66,10 @@ class Nudge::Context
     local_now < morning ? morning : morning + 1.day
   end
 
-  # The bot can reach them: on Slack, not stopped, and no DM failed in the last Nudge::DM_RETRY_AFTER.
+  # The bot can reach them: not banned (D-113), on Slack, not stopped, and no DM failed in the last Nudge::DM_RETRY_AFTER.
   def reachable?
     failed_at = user.slack_dm_failed_at
-    user.slack_id.present? && user.slack_muted_at.nil? && (failed_at.nil? || failed_at < now - Nudge::DM_RETRY_AFTER)
+    !user.banned? && user.slack_id.present? && user.slack_muted_at.nil? && (failed_at.nil? || failed_at < now - Nudge::DM_RETRY_AFTER)
   end
 
   # The bot DMed them something (anything: a nudge, a cheer, a reward, their project linking itself) within the last

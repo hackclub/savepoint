@@ -16,6 +16,11 @@ class SlackMessageJob < ApplicationJob
   end
 
   def perform(channel, text, link: nil, gif: nil)
+    # D-113: a banned person gets no DM, one queued before the ban included, and a dropped one isn't noted as the bot's
+    # latest. A channel (C…) is never a person.
+    if !channel.to_s.start_with?("C") && SlackBot.banned_recipient?(channel)
+      return Rails.logger.info("Slack message to #{channel} skipped: the account is banned")
+    end
     return Rails.logger.info("Slack (not configured) to #{channel}: #{text}") unless Rails.configuration.x.slack_configured
 
     client = Slack::Web::Client.new

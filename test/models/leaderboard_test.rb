@@ -39,6 +39,21 @@ class LeaderboardTest < ActiveSupport::TestCase
     Rails.configuration.x.admin_slack_ids = admins
   end
 
+  test "banned accounts aren't on the board, sorted by today or by total (D-113)" do
+    Hackatime.stubbed_spans["1002"] << hackatime_span(Time.utc(2026, 10, 25, 9), 60) # Ana has hours today as well as in total
+    StreakActivity.sync_for_user!(@ana.reload)
+    assert_equal [ @ana.project, @orpheus.project ], Leaderboard.ranked(sort: "total")
+    assert_equal [ @ana.project, @orpheus.project ], Leaderboard.ranked(sort: "today")
+
+    @ana.ban!("Fraud.", by: @orpheus)
+
+    assert_equal [ @orpheus.project ], Leaderboard.ranked(sort: "total")
+    assert_equal [ @orpheus.project ], Leaderboard.ranked(sort: "today")
+    first = Leaderboard.places.sole
+    assert_equal [ @orpheus.project, 1, nil ], [ first.project, first.rank, first.above ]
+    assert_nil Leaderboard.place_of(@ana.project)
+  end
+
   test "someone not set up isn't on it" do
     @ana.project.update!(hackatime_projects: [])
     @ana.update!(hackatime_uid: nil, hackatime_access_token: nil)

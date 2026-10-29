@@ -59,7 +59,11 @@ class User < ApplicationRecord
   end
 
   # D-063: banned by an admin after a fraud verdict (Ship#ban_for_fraud!). A banned account can't sign in, ship or claim
-  # a prize, and its other ships still waiting for a verdict are rejected. Nobody is told.
+  # a prize, and its other ships still waiting for a verdict are rejected. D-113: its open sessions end on the next
+  # request (ApplicationController#end_banned_session), the app sends it no Slack DM (SlackBot, SlackMessageJob,
+  # Nudge::Context#reachable?) and it's off the leaderboard (Leaderboard.ranked). Nobody is told.
+  scope :banned, -> { where.not(banned_at: nil) }
+
   def banned? = banned_at.present?
 
   def ban!(reason, by:)

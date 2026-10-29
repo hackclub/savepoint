@@ -69,4 +69,38 @@ class SlackMessageJobTest < ActiveJob::TestCase
     assert_empty @joins
     assert_equal 1, @posts.size
   end
+
+  # D-113: a banned account gets no DM from the app.
+  test "a banned person's DM is dropped, one queued before the ban too" do
+    stub_slack
+    assert_enqueued_jobs 1 do
+      SlackMessageJob.perform_later("U0ANA", "queued while Ana wasn't banned")
+    end
+    users(:ana).ban!("Fraud.", by: users(:orpheus))
+
+    perform_enqueued_jobs
+    SlackMessageJob.perform_now("U0ANA", "sent after", link: [ "Open Save Point", "https://savepoint.example/project" ])
+
+    assert_empty @posts
+    assert_empty @joins
+  end
+
+  test "a dropped DM isn't noted as the bot's latest to them" do
+    stub_slack
+    users(:ana).ban!("Fraud.", by: users(:orpheus))
+    SlackMessageJob.perform_now("U0ANA", "hi")
+
+    assert_nil users(:ana).reload.slack_dmed_at
+  end
+
+  test "it still posts to channels, and DMs people who aren't banned, whoever is" do
+    stub_slack
+    users(:ana).ban!("Fraud.", by: users(:orpheus))
+
+    SlackMessageJob.perform_now("C0CBHCHK469", "a shoutout")
+    SlackMessageJob.perform_now("U0ORPHEUS", "hi")
+
+    assert_equal [ "C0CBHCHK469", "U0ORPHEUS" ], @posts.map { _1[:channel] }
+    assert_not_nil users(:orpheus).reload.slack_dmed_at
+  end
 end

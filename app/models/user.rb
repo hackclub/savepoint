@@ -70,8 +70,11 @@ class User < ApplicationRecord
     transaction do
       update!(banned_at: Time.current, ban_reason: reason)
       project&.ships&.pending&.find_each do |ship|
-        ship.update!(status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current,
-                     fraud_notes: "Banned with the account: #{reason}", decided_by: by, decided_at: Time.current)
+        rejection = { status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current,
+                      fraud_notes: "Banned with the account: #{reason}", decided_by: by, decided_at: Time.current }
+        # D-112: a ship that waits for its fraud check holds the message written under Approve, which isn't the ban's.
+        rejection[:review_feedback] = Ship::BAN_NOTE if ship.awaiting_fraud?
+        ship.update!(rejection)
       end
     end
   end

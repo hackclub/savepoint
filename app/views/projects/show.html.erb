@@ -119,6 +119,8 @@
               <p class="project__schedule-note"><%= project_schedule_note(@project) %></p>
               <% if @project.latest_standing_ship && @project.may_ship? && Time.current < Program::ENDS_AT %><%= render "projects/ship_counter", project: @project %><% end %>
             <% end %>
+            <%# D-112: what the reviewer wrote on your latest approved ship, whatever the next step is. %>
+            <% if (reviewer_note = project_reviewer_note(@project)) %><%= render "projects/reviewer_note", note: reviewer_note %><% end %>
             <div class="project__plan">
               <div class="project__goal-cells">
                 <% project_goal(@project).each_with_index do |cell, index| %>

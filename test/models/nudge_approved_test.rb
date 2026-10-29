@@ -43,6 +43,13 @@ class NudgeApprovedTest < ActiveSupport::TestCase
     travel_to(at) { Nudge::Approved.deliver(ship, at) }
   end
 
+  # An approved ship whose review left this message for the participant (D-112), as review_feedback.
+  def approve_with_message!(message, hours = 2.5)
+    ship = new_ship(hours)
+    ship.review_feedback = message
+    approve!(ship)
+  end
+
   test "approving a ship queues the DM, and saving it again does not" do
     ship = new_ship(2)
     assert_enqueued_with(job: NudgeApprovedJob, args: [ ship.id ]) { approve!(ship) }
@@ -164,6 +171,66 @@ class NudgeApprovedTest < ActiveSupport::TestCase
     assert_in_delta noon + 50.minutes, deliver(ship), 1
     assert_empty @sent
     assert deliver(ship, noon + 51.minutes).delivered
+  end
+
+  # D-112: the reviewer's message to the participant goes after the usual line.
+
+  test "a message from the reviewer follows the usual line, after a lead-in, as a quote" do
+    nudge = deliver(approve_with_message!("Loved the boss fight! The music gave me chills :yay:"))
+    slack_id, text, blocks = @sent.sole
+
+    assert nudge.delivered
+    usual, note = text.split("\n\n")
+    assert_includes usual, "2.5"
+    assert_includes usual, @goal.name
+    assert_equal "your reviewer left you a note:\n> Loved the boss fight! The music gave me chills :yay:", note
+    assert_equal "U0ORPHEUS", slack_id
+    # What is kept is what Slack got: the nudge's text, the message's fallback text and the section block are one string.
+    assert_equal text, nudge.reload.text
+    assert_equal text, blocks.first.dig(:text, :text)
+    assert_equal text, Nudge::Message.new(nudge).blocks.first.dig(:text, :text)
+  end
+
+  test "with no message from the reviewer the DM is the usual line alone" do
+    [ nil, "", " \r\n \t " ].each do |blank|
+      @user.update_column(:slack_dmed_at, nil)
+      assert deliver(approve_with_message!(blank)).delivered
+      assert_not_includes @sent.last.second, "\n", "nothing is added for #{blank.inspect}"
+      assert_not_includes @sent.last.second, Nudge::Copy::REVIEWER_NOTE_LEAD_IN
+    end
+    assert_equal 3, @sent.size
+  end
+
+  test "the message is escaped for Slack, and keeps emoji codes, bold text and a percent sign" do
+    deliver(approve_with_message!("<!channel> & <https://x.example|click> 100% *proud* :yay: >nope"))
+
+    assert_equal "> &lt;!channel&gt; &amp; &lt;https://x.example|click&gt; 100% *proud* :yay: &gt;nope", @sent.sole.second.lines(chomp: true).last
+  end
+
+  test "every line of a message is quoted, a blank one too, whatever breaks the lines" do
+    deliver(approve_with_message!("one\r\n\r\n\r\n\r\ntwo\nthree  \n> four"))
+
+    assert_equal [ "your reviewer left you a note:", "> one", ">", "> two", "> three", "> &gt; four" ], @sent.sole.second.lines(chomp: true).last(6)
+  end
+
+  test "a very long message is cut so that Slack takes the DM, and a cut never splits an escape" do
+    deliver(approve_with_message!("&" * 3000))
+    text = @sent.sole.second
+
+    assert_operator text.length, :<, 3000, "a section is at most 3000 characters"
+    assert_match(/\n> (&amp;)+…\z/, text)
+    assert_includes text, "approved"
+  end
+
+  test "a message is read when the DM goes, so a DM held for the morning carries it" do
+    ship = approve_with_message!("See you tomorrow!")
+    late = zone.local(2026, 10, 25, 23)
+    assert_equal zone.local(2026, 10, 26, 8), deliver(ship, late)
+    assert_empty @sent
+
+    ship.update_column(:review_feedback, "See you tomorrow! I fixed a typo.")
+    assert deliver(ship, zone.local(2026, 10, 26, 8)).delivered
+    assert_equal "> See you tomorrow! I fixed a typo.", @sent.sole.second.lines(chomp: true).last
   end
 
   test "every approved arm has copy, a button and a GIF" do

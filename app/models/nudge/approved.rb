@@ -2,7 +2,8 @@
 # toward their goal prize. Ship queues it (NudgeApprovedJob). One DM for each ship, whatever re-saves the ship does. It keeps
 # to what the other DMs keep to: nothing to admins or to someone who stopped the bot, and quiet hours or anything the bot said
 # within Nudge::MESSAGE_GAP make it wait rather than drop. Unlike the others it still sends after Program::ENDS_AT, because
-# reviews go on after the end.
+# reviews go on after the end. D-112: when the reviewer wrote a message to the participant with the verdict (review_feedback), the
+# DM carries it after its usual line (Nudge::Copy.with_reviewer_note).
 module Nudge::Approved
   KIND = "approved"
   # Goal not reached yet, goal reached, and no goal to speak of (none picked, or already claimed).
@@ -25,7 +26,7 @@ module Nudge::Approved
       return later if later
 
       nudge = user.nudges.new(kind: KIND, arm: arm_for(ship.project), ship_id: ship.id, propensity: 1.0)
-      nudge.deliver!(vars(ship))
+      nudge.deliver!(vars(ship), note: ship.review_feedback)
       nudge
     end
   end

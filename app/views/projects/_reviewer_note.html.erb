@@ -1,0 +1,7 @@
+<%# locals: (note:) %>
+<%# D-112: what the reviewer wrote to you on your latest approved ship (project_reviewer_note), under the approval. Plain text: a line break
+    stays (white-space: pre-line in project.css) and any markup in it shows as typed. %>
+<aside class="project__reviewer-note" aria-labelledby="project-reviewer-note-title">
+  <h3 class="project__reviewer-note-title" id="project-reviewer-note-title"><%= sp_icon "heart-fill" %>A note from your reviewer</h3>
+  <blockquote class="project__reviewer-note-text"><%= note %></blockquote>
+</aside>

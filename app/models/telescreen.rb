@@ -6,8 +6,12 @@ module Telescreen
   LAPSE_REVIEW = "#{HOST}/workbench/lapse"
   HACKATIME_WORKBENCH = "#{HOST}/workbench/hackatime/overview"
 
-  # The numeric Hackatime id of a user, or nil when none is stored or it isn't all digits.
-  def self.hackatime_id(user) = user.hackatime_uid.to_s[/\A\d+\z/]
+  # The numeric Hackatime id of a user, or nil when none is stored or it isn't all digits. Rebuilt from the integer, so nothing but
+  # digits can reach a URL.
+  def self.hackatime_id(user)
+    raw = user.hackatime_uid.to_s
+    Integer(raw, 10).to_s if raw.match?(/\A\d+\z/)
+  end
 
   # The participant's Hackatime workbench for these linked projects, or nil without a numeric id (nothing to open for them).
   def self.hackatime_url(user, names)

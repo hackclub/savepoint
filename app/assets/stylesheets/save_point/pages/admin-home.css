@@ -236,7 +236,7 @@ turbo-frame.pg-admin-home__frame, .pg-admin-home turbo-frame { display: block; }
 .admin-answer__qa dd { margin: 0; font: 600 15px/22px var(--font-body); color: var(--ink); overflow-wrap: anywhere; }
 
 /* Details that hide the long part (more answers, the daily history): a pill summary, the content 12px under it. */
-.admin-more > summary {
+.admin-more > summary, .admin-more__all {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; cursor: pointer; list-style: none;
   border: 2px solid var(--line-strong); border-radius: var(--radius-full); background: var(--surface);
   font: 800 14px/20px var(--font-body); color: var(--royal-ink);
@@ -244,9 +244,10 @@ turbo-frame.pg-admin-home__frame, .pg-admin-home turbo-frame { display: block; }
 .admin-more > summary::-webkit-details-marker { display: none; }
 .admin-more > summary .sp-icon { font-size: 18px; transition: transform 200ms; }
 .admin-more[open] > summary .sp-icon { transform: rotate(180deg); }
-.admin-more > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.admin-more > summary:focus-visible, .admin-more__all:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .admin-more[open] > :not(summary) { margin-top: var(--space-3); }
-.admin-answers + .admin-more { margin-top: var(--space-3); }
+.admin-answers + .admin-more, .admin-more + .admin-more__all, .admin-answers + .admin-more__all { margin-top: var(--space-3); }
+.admin-more__all { text-decoration: none; }
 
 /* The stats charts (Growth): the stats page's line charts and tables, under .pg-stats, in the home's cards. .pg-stats is a whole
    page there, so its height and padding are cancelled; the cards give the 12px inset and the 18px corners, and anything nested
@@ -275,7 +276,7 @@ turbo-frame.pg-admin-home__frame, .pg-admin-home turbo-frame { display: block; }
 .pg-admin-home__subrow > .pg-admin-home__sub { margin: 0; }
 .pg-admin-home .pg-stats .stats__toggle { border-radius: var(--inner-radius); }
 .pg-admin-home .pg-stats .stats__toggle-option, .pg-admin-home .pg-stats .stats__pill { border-radius: calc(var(--inner-radius) - 2px - 4px); }
-.pg-admin-home .admin-more > summary, .pg-admin-home .pg-stats > .stats__table-view summary { border-radius: var(--inner-radius); }
+.pg-admin-home .admin-more > summary, .pg-admin-home .admin-more__all, .pg-admin-home .pg-stats > .stats__table-view summary { border-radius: var(--inner-radius); }
 .pg-admin-home .admin-chart .stats__table-view summary { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
 .pg-admin-home .admin-answer__pill { border-radius: calc(var(--inner-radius) - 2px - var(--inset)); }
 

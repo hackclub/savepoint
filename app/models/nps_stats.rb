@@ -27,7 +27,12 @@ class NpsStats
   def last_7_days = span(today)
 
   # The newest answers, with their people and projects.
-  def latest = participants_answers.includes(:user, :project).order(created_at: :desc, id: :desc).limit(LATEST)
+  def latest = newest_first.limit(LATEST)
+
+  # Every answer, newest first (D-119). The same people as `latest`: admins are left out.
+  def all = newest_first
+
+  def count = @answers.size
 
   def span(last_day)
     days = (last_day - (DAYS - 1))..last_day
@@ -38,6 +43,8 @@ class NpsStats
 
   private
     def today = NpsResponse.day(@now)
+
+    def newest_first = participants_answers.includes(:user, :project).order(created_at: :desc, id: :desc)
 
     def participants_answers
       listed = Rails.configuration.x.admin_slack_ids.to_a

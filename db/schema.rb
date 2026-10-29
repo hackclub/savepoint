@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_100100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -247,6 +247,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_100100) do
     t.datetime "first_coded_at"
     t.datetime "hackatime_picked_at"
     t.boolean "hackatime_link_confirmed", default: false, null: false
+    t.jsonb "jame_gam_submissions", default: [], null: false
+    t.integer "jame_gam_match_count", default: 0, null: false
+    t.integer "jame_gam_flagged_match_count", default: 0, null: false
+    t.datetime "jame_gam_checked_at"
     t.index ["buddy_code"], name: "index_projects_on_buddy_code", unique: true
     t.index ["user_id"], name: "index_projects_on_user_id", unique: true
   end

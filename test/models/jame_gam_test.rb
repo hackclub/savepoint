@@ -186,8 +186,47 @@ class JameGamTest < ActiveSupport::TestCase
     assert_nothing_raised { JameGamRefreshJob.perform_now(0) }
   end
 
-  test "the sweep queues every tracking project, and does nothing without a token" do
+  # D-121.
+
+  test "every submission by the person is stored with nothing personal, and only this game's count" do
+    answer({ records: [ record("recA", "2026-10-25T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Rejected", jam: "Jam 3", game_title: "Rhythm",
+                               email: "me@x.com", slack_id: "U1", code_url: "https://secret.example/x"),
+                        record("recOld", "2026-10-24T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Approved"),
+                        record("recOther", "2026-10-26T20:00:00.000Z", code_url: "https://github.com/x/another", hackatime_names: "another", review_status: "Rejected") ] })
+    @project.refresh_jame_gam!
+    @project.reload
+
+    assert_equal %w[recOther recA recOld], @project.jame_gam_submissions.map { it["id"] }, "newest first"
+    assert_equal [ false, true, true ], @project.jame_gam_submissions.map { it["matches"] }
+    assert_equal %w[id jam game_title review_status submitted_at matches].sort, @project.jame_gam_submissions.first.keys.sort
+    assert_no_match(/me@x\.com|U1|secret|another"/, @project.jame_gam_submissions.to_json.sub('"another"', ""))
+    assert_equal [ 2, 1 ], [ @project.jame_gam_match_count, @project.jame_gam_flagged_match_count ], "the other game's rejection does not count"
+    assert_not_nil @project.jame_gam_checked_at
+    assert_equal "recA", @project.jame_gam_submission_id
+  end
+
+  test "a failed lookup keeps the stored submissions and counts" do
+    @project.update_columns(jame_gam_submissions: [ { "id" => "recA", "matches" => true, "review_status" => "Rejected" } ], jame_gam_match_count: 1,
+                            jame_gam_flagged_match_count: 1, jame_gam_checked_at: Time.utc(2026, 10, 25))
+    Web.adapter = ->(*) { Web::Response.new(status: 500, headers: {}, body: "") }
+    @project.refresh_jame_gam!
+    @project.reload
+    assert_equal [ 1, 1, 1 ], [ @project.jame_gam_submissions.size, @project.jame_gam_match_count, @project.jame_gam_flagged_match_count ]
+    assert_equal Time.utc(2026, 10, 25), @project.jame_gam_checked_at
+  end
+
+  test "a status that rejects, flags, or calls fraud or a ban is flagged" do
+    %w[Rejected rejected Flagged Fraud Banned].each { assert JameGam.flagged?(it), it }
+    [ "Pending", "Approved", nil, "" ].each { assert_not JameGam.flagged?(it), it.inspect }
+  end
+
+  test "the sweep queues every project, tracking or not, spread out, and does nothing without a token" do
+    other = User.create!(hca_id: "ident!notrack", name: "No Track", first_name: "No", email: "notrack@hackclub.com")
+    unlinked = Project.create!(user: other, idea: "idea", prize_key: "steam25", pace_minutes: 45, build_time: "evening", signed_on: "2026-09-30")
+    assert_not unlinked.tracking?
     assert_enqueued_with(job: JameGamRefreshJob, args: [ @project.id ]) { JameGamSweepJob.perform_now }
+    assert_enqueued_with(job: JameGamRefreshJob, args: [ unlinked.id ]) { JameGamSweepJob.perform_now }
+    clear_enqueued_jobs
 
     JameGam::Submissions.token = nil
     ENV.delete("JAMEGAM_AIRTABLE_TOKEN")

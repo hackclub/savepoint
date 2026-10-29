@@ -114,6 +114,62 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_equal ids.(ana, bo, cy, orpheus), listed(sort: "who"), "a name opens A to Z"
   end
 
+  # D-121: this game's jame gam submissions only. Ana has 2 here, 1 rejected; Bo 3, none flagged; Cy 1, rejected; Orpheus none.
+  def jame_gam_crowd
+    crowd => { orpheus:, ana:, bo:, cy: }
+    entry = ->(id, status, matches, at: "2026-10-25T10:00:00Z") { { "id" => id, "jam" => "Jam 3", "game_title" => "Pong", "review_status" => status, "submitted_at" => at, "matches" => matches } }
+    ana.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 2, jame_gam_flagged_match_count: 1, jame_gam_submission_id: "a1",
+                       jame_gam_submissions: [ entry.("a1", "Rejected", true), entry.("a2", "Approved", true, at: "2026-10-20T10:00:00Z"), entry.("a3", "Rejected", false) ])
+    bo.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 3, jame_gam_submissions: [ entry.("b1", "Pending", true), entry.("b2", "Pending", true), entry.("b3", "Approved", true) ])
+    cy.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 1, jame_gam_flagged_match_count: 1, jame_gam_submissions: [ entry.("c1", "Flagged", true) ])
+    { orpheus:, ana:, bo:, cy: }
+  end
+
+  test "D-121: the jame gam column shows this game's flags, and sorts by them before the limit" do
+    sign_in_as(users(:orpheus))
+    jame_gam_crowd => { orpheus:, ana:, bo:, cy: }
+    ids = ->(*list) { list.map { dom_id(it) } }
+
+    assert_equal ids.(ana, cy, bo, orpheus), listed(sort: "jame_gam"), "most flagged first, then most submissions, then newest"
+    assert_equal ids.(ana, cy, bo, orpheus), listed(sort: "jame_gam", dir: "desc")
+    assert_equal ids.(orpheus, bo, cy, ana), listed(sort: "jame_gam", dir: "asc")
+    get admin_projects_path(sort: "jame_gam")
+    assert_select "thead th[aria-sort=descending] a[data-sort=jame_gam]", "Jame gam"
+    assert_select "tr##{dom_id(ana)} td[data-label='Jame gam']", text: "Rejected of 2"
+    assert_select "tr##{dom_id(ana)} td[data-label='Jame gam'] .pg-admin-projects__jame--flagged", "Rejected"
+    assert_select "tr##{dom_id(cy)} td[data-label='Jame gam']", text: "Flagged of 1"
+    assert_select "tr##{dom_id(bo)} td[data-label='Jame gam']", text: "3, none flagged"
+    assert_select "tr##{dom_id(bo)} td[data-label='Jame gam'] .pg-admin-projects__jame--flagged", 0
+    assert_select "tr##{dom_id(orpheus)} td[data-label='Jame gam']", text: "—"
+
+    original = Admin::ProjectsController::LIMIT
+    silence_warnings { Admin::ProjectsController.const_set(:LIMIT, 1) }
+    assert_equal ids.(ana), listed(sort: "jame_gam")
+  ensure
+    silence_warnings { Admin::ProjectsController.const_set(:LIMIT, original) } if original
+  end
+
+  test "D-121: two flagged submissions show as a count, and the project page lists this game's first, then the other games" do
+    sign_in_as(users(:orpheus))
+    jame_gam_crowd => { ana: }
+    ana.update_columns(jame_gam_flagged_match_count: 2)
+    get admin_projects_path
+    assert_select "tr##{dom_id(ana)} .pg-admin-projects__jame--flagged", "2 flagged"
+
+    get admin_project_path(ana)
+    assert_select "#admin-project-jamegam-mine tbody tr", 2
+    assert_select "#admin-project-jamegam-mine tr[data-status=flagged] .ap__jame-status--flagged", "Rejected"
+    assert_select "#admin-project-jamegam-mine tbody tr:first-child", text: /Jam 3\s+Pong\s+Rejected\s+Oct 25/
+    assert_select "#admin-project-jamegam-others-title", "Other jame gam games"
+    assert_select "#admin-project-jamegam-others tbody tr", 1
+    assert_select "#admin-project-jamegam-others [data-status=flagged]", 0, "other games are never highlighted"
+
+    ana.update_columns(jame_gam_checked_at: nil, jame_gam_submissions: [])
+    get admin_project_path(ana)
+    assert_select "#admin-project-jamegam + p, #admin-project-jamegam ~ p", text: "Jame gam not checked yet."
+    assert_select "#admin-project-jamegam-others-title", 0
+  end
+
   test "D-114: the current sort shows on its heading, and a second click reverses it" do
     sign_in_as(users(:orpheus))
     crowd

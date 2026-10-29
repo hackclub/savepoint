@@ -934,6 +934,25 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#hours-start", /Oct 25, 10:00 UTC\s+\(jame gam submission \(Pending, Oct 25\)\)/
   end
 
+  test "D-121: the review page flags this game at the jame gam, says when it was never checked, and is quiet otherwise" do
+    sign_in_as(users(:orpheus))
+    project = projects(:ana)
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam[data-jame-gam=unchecked]", "Jame gam not checked yet."
+
+    other = { "id" => "recB", "jam" => "Jam 1", "game_title" => "Another game", "review_status" => "Rejected", "submitted_at" => "2026-10-20T10:00:00Z", "matches" => false }
+    project.update_columns(jame_gam_checked_at: Time.current, jame_gam_submissions: [ other ])
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam", 0, "another game's rejection raises nothing"
+
+    mine = { "id" => "recA", "jam" => "Jam 3", "game_title" => "Pong", "review_status" => "Rejected", "submitted_at" => "2026-10-25T10:00:00Z", "matches" => true }
+    project.update_columns(jame_gam_submissions: [ mine, other ], jame_gam_match_count: 1, jame_gam_flagged_match_count: 1)
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam[data-jame-gam=flagged] strong", "This game was flagged at the jame gam: Rejected"
+    assert_select "#admin-ship-jame-gam-list li", text: /Pong\s+Rejected · Jam 3 · Oct 25/
+    assert_select "#admin-ship-jame-gam-list li", 1
+  end
+
   test "the review page shows where the hours start from, and an admin sets and clears an override" do
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)

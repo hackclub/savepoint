@@ -100,6 +100,15 @@
 .pg-admin-projects__table a.pg-admin-projects__ship--approved { --t-ink: var(--mint-ink); --t-soft: var(--mint-soft); }
 .pg-admin-projects__table a.pg-admin-projects__ship--rejected { --t-ink: var(--coral-ink); --t-soft: var(--coral-soft); }
 
+/* D-121: the jame gam cell. the flagged status is a coral chip (the words carry the meaning, not only the colour), then "of M" in plain
+   text. The chip is a pill, not nested in any rounded box; the cell wraps rather than widening the table. */
+.pg-admin-projects__jame {
+  --t-ink: var(--coral-ink); --t-soft: var(--coral-soft);
+  display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: var(--radius-full);
+  background: var(--t-soft); color: var(--t-ink); font: 800 13px/16px var(--font-body); box-shadow: inset 0 -2px 0 var(--shade);
+  max-width: 100%; padding-block: 5px; white-space: normal; overflow-wrap: anywhere; border-radius: 14px;
+}
+
 /* ---------- Narrow: each row is a card ---------- */
 @media (max-width: 819px) {
   .pg-admin-projects__panel { overflow: visible; background: none; border: 0; box-shadow: none; border-radius: 0; }
@@ -120,7 +129,7 @@
   .pg-admin-projects__table tbody th, .pg-admin-projects__table td { display: block; min-width: 0; padding: 10px 14px; border-top: 2px solid var(--line) !important; text-align: left !important; overflow-wrap: anywhere; }
   .pg-admin-projects__table tbody th { grid-column: 1 / -1; padding-block: 14px 12px; background: var(--surface-sunken); border-top: 0 !important; }
   .pg-admin-projects__project-link { font-size: 18px; line-height: 22px; }
-  .pg-admin-projects__table td[data-label="Who"], .pg-admin-projects__table td[data-label="Pledge"], .pg-admin-projects__table td[data-label="Hackatime"] { grid-column: 1 / -1; }
+  .pg-admin-projects__table td[data-label="Who"], .pg-admin-projects__table td[data-label="Pledge"], .pg-admin-projects__table td[data-label="Hackatime"], .pg-admin-projects__table td[data-label="Jame gam"] { grid-column: 1 / -1; }
   .pg-admin-projects__table td::before {
     content: attr(data-label); display: block; margin-bottom: 4px;
     font: 800 11px/14px var(--font-body); font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);

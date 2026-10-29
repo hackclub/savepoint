@@ -33,15 +33,15 @@
   border: 2px solid var(--line); border-radius: var(--radius-lg);
   box-shadow: 0 var(--lip-depth) 0 var(--line), var(--shadow-soft);
 }
-.pg-admin-projects__table { width: 100%; min-width: 1060px; border-collapse: collapse; font: 600 14px/20px var(--font-body); }
+.pg-admin-projects__table { width: 100%; border-collapse: collapse; font: 600 14px/20px var(--font-body); }
 .pg-admin-projects__table thead th {
-  padding: 12px 14px; background: var(--surface-sunken); text-align: left; white-space: nowrap;
+  padding: 12px 14px; background: var(--surface-sunken); text-align: left;
   font: 800 12px/16px var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
   border-bottom: 2px solid var(--line);
 }
 .pg-admin-projects__table thead th:first-child { border-top-left-radius: calc(var(--radius-lg) - 2px); }
 .pg-admin-projects__table thead th:last-child { border-top-right-radius: calc(var(--radius-lg) - 2px); }
-.pg-admin-projects__table tbody th, .pg-admin-projects__table td { padding: 12px 14px; text-align: left; vertical-align: top; font-weight: 700; }
+.pg-admin-projects__table tbody th, .pg-admin-projects__table td { padding: 12px 14px; text-align: left; vertical-align: top; font-weight: 700; overflow-wrap: anywhere; }
 .pg-admin-projects__table tbody tr + tr > * { border-top: 2px solid var(--line); }
 .pg-admin-projects__table tbody tr { transition: background 120ms; }
 .pg-admin-projects__table tbody tr:hover { background: var(--royal-soft); }
@@ -58,16 +58,32 @@
 .pg-admin-projects__table a { color: var(--royal-ink); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--royal-glow); border-radius: 4px; }
 .pg-admin-projects__table a:hover { text-decoration-color: currentColor; }
 .pg-admin-projects__table a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.pg-admin-projects__project { min-width: 190px; }
+.pg-admin-projects__project { min-width: 0; }
 .pg-admin-projects__project-link { font: 800 italic 16px/20px var(--font-display); }
 
-.pg-admin-projects__who { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 200px; }
+.pg-admin-projects__who { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.pg-admin-projects__who > span:last-child { min-width: 0; }
 .pg-admin-projects__name { display: block; }
 .pg-admin-projects__avatar {
   flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 4px; border-radius: 50%; overflow: hidden;
   background: var(--avatar-color, var(--royal-soft)); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--line);
 }
 .pg-admin-projects__avatar svg { width: 100%; height: 100%; display: block; }
+
+/* D-114: a sortable heading is a link in the heading's own type, with an arrow after it while it is the sort. No pill, so
+   nothing is nested in the heading's corners. It wraps rather than widening the table. */
+.pg-admin-projects__table thead a.pg-admin-projects__sort {
+  display: inline-flex; align-items: center; gap: 4px; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: none; border-radius: 4px;
+}
+.pg-admin-projects__table thead a.pg-admin-projects__sort:hover { color: var(--royal-ink); }
+.pg-admin-projects__table thead th[aria-sort] { color: var(--royal-ink); }
+.pg-admin-projects__sort-arrow { flex: none; font-size: 14px; }
+.pg-admin-projects__num .pg-admin-projects__sort { justify-content: flex-end; }
+
+/* D-114: the Hackatime project names as one link to Telescreen, with the review page's search icon before them. The names wrap. */
+.pg-admin-projects__table a.pg-admin-projects__telescreen { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; }
+.pg-admin-projects__telescreen [data-icon] { flex: none; font-size: 16px; align-self: flex-start; margin-top: 2px; }
+.pg-admin-projects__telescreen > span { min-width: 0; }
 
 /* Status chips: not linked, linked without a project, and the ship's state. */
 .pg-admin-projects__chip, .pg-admin-projects__table a.pg-admin-projects__ship {
@@ -88,7 +104,10 @@
 @media (max-width: 819px) {
   .pg-admin-projects__panel { overflow: visible; background: none; border: 0; box-shadow: none; border-radius: 0; }
   .pg-admin-projects__table { min-width: 0; }
-  .pg-admin-projects__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* D-114: the headings stay, as a row of sort links above the cards. */
+  .pg-admin-projects__table thead { display: block; margin-bottom: var(--space-3); }
+  .pg-admin-projects__table thead tr { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+  .pg-admin-projects__table thead th { padding: 0; background: none; border: 0; border-radius: 0; text-align: left !important; }
   .pg-admin-projects__table, .pg-admin-projects__table tbody { display: block; }
   .pg-admin-projects__table tbody { display: grid; gap: var(--space-4); }
   .pg-admin-projects__table tbody tr {

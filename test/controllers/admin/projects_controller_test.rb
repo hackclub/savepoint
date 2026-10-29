@@ -50,6 +50,123 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", admin_user_impersonation_path(@ana.user)
   end
 
+  # D-114: four projects whose columns all differ, made newest last. Ana tracks 2.17 hrs (streak 1), Bo tracks 5 (streak 4, paired
+  # with Ana, ship in review), Cy has Hackatime linked with no project (streak 2, invited a buddy, ship sent back), Orpheus nothing.
+  def crowd
+    now = Time.utc(2026, 10, 25, 12)
+    projects(:orpheus).update_columns(created_at: now - 4.days)
+    @ana.update_columns(created_at: now - 3.days)
+    bo = new_participant("bo", name: "Bo Zed", prize: "aseprite", projects: [ "zeta-game" ], streak: 4, hours: 5)
+    bo.update_columns(created_at: now - 2.days, name: "zeta")
+    cy = new_participant("cy", name: "Cy Young", prize: "steam25", projects: [], streak: 2, hours: 0)
+    cy.update_columns(created_at: now - 1.day)
+    cy.update!(buddy_invited: true)
+    @ana.pair_with(bo)
+    ship_for(bo)
+    ship_for(cy).update_columns(status: "changes_needed")
+    { orpheus: projects(:orpheus), ana: @ana, bo:, cy: }
+  end
+
+  def new_participant(handle, name:, prize:, projects:, streak:, hours:)
+    user = User.create!(hca_id: "ident!#{handle}", name:, first_name: name.split.first, email: "#{handle}@hackclub.com", slack_display_name: handle,
+                        hackatime_uid: (3000 + handle.sum).to_s, hackatime_access_token: "token-#{handle}", current_streak: streak)
+    project = Project.create!(user:, idea: "idea of #{handle}", prize_key: prize, pace_minutes: 45, build_time: "evening", signed_on: "2026-09-30", hackatime_projects: projects)
+    user.streak_activities.create!(activity_date: Program::DATES.begin, coded_seconds: (hours * 3600).to_i) if hours.positive?
+    project
+  end
+
+  def ship_for(project)
+    project.ships.create!(title: "Ship of #{project.idea}", description: "Two paddles, one ball, and every frame is a sprite.", repo_url: "https://github.com/x/y",
+                          demo_url: "https://example.com/x", hours: 1, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"),
+                          screenshot_shows_game: true)
+  end
+
+  def listed(**params)
+    get admin_projects_path(**params)
+    assert_response :success
+    css_select("tbody tr").map { |row| row["id"] }
+  end
+
+  test "D-114: sorts by every column, both ways, the newest first among equals" do
+    sign_in_as(users(:orpheus))
+    crowd => { orpheus:, ana:, bo:, cy: }
+    ids = ->(*list) { list.map { dom_id(it) } }
+
+    assert_equal ids.(cy, bo, ana, orpheus), listed, "default order is newest first"
+    assert_equal ids.(cy, bo, ana, orpheus), listed(sort: "nonsense", dir: "up"), "an unknown key is the default"
+    assert_select "th[aria-sort]", 0
+
+    prize_order = [ orpheus, ana, bo, cy ].sort_by { |project| Prize::ALL.index { it.key == project.prize_key } }
+    {
+      "project" => [ ids.(orpheus, cy, ana, bo), ids.(bo, ana, cy, orpheus) ],
+      "who" => [ ids.(ana, bo, cy, orpheus), ids.(orpheus, cy, bo, ana) ],
+      "pledge" => [ ids.(*prize_order), ids.(*prize_order.reverse) ],
+      "hackatime" => [ ids.(orpheus, cy, bo, ana), ids.(bo, ana, cy, orpheus) ],
+      "hours" => [ ids.(cy, orpheus, ana, bo), ids.(bo, ana, cy, orpheus) ],
+      "streak" => [ ids.(orpheus, ana, cy, bo), ids.(bo, cy, ana, orpheus) ],
+      "buddy" => [ ids.(orpheus, cy, bo, ana), ids.(bo, ana, cy, orpheus) ],
+      "ship" => [ ids.(ana, orpheus, cy, bo), ids.(bo, cy, ana, orpheus) ]
+    }.each do |key, (ascending, descending)|
+      assert_equal ascending, listed(sort: key, dir: "asc"), "#{key} ascending"
+      assert_equal descending, listed(sort: key, dir: "desc"), "#{key} descending"
+    end
+    assert_equal ids.(bo, ana, cy, orpheus), listed(sort: "hours"), "hours opens with the most first"
+    assert_equal ids.(ana, bo, cy, orpheus), listed(sort: "who"), "a name opens A to Z"
+  end
+
+  test "D-114: the current sort shows on its heading, and a second click reverses it" do
+    sign_in_as(users(:orpheus))
+    crowd
+    get admin_projects_path(sort: "hours", dir: "desc", q: "zed")
+    assert_select "thead th[aria-sort]", 1
+    assert_select "thead th[aria-sort=descending] a[data-sort=hours][href=?]", admin_projects_path(q: "zed", sort: "hours", dir: "asc")
+    assert_select "thead th[aria-sort=descending] .pg-admin-projects__sort-arrow"
+    assert_select "thead th a[data-sort=who][href=?]", admin_projects_path(q: "zed", sort: "who", dir: "asc"), "Who"
+    assert_select "thead th a[data-sort=streak][href=?]", admin_projects_path(q: "zed", sort: "streak", dir: "desc")
+    assert_select "form.pg-admin-projects__search input[name=sort][value=hours]"
+    assert_select "form.pg-admin-projects__search input[name=dir][value=desc]"
+
+    get admin_projects_path(sort: "who", dir: "asc")
+    assert_select "thead th[aria-sort=ascending] a[data-sort=who][href=?]", admin_projects_path(sort: "who", dir: "desc")
+    get admin_projects_path
+    assert_select "form.pg-admin-projects__search input[name=sort]", 0
+    assert_select "thead th a[data-sort=hours][href=?]", admin_projects_path(sort: "hours", dir: "desc")
+  end
+
+  test "D-114: the sort covers every matching project before the limit" do
+    sign_in_as(users(:orpheus))
+    crowd => { bo:, ana: }
+    original = Admin::ProjectsController::LIMIT
+    silence_warnings { Admin::ProjectsController.const_set(:LIMIT, 2) }
+    assert_equal [ dom_id(bo), dom_id(ana) ], listed(sort: "hours", dir: "desc"), "Bo and Ana have the most hours, though they are not the two newest"
+    assert_select ".pg-admin-projects__count", "4 projects"
+    assert_select ".pg-admin-projects__more", /The first 2 of 4/
+    get admin_projects_path
+    assert_select ".pg-admin-projects__more", /The newest 2 of 4/
+  ensure
+    silence_warnings { Admin::ProjectsController.const_set(:LIMIT, original) }
+  end
+
+  test "D-114: the hackatime names open Telescreen with the stored id, and are plain text without one" do
+    sign_in_as(users(:orpheus))
+    @ana.update_columns(hackatime_projects: [ "Excuse Me, Pardon Me", "pong" ])
+    get admin_projects_path
+    url = "https://telescreen.hackclub.com/workbench/hackatime/overview?u=2002&p=Excuse+Me%2C+Pardon+Me,pong"
+    assert_select "tr##{dom_id(@ana)} a#project_#{@ana.id}-telescreen[href=?][target=_blank][rel=noopener]", url, text: "Excuse Me, Pardon Me, pong"
+    assert_equal url, Ship::Evidence.new(@ana.ships.build(hackatime_projects: @ana.hackatime_projects)).telescreen_url, "the review page opens the same URL"
+    assert_select "tr##{dom_id(projects(:orpheus))} a[href*=telescreen]", 0
+
+    @ana.user.update_columns(hackatime_uid: "ana-not-a-number")
+    get admin_projects_path
+    assert_select "tr##{dom_id(@ana)} a[href*=telescreen]", 0
+    assert_select "tr##{dom_id(@ana)}", text: /Excuse Me, Pardon Me, pong/
+
+    @ana.user.update_columns(hackatime_uid: nil)
+    get admin_projects_path
+    assert_select "tr##{dom_id(@ana)} a[href*=telescreen]", 0
+    assert_select "tr##{dom_id(@ana)} .pg-admin-projects__chip", "not linked"
+  end
+
   test "a project's buddy and ships link through" do
     sign_in_as(users(:orpheus))
     @ana.pair_with(projects(:orpheus))

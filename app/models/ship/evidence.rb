@@ -3,9 +3,6 @@
 # same Slack account, and whether Stardance already has the repo. Each part is looked up when asked for and kept, and a
 # failing service leaves a plain message in place of its part (Admin::ShipsController, AdminMcp get_ship). Nothing here is stored.
 class Ship::Evidence
-  TELESCREEN = "https://telescreen.hackclub.com"
-  LAPSE_REVIEW = "#{TELESCREEN}/workbench/lapse"
-  HACKATIME_WORKBENCH = "#{TELESCREEN}/workbench/hackatime/overview"
   CACHE_FOR = 5.minutes
 
   # at_ship and now are seconds from Save Point's start, nil when Hackatime didn't say.
@@ -46,17 +43,11 @@ class Ship::Evidence
   end
 
   # D-105: the participant's Telescreen workbench, for their numeric Hackatime id (users.hackatime_uid) and the ship's linked
-  # projects. Without a numeric id there is nothing to open for them, so the bare workbench opens.
-  def telescreen_url
-    return HACKATIME_WORKBENCH unless hackatime_id
+  # projects. Without a numeric id there is nothing to open for them, so the bare workbench opens. Built by Telescreen (D-114),
+  # which the admin projects list uses too.
+  def telescreen_url = Telescreen.hackatime_url_or_workbench(user, ship.hackatime_projects)
 
-    query = "u=#{hackatime_id}"
-    names = ship.hackatime_projects
-    query += "&p=#{names.map { CGI.escape(it) }.join(",")}" if names.any?
-    "#{HACKATIME_WORKBENCH}?#{query}"
-  end
-
-  def lapse_review_url = hackatime_id ? "#{LAPSE_REVIEW}?u=#{hackatime_id}" : LAPSE_REVIEW
+  def lapse_review_url = Telescreen.lapse_review_url(user)
 
   # Hackatime's trust level for them, as last stored. Asked once when nothing is stored yet.
   def trust_level
@@ -101,8 +92,6 @@ class Ship::Evidence
   def stardance_shipped? = stardance.shipped?
 
   private
-    def hackatime_id = user.hackatime_uid.to_s[/\A\d+\z/]
-
     def load_hackatime
       names = ship.hackatime_projects
       return HackatimeHours.new(rows: [], captured: false, problem: "No Hackatime project is linked to this ship.") if names.empty?

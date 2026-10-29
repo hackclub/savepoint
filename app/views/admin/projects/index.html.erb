@@ -14,17 +14,18 @@
         </span>
       </div>
       <p class="pg-admin-projects__note">
-        Newest first. Hours are since Hackatime time started counting, as of each person's last sync. Open one to see
+        <%= projects_order_note(@sort, @dir) %> Click a heading to sort by it, and again to reverse it. Hours are since Hackatime time started counting, as of each person's last sync. Open one to see
         it in full: the pledge, the Hackatime projects behind it, each day built, the buddy and the ships.
       </p>
       <%= form_with url: admin_projects_path, method: :get, class: "pg-admin-projects__search", role: "search" do |form| %>
+        <% if @sort %><%= form.hidden_field :sort, value: @sort, id: nil %><%= form.hidden_field :dir, value: @dir, id: nil %><% end %>
         <span class="pg-admin-projects__search-field">
           <%= sp_icon "search-fill" %>
           <%= form.search_field :q, value: @query, placeholder: "Project, idea, name, email or Slack", aria: { label: "Search projects" },
                 autocomplete: "off", spellcheck: false, class: "sp-input" %>
         </span>
         <%= form.button "Search", type: "submit", class: "sp-btn sp-btn--royal" %>
-        <% if @query.present? %><%= link_to "Clear", admin_projects_path, class: "sp-btn sp-btn--ghost" %><% end %>
+        <% if @query.present? %><%= link_to "Clear", admin_projects_path(sort: @sort, dir: (@dir if @sort)), class: "sp-btn sp-btn--ghost" %><% end %>
       <% end %>
     </header>
 
@@ -37,21 +38,21 @@
       <% if @total > @projects.size %>
         <p class="pg-admin-projects__note pg-admin-projects__more">
           <%= sp_icon "information-fill" %>
-          <span>The newest <%= @projects.size %> of <%= @total %>. Search for the rest.</span>
+          <span>The <%= @sort ? "first" : "newest" %> <%= @projects.size %> of <%= @total %>. Search for the rest.</span>
         </p>
       <% end %>
       <div class="pg-admin-projects__panel">
         <table class="pg-admin-projects__table">
           <thead>
             <tr>
-              <th scope="col">Project</th>
-              <th scope="col">Who</th>
-              <th scope="col">Pledge</th>
-              <th scope="col">Hackatime</th>
-              <th class="pg-admin-projects__num" scope="col">Hours</th>
-              <th class="pg-admin-projects__num" scope="col">Streak</th>
-              <th scope="col">Buddy</th>
-              <th scope="col">Ship</th>
+              <%= sortable_header "project", sort: @sort, dir: @dir, query: @query %>
+              <%= sortable_header "who", sort: @sort, dir: @dir, query: @query %>
+              <%= sortable_header "pledge", sort: @sort, dir: @dir, query: @query %>
+              <%= sortable_header "hackatime", sort: @sort, dir: @dir, query: @query %>
+              <%= sortable_header "hours", sort: @sort, dir: @dir, query: @query, class: "pg-admin-projects__num" %>
+              <%= sortable_header "streak", sort: @sort, dir: @dir, query: @query, class: "pg-admin-projects__num" %>
+              <%= sortable_header "buddy", sort: @sort, dir: @dir, query: @query %>
+              <%= sortable_header "ship", sort: @sort, dir: @dir, query: @query %>
             </tr>
           </thead>
           <tbody>
@@ -78,7 +79,14 @@
                 </td>
                 <td data-label="Hackatime">
                   <% if project.tracking? %>
-                    <%= project.hackatime_projects.join(", ") %>
+                    <%# D-114: the names open their Telescreen workbench (Telescreen), from the stored Hackatime id only. %>
+                    <% telescreen = Telescreen.hackatime_url(user, project.hackatime_projects) %>
+                    <% if telescreen %>
+                      <%= link_to telescreen, target: "_blank", rel: "noopener", class: "pg-admin-projects__telescreen", id: "#{dom_id(project)}-telescreen",
+                            aria: { label: "#{project.hackatime_projects.to_sentence} in Telescreen (opens in a new tab)" } do %><%= sp_icon "search-fill" %><span><%= project.hackatime_projects.join(", ") %></span><% end %>
+                    <% else %>
+                      <%= project.hackatime_projects.join(", ") %>
+                    <% end %>
                     <% if project.hackatime_auto_linked %><small class="pg-admin-projects__muted">linked itself</small><% end %>
                   <% elsif project.hackatime_linked? %>
                     <span class="pg-admin-projects__chip pg-admin-projects__chip--gold">linked, no project yet</span>

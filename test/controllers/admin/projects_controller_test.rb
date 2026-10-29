@@ -162,6 +162,7 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-project-jamegam-mine tbody tr:first-child", text: /Jam 3\s+Pong\s+Rejected\s+Oct 25/
     assert_select "#admin-project-jamegam-others-title", "Other jame gam games"
     assert_select "#admin-project-jamegam-others tbody tr", 1
+    assert_select "#admin-project-jamegam-others [data-status=flagged]", 0, "other games are never highlighted"
 
     ana.update_columns(jame_gam_checked_at: nil, jame_gam_submissions: [])
     get admin_project_path(ana)

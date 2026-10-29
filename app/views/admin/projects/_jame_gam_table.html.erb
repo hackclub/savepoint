@@ -1,5 +1,5 @@
-<%# locals: (entries:, id:) %>
-<%# D-121: a table of stored jame gam submissions, newest first, a flagged one in coral with its status as a word. %>
+<%# locals: (entries:, id:, highlight: true) %>
+<%# D-121: a table of stored jame gam submissions, newest first, a flagged one in coral with its status as a word. `highlight: false` (the other games) shows every status plain. %>
 <div class="ap__scroll">
   <table class="ap__table admin__table admin__table--jamegam" id="<%= id %>">
     <thead>
@@ -7,7 +7,7 @@
     </thead>
     <tbody>
       <% entries.each do |entry| %>
-        <% flagged = JameGam.flagged?(entry["review_status"]) %>
+        <% flagged = highlight && JameGam.flagged?(entry["review_status"]) %>
         <tr class="<%= "ap__jame-row--flagged" if flagged %>" data-status="<%= flagged ? "flagged" : "other" %>">
           <th scope="row"><%= entry["jam"].presence || "—" %></th>
           <td><%= entry["game_title"].presence || "Untitled" %></td>

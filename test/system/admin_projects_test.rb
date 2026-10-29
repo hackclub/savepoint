@@ -62,11 +62,14 @@ class AdminProjectsTest < ApplicationSystemTestCase
     resize(390, 1100)
     visit admin_projects_path(sort: "jame_gam", dir: "desc")
     page.save_screenshot(File.join(dir, "list-390-jame-gam.png"))
-    resize(1280, 1400)
+    resize(1280, 2600)
     project = Project.find_by!(idea: "A long idea about 0 games, with a great many words in it, so that it must wrap onto several lines of the table")
     visit admin_project_path(project)
     find("#admin-project-jamegam-panel").native.save_screenshot(File.join(dir, "project-section.png"))
-    puts "radii #{evaluate_script(<<~JS)}"
+    [ 1280, 390 ].each do |width|
+      resize(width, 2600)
+      visit admin_project_path(project)
+      puts "radii at #{width}: #{evaluate_script(<<~JS)}"
       (() => {
         const panel = document.querySelector("#admin-project-jamegam-panel"), cs = getComputedStyle(panel)
         const th = document.querySelector("#admin-project-jamegam-mine thead th:first-child")
@@ -74,7 +77,9 @@ class AdminProjectsTest < ApplicationSystemTestCase
         return { panelRadius: cs.borderRadius, panelBorder: cs.borderTopWidth, panelPadLeft: cs.paddingLeft, headRadius: getComputedStyle(th).borderRadius,
                  gapLeft: tr.left - pr.left, gapBottomTable: pr.bottom - document.querySelector("#admin-project-jamegam-mine").getBoundingClientRect().bottom }
       })()
-    JS
+      JS
+    end
+    resize(1280, 1100)
     ship = project.ships.first
     ship.update_columns(status: "in_review")
     visit admin_ship_path(ship)

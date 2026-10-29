@@ -18,7 +18,9 @@ class AdminProjectsTest < ApplicationSystemTestCase
   end
 
   teardown do
+    # One browser serves every test: put the viewport and the window back, whichever teardown runs first.
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    page.current_window.resize_to(*ApplicationSystemTestCase::SCREEN_SIZE)
     Rails.configuration.x.admin_slack_ids = @admins
   end
 

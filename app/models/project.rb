@@ -257,9 +257,9 @@ class Project < ApplicationRecord
     Prize::ALL.select { |prize| prize.cost > goal.cost && claimed.exclude?(prize.key) }.min_by { |prize| [ prize.cost, prize.hours ] }
   end
 
-  # Setting up, in order: link Hackatime, then which Hackatime project this is, add a repo (or say you'll add it before
-  # you ship) and bring a buddy (or skip it).
-  SETUP_STEPS = %w[hackatime hackatime_project repo buddy].freeze
+  # Setting up, in order: link Hackatime, then which Hackatime project this is, and add a repo (or say you'll add it
+  # before you ship). D-120: bringing a buddy isn't a step. It's an optional card on the full project page (buddy_prompt?).
+  SETUP_STEPS = %w[hackatime hackatime_project repo].freeze
   # You're set up once Hackatime's linked. Which Hackatime project this is can wait: with nothing on Hackatime since it
   # started counting there's nothing to pick yet, and the first new project you log time on links itself
   # (auto_link_hackatime_project). The repo and a buddy can wait too.
@@ -270,7 +270,6 @@ class Project < ApplicationRecord
     when "hackatime" then hackatime_linked?
     when "hackatime_project" then hackatime_projects.any?
     when "repo" then (repo_url.present? && errors[:repo_url].none?) || repo_later?
-    when "buddy" then buddy.present? || buddy_invited? || buddy_skipped?
     end
   end
 
@@ -283,7 +282,7 @@ class Project < ApplicationRecord
   # while it's only promised for later.
   def step_open?(step)
     SETUP_STEPS.include?(step) && !step_locked?(step) &&
-      (!step_done?(step) || step == "hackatime_project" || (step == "repo" && repo_url.blank?) || (step == "buddy" && buddy.nil?))
+      (!step_done?(step) || step == "hackatime_project" || (step == "repo" && repo_url.blank?))
   end
 
   def required_steps_done
@@ -301,15 +300,20 @@ class Project < ApplicationRecord
   end
 
   # You've been through every step: done, put off or skipped. Until then your project page walks you through them,
-  # one at a time, and once you're through it turns into your schedule (and the bot congratulates you).
+  # one at a time, and once you're through it turns into your schedule. D-120: a buddy doesn't hold it back.
   def setup_finished?
     set_up? && SETUP_STEPS.all? { |step| step_settled?(step) }
   end
 
-  # Setup finished and nothing put off: the repo has a link. A skipped buddy or a pending invite counts as done. Then
-  # the project page has no setup card.
+  # Setup finished and nothing put off: the repo has a link. Then the project page has no setup card.
   def setup_all_done?
     setup_finished? && !repo_put_off?
+  end
+
+  # D-120: whether the full project page offers the optional "Bring a buddy" card: no buddy, no invite sent, not skipped.
+  # (The cheap columns first: `buddy` reads the pair.)
+  def buddy_prompt?
+    !buddy_skipped? && !buddy_invited? && buddy.nil?
   end
 
   # You said "later" to the repo and haven't added it.

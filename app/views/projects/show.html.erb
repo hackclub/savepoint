@@ -65,7 +65,7 @@
         <% if set_up %>
           <%# Setup finished and nothing put off: no setup card. A step other than Hackatime (?step=) opens it; the Hackatime
               projects are changed inline, right under "Hours from". %>
-          <% setup_step = @step unless @step == "hackatime_project" %>
+          <% setup_step = @step if Project::SETUP_STEPS.include?(@step) && @step != "hackatime_project" %>
           <% if !@project.setup_all_done? || setup_step %>
           <details class="project__setup-done" <%= "open" if setup_step %>>
             <summary class="project__setup-summary">
@@ -229,6 +229,8 @@
               </div>
             </section>
           <% end %>
+
+          <% if @project.buddy_prompt? %><%= render "projects/buddy_ask", project: @project %><% end %>
         <% else %>
           <section class="project__setup" aria-labelledby="project-setup-title">
             <h2 class="project__section-title sp-ribbon" id="project-setup-title"><span><%= sp_icon "settings-3-fill" %>Set up</span></h2>

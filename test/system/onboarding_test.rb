@@ -50,7 +50,9 @@ class OnboardingTest < ApplicationSystemTestCase
                  [ project.title, project.repo_url, project.jame_gam, project.prize_key, project.build_time ]
     assert_equal [ Hackatime.stubbed_projects["1002"].first.name ], project.hackatime_projects
     assert_selector "h1", text: "Pixel Pirates"
-    assert_selector ".project__meta", text: /Keychron K2/
+    assert_selector ".project__schedule" # D-120: with a repo and a Hackatime project the full page opens at once
+    assert_selector ".project__buddy-ask", text: "Bring a buddy"
+    assert_text "Keychron K2"
   end
 
   test "the prize you claimed on the landing page starts picked, unless you've picked another" do

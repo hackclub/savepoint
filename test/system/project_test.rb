@@ -7,7 +7,7 @@ class ProjectTest < ApplicationSystemTestCase
     visit onboarding_path
   end
 
-  test "setting up: link Hackatime, then your project, put off the repo and skip a buddy, one step at a time" do
+  test "setting up: link Hackatime, then your project, put off the repo, then the full page (with an optional buddy card), one step at a time" do
     sign_in_and_open_project
 
     assert_selector ".project__note", text: "Nothing's linked yet, so your hours won't count."
@@ -17,18 +17,17 @@ class ProjectTest < ApplicationSystemTestCase
 
     assert_selector ".project__note", text: "Hackatime's linked. Which project is yours?"
     assert_selector ".project__step[data-state=done]", text: "Hackatime linked"
-    assert_selector ".project__setup-count", text: "3 optional steps left"
+    assert_selector ".project__setup-count", text: "2 optional steps left"
     assert_no_button "Pick a project"
     find(".hkp__row", text: "rhythm-game").click # ticking links it
 
     assert_selector ".project__note", text: "Hours count now. A couple of quick things and you're in."
     assert_selector ".project__step[data-state=current]", text: "Add your git repo"
     click_on "Later"
-    assert_selector ".project__step[data-state=current]", text: "Bring a buddy"
-    assert_selector ".project__step[data-state=later]", text: "Git repo"
-    assert_no_selector ".project__step[data-state=done]", text: "Git repo"
-    assert_selector ".project__step[data-state=later] .project__step-number", text: "3"
-    within(".project__step[data-state=current]") { click_on "Skip" }
+    assert_no_selector ".project__step", text: "buddy" # D-120: the full page opens, with an optional card
+    assert_selector ".project__buddy-ask", text: "Bring a buddy"
+    click_on "Not now"
+    assert_no_selector ".project__buddy-ask"
 
     assert_selector ".project__linked .project__linked-project", text: "rhythm-game"
     assert_no_selector ".project__note"

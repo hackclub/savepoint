@@ -125,8 +125,8 @@ module ProjectsHelper
     Project::SETUP_STEPS.map do |key|
       # A step you reopen (the repo you'd put off) reads as still to do.
       settled = project.step_done?(key) && key != current
-      # Put off (the repo said "later", the buddy skipped) isn't done: it keeps its note but gets no green check.
-      later = settled && ((key == "repo" && project.repo_url.blank?) || (key == "buddy" && project.buddy.nil?))
+      # Put off (the repo said "later") isn't done: it keeps its note but gets no green check.
+      later = settled && key == "repo" && project.repo_url.blank?
       done = settled && !later
       title, note = project_step_label(project, key, settled)
       waiting = key == "hackatime_project" && project.waiting_for_hackatime_project? && project.hackatime_projects.none?
@@ -445,12 +445,6 @@ module ProjectsHelper
         if project.repo_url.present? && project.errors[:repo_url].none? then [ "Repo added" ]
         elsif done then [ "Git repo", "add before you ship" ]
         else [ "Add your git repo", "before you ship" ]
-        end
-      when "buddy"
-        if (buddy = project.buddy) then [ "Paired with #{buddy_name(buddy)}" ]
-        elsif project.buddy_invited? then [ "Buddy invite sent", "you'll be paired when they sign up" ]
-        elsif done then [ "Buddy skipped", "you can pair up any time" ]
-        else [ "Bring a buddy", "optional" ]
         end
       end
     end

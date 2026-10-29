@@ -317,7 +317,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       assert projects(:orpheus).set_up?, "linking Hackatime is all setup needs to unlock things"
 
       get project_path
-      assert_select ".project__setup-count", "3 optional steps left"
+      assert_select ".project__setup-count", "2 optional steps left"
       assert_select ".project__step[data-state=current] .project__step-title", /Link your Hackatime project/
       assert_no_match(/#wrong\b|Slack channel/, css_select(".project__steps").text, "Slack isn't a setup step")
 
@@ -329,10 +329,14 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
 
       patch project_path, params: { project: { repo_later: true } }
       follow_redirect!
-      assert_select ".project__step[data-state=current] .project__step-title", /Bring a buddy/
+      assert_select ".project__steps .project__step-title", text: /buddy/i, count: 0 # D-120: a buddy isn't a step
+      assert_select ".project__schedule" # the repo put off was the last step: the full page opens
+      assert_select ".project__buddy-ask .project__buddy-ask-title", /Bring a buddy/
+      assert_select ".project__buddy-ask .buddy-link__input"
 
       patch project_path, params: { project: { buddy_skipped: true } }
       follow_redirect!
+      assert_select ".project__buddy-ask", count: 0
       assert_select ".project__note", count: 0
       assert_select ".project__linked .project__linked-project", "rhythm-game"
       assert_select ".project__setup-summary", "Git repo put off"
@@ -497,7 +501,7 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
       assert_select ".project__step[data-state=pending] .project__step-note", /it links itself/
       assert_select ".project__step[data-state=pending] .project__step-waiting", /hasn't seen any coding from you yet/
       assert_select ".project__step-waiting a[href=?]", "https://hackatime.hackclub.com/", text: "Set it up in your editor"
-      assert_select ".project__setup-count", "2 optional steps left"
+      assert_select ".project__setup-count", "1 optional step left"
       assert_select ".project__note", "Hackatime's linked. Start building and your project links itself once you log time."
 
       patch project_path, params: { project: { repo_later: true } }
@@ -974,14 +978,15 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     projects(:orpheus).update!(repo_url: "https://github.com/orpheus/rhythm-game")
     get project_path
     assert_response :success
-    assert_select ".project__setup-done", count: 0 # buddy skipped counts as done
+    assert_select ".project__setup-done", count: 0
     assert_select ".project__steps", count: 0
     assert_select ".project__linked" # Hours from is still there
     assert_select ".project__linked-panel[hidden] .hkp", 1 # its tick list is there, closed
 
     projects(:orpheus).update!(buddy_skipped: false, buddy_invited: true)
     get project_path
-    assert_select ".project__setup-done", count: 0 # a pending invite counts as done
+    assert_select ".project__setup-done", count: 0
+    assert_select ".project__buddy-ask", count: 0 # an invite sent hides the card
 
     get project_path(step: "hackatime_project")
     assert_select ".project__setup-done", count: 0 # Change opens the tick list under Hours from, not the setup steps
@@ -1042,5 +1047,44 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     end
   ensure
     Hackatime.stubbed_spans = spans_before
+  end
+
+  test "D-120: without a buddy decision the full page opens, with an optional card that Not now hides" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true) # stuck on the old buddy step
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    get project_path
+    assert_response :success
+    assert_select ".project__steps .project__step-title", text: /buddy/i, count: 0
+    assert_select ".project__schedule"
+    assert_select ".project__buddy-ask .project__step-text", "Invite a friend to build with you. You each make your own game."
+    assert_select ".project__buddy-ask form[action=?] input[name=?][value=true]", project_path, "project[buddy_invited]"
+    assert_select ".project__buddy-ask form[action=?] input[name=?][value=true]", project_path, "project[buddy_skipped]"
+    assert_select ".project__buddy-ask button", "Not now"
+    assert_select ".project__setup-summary", "Git repo put off"
+    assert_no_match(/optional step/, css_select(".project__setup-summary").text, "buddy isn't a step left")
+
+    get project_path(step: "buddy")
+    assert_response :success
+    assert_select ".project__setup-done[open]", count: 0, message: "an unknown step opens nothing"
+
+    patch project_path, params: { project: { buddy_skipped: true } }
+    assert_redirected_to project_path
+    assert projects(:orpheus).reload.buddy_skipped?
+    follow_redirect!
+    assert_select ".project__buddy-ask", count: 0
+    assert_select ".project__schedule"
+  end
+
+  test "D-120: a paired project sees no buddy card" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true)
+    projects(:orpheus).pair_with(projects(:ana))
+    sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
+
+    get project_path
+    assert_select ".project__schedule"
+    assert_select ".project__buddy-ask", count: 0
   end
 end

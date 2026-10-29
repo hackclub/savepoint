@@ -453,6 +453,20 @@
 .pg-project .buddy-card__ladder-key { display: grid; place-items: center; min-width: 64px; height: 26px; padding: 0 8px; border-radius: var(--radius-full); background: var(--violet-soft); color: var(--violet-ink); font: 800 italic 13px/1 var(--font-display); white-space: nowrap; }
 .pg-project .buddy-card__fine { font: 600 13px/18px var(--font-body); color: var(--ink-faint); }
 
+/* D-120: the optional "Bring a buddy" card. Concentric: 24px outer - 2px border - 12px padding = 10px on the controls in its corners. */
+.pg-project .project__buddy-ask { display: grid; gap: var(--space-3); min-width: 0; padding: var(--space-3); background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 3px 0 var(--line); }
+.pg-project .project__buddy-ask-text { display: grid; gap: 2px; padding: var(--space-1) var(--space-1) 0; }
+.pg-project .project__buddy-ask-title { font: 800 italic 18px/24px var(--font-display); }
+.pg-project .project__buddy-ask-note { font: 700 14px/20px var(--font-body); font-style: normal; color: var(--ink-muted); }
+.pg-project .project__buddy-ask-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.pg-project .project__buddy-ask-row > .buddy-link { flex: 1 1 280px; }
+.pg-project .project__buddy-ask-row > form { margin: 0; }
+.pg-project .project__buddy-ask :is(.buddy-link__input, .buddy-link .onboarding-button, .project__buddy-ask-skip) { border-radius: calc(var(--radius-lg) - 2px - var(--space-3)); }
+.pg-project .project__buddy-ask { padding-bottom: calc(var(--space-3) - var(--lip-depth)); } /* the controls' own lip margin makes up the rest, so every corner gap is 12px */
+.pg-project .project__buddy-ask .buddy-link__input { box-sizing: border-box; height: var(--control-md); min-height: 0; margin-bottom: var(--lip-depth); }
+.pg-project .project__buddy-ask-skip { min-height: var(--control-md); margin: 0 0 var(--lip-depth); }
+@media (max-width: 599px) { .pg-project .project__buddy-ask .buddy-link .onboarding-button { flex: 1 1 100%; } .pg-project .project__buddy-ask-row > form:last-child { flex: 1 1 100%; } .pg-project .project__buddy-ask-skip { width: 100%; } }
+
 /* The invite link (buddies/_invite_link, shared): the link to copy and its button. */
 .pg-project .buddy-link { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
 .pg-project .buddy-link__input { flex: 1 1 220px; min-width: 0; min-height: var(--control-md); padding: 10px 14px; font: 600 15px/24px var(--font-body); color: var(--ink); background: var(--surface-sunken); border: 2px solid var(--line-strong); border-radius: var(--radius-md); box-shadow: inset 0 2px 0 var(--shade); }

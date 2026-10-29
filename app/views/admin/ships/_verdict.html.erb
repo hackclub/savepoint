@@ -1,9 +1,11 @@
 <%# locals: (ship:, limits:, earlier_ship:, send_backs:, checklist:, defaults:, ticked:) %>
 <%# D-063: the review's verdict, as playground has it. Coding hours and art hours apart, each with presets at 15, 30, 50 and 75%
     of what was claimed (deflate_controller.js), a live total, and the handbook's limits already applied: AI coding counts at
-    a third, art at most 30% of the total (Ship::Limits, D-030). "Why deflated" is due only below those limits. One form,
-    four verdicts (D-106): the four buttons come first, picking one shows only its fields and a submit button named for the
-    action, and its key pressed again submits (verdict_controller.js, shortcuts_controller.js). A ship sent back from its fraud check opens with its earlier
+    a third, art at most 30% of the total (Ship::Limits, D-030). "Why deflated" shows whenever hours are cut and is due only below
+    those limits (D-112). One form, four verdicts (D-106): the four buttons come first, picking one shows its fields and a submit
+    button named for the action, and its key pressed again submits (verdict_controller.js, shortcuts_controller.js). The judgement
+    and the note to the participant belong to no verdict (D-112): they show from the start, under all four, and j and f always
+    focus them. A ship sent back from its fraud check opens with its earlier
     review. What was typed before an error wins, then that review, then the defaults. %>
 <% earlier = send_backs.last&.earlier_review || {} %>
 <%# D-097: a later ship judges only the new hours. The earlier approval is fixed, and the coding and art boxes take the hours
@@ -28,12 +30,20 @@
 <%# D-063 item 9: when the repo is shipped on Stardance, Stardance reviews it, so Approve is off (the evidence panel says why). %>
 <% approve_off = @evidence&.stardance_shipped? %>
 
-<%# D-106: below Approve's limits a reason is due, so "Why deflated" shows only then (deflate_controller.js keeps it current). %>
-<% tolerance = Ship::Limits::TOLERANCE %>
-<% why_due = coding_top - coding_now.to_d >= tolerance || (art && art_top - art_now.to_d >= tolerance) || ship.errors[:deflation_reason].any? ||
-             params[:deflation_reason].present? %>
+<%# D-112: "Why deflated" shows whenever the hours to approve fall below the hours claimed, the test approve_review makes (claimed > total,
+    a hundredth counts). The figures are the ones approve_new would take from the form as drawn. An AI cut or the art hold shows it
+    too, with the limits' own words beside it (limits.reason, which approve_review writes ahead of the reviewer's). D-106: a reason
+    is due only below the most the rules allow (below_most). Elsewhere the reviewer's words are optional. deflate_controller.js keeps
+    both current as the hours change. %>
+<% coding_asked, art_asked, below_most = limits.approve_new(prior_coding, prior_art, coding_now.to_d, (art_now.to_d if art)) %>
+<% deflated = limits.claimed > prior_coding + prior_art + coding_asked + art_asked %>
+<% why_shown = deflated || below_most || ship.errors[:deflation_reason].any? %>
+<%# A send-back refills the reason with the one stored, which begins with the limits' words. The app writes those itself, so only the reviewer's go back in. %>
+<% earlier_why = earlier["deflation_reason"].to_s %>
+<% earlier_why = earlier_why.sub(limits.reason, "").strip if limits.reason %>
 <% picked = params[:decision].to_s.presence_in(Ship::DECISIONS) %>
-<%# Which verdicts each field belongs to. A field shows only when its verdict is picked. %>
+<%# Which verdicts each field belongs to. Approve's fields and the ban evidence show only when their verdict is picked. The judgement and
+    the note to the participant belong to none (D-112). %>
 <% hide = ->(*verdicts) { verdicts.exclude?(picked) } %>
 
 <%# D-102: the reviewer's AI coding hours, above Hackatime's only. Closed until a figure is set. Saved on its own like the Lapse
@@ -67,7 +77,7 @@
 
 <%= form_with url: review_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "verdict", html: { novalidate: true },
       data: { turbo: false, controller: "deflate verdict", verdict_picked_value: picked.to_s,
-              deflate_claimed_value: coding_claimed.to_f, deflate_cap_value: coding_top.to_f,
+              deflate_claimed_value: coding_claimed.to_f, deflate_hours_claimed_value: limits.claimed.to_f, deflate_cap_value: coding_top.to_f,
               deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_top_value: (art ? art_top_at_cap.to_f : 0),
               deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT,
               deflate_earlier_coding_value: prior_coding.to_f, deflate_earlier_art_value: prior_art.to_f } do |form| %>
@@ -85,7 +95,7 @@
           data: { verdict_target: "pick", verdict: "banned", action: "verdict#pick", shortcut: "b", shortcut_submit: "#verdict-submit" } do %><%= sp_icon "warning-fill" %>Fraud: reject and ban <kbd class="ash__kbd">b b</kbd><% end %>
   </div>
 
-  <%# Approve: the hours, the features that explain them, the judgement. %>
+  <%# Approve: the hours, why they went down, the features that explain them. %>
   <div class="ash__verdict-fields" data-verdict-target="fields" data-verdict-for="approved" <%= "hidden" if hide.("approved") %>>
     <% if prior %>
       <p class="ash__already" id="admin-ship-already-approved">Already approved: <strong><%= Ship::Limits.hrs(prior.hours) %></strong> (<%= prior.on.strftime("%b %-d") %> ship)</p>
@@ -127,11 +137,18 @@
       </div>
     <% end %>
 
-    <div class="sp-field" data-deflate-target="why" <%= "hidden" unless why_due %>>
+    <div class="sp-field" data-deflate-target="why" <%= "hidden" unless why_shown %>>
       <%= form.label :deflation_reason, "Why deflated", class: "sp-label" %>
-      <%= form.text_area :deflation_reason, value: params[:deflation_reason].presence || earlier["deflation_reason"], rows: 3, class: "sp-input ash__textarea",
-            aria: { describedby: "admin-ship-deflation-help" } %>
-      <span class="sp-help" id="admin-ship-deflation-help">Required only when you approve less coding or art than the rules allow. The AI cut and the art hold need none.</span>
+      <% if limits.reason %>
+        <%# What the rules cut, in the words approve_review writes into the record ahead of the reviewer's. %>
+        <span class="sp-help" id="admin-ship-deflation-says"><%= sp_icon "information-fill" %><span>The app already writes this into the record: <%= limits.reason %></span></span>
+      <% end %>
+      <%= form.text_area :deflation_reason, value: params[:deflation_reason].presence || earlier_why.presence, rows: 3, class: "sp-input ash__textarea",
+            aria: { describedby: [ ("admin-ship-deflation-says" if limits.reason), "admin-ship-deflation-help" ].compact.join(" ") } %>
+      <span class="sp-help" id="admin-ship-deflation-help">
+        <span data-deflate-target="whyRequired" <%= "hidden" unless below_most %>>Required: you approve less coding or art than the rules allow. Say why.</span>
+        <span data-deflate-target="whyOptional" <%= "hidden" if below_most %>>Optional: the app's words above already cover this cut. Anything you add follows them.</span>
+      </span>
       <% if ship.errors[:deflation_reason].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:deflation_reason).first %></span><% end %>
     </div>
     <div class="sp-field">
@@ -143,8 +160,19 @@
     </div>
   </div>
 
-  <%# The judgement is Approve's and Reject's. %>
-  <div class="sp-field" data-verdict-target="fields" data-verdict-for="approved rejected" <%= "hidden" if hide.("approved", "rejected") %>>
+  <%# The ban's own field, with Approve's above: what is particular to a verdict comes straight after the buttons. %>
+  <div class="sp-field" data-verdict-target="fields" data-verdict-for="banned" <%= "hidden" if hide.("banned") %>>
+    <%= form.label :evidence, "Ban evidence", class: "sp-label" %>
+    <%= form.text_area :evidence, value: params[:evidence].presence || ship.fraud_notes, rows: 3, class: "sp-input ash__textarea",
+          aria: { describedby: "admin-ship-evidence-help" } %>
+    <span class="sp-help" id="admin-ship-evidence-help">Required only for fraud: reject and ban. Write what shows the fraud.</span>
+    <% if ship.errors[:fraud_notes].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:fraud_notes).first %></span><% end %>
+  </div>
+
+  <%# D-112: the judgement and the note to the participant belong to no verdict. They show from the start and stay under all four, so j
+      and f always focus them (shortcuts_controller.js skips a field inside [hidden]). Each verdict still wants only what it did:
+      changes needed the note, reject the judgement. All four save both (Ship#decide_in_review). %>
+  <div class="sp-field">
     <%= form.label :review_judgement, "Your judgement", class: "sp-label" %>
     <%= form.text_area :review_judgement, value: ship.review_judgement.presence || earlier["judgement"], rows: 3, class: "sp-input ash__textarea",
           data: { shortcut: "j" }, aria: { describedby: "admin-ship-judgement-help" } %>
@@ -152,20 +180,12 @@
     <% if ship.errors[:review_judgement].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:review_judgement).first %></span><% end %>
   </div>
 
-  <div class="sp-field" data-verdict-target="fields" data-verdict-for="changes_needed" <%= "hidden" if hide.("changes_needed") %>>
+  <div class="sp-field">
     <%= form.label :review_feedback, "Note to the participant", class: "sp-label" %>
     <%= form.text_area :review_feedback, value: ship.review_feedback.presence || earlier["feedback"], rows: 4, class: "sp-input ash__textarea",
           data: { shortcut: "f" }, aria: { describedby: "admin-ship-feedback-help" } %>
-    <span class="sp-help" id="admin-ship-feedback-help">Shown to them. Required for changes needed: say exactly what to change.</span>
+    <span class="sp-help" id="admin-ship-feedback-help">Shown to them. With Approve, it goes in their approval DM and on their project page. With Changes needed, it is required and shows on their ship page: say exactly what to change. With Reject or Ban, it shows on their rejected ship page.</span>
     <% if ship.errors[:review_feedback].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:review_feedback).first %></span><% end %>
-  </div>
-
-  <div class="sp-field" data-verdict-target="fields" data-verdict-for="banned" <%= "hidden" if hide.("banned") %>>
-    <%= form.label :evidence, "Ban evidence", class: "sp-label" %>
-    <%= form.text_area :evidence, value: params[:evidence].presence || ship.fraud_notes, rows: 3, class: "sp-input ash__textarea",
-          aria: { describedby: "admin-ship-evidence-help" } %>
-    <span class="sp-help" id="admin-ship-evidence-help">Required only for fraud: reject and ban. Write what shows the fraud.</span>
-    <% if ship.errors[:fraud_notes].any? %><span class="ash__error" role="alert"><%= sp_icon "warning-fill" %><%= ship.errors.messages_for(:fraud_notes).first %></span><% end %>
   </div>
 
   <%# One submit button, named for the picked verdict. Its value is set when a verdict is picked. %>

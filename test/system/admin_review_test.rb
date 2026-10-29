@@ -1,10 +1,14 @@
 require "application_system_test_case"
 require_relative "../support/admin_mcp_helpers"
 
-# D-063, D-106: the review page's keys, its deflate presets, the verdict that shows only its own fields, the closed sections,
-# and the claim banner, in a real browser.
+# D-063, D-106, D-112: the review page's keys, its deflate presets, the verdict that shows only its own fields (the note to the
+# participant and the judgement show under all four), why the hours were deflated, the closed sections, and the claim banner, in a
+# real browser.
 class AdminReviewTest < ApplicationSystemTestCase
   include AdminMcpHelpers
+
+  # The limits' words for 4.4 hrs of AI coding (Ship::Limits#reason), which approve_review writes ahead of the reviewer's.
+  AI_WORDS = "Hackatime has 4.4 hrs of AI coding on this game, which counts at a third (1.47 hrs)."
 
   setup do
     @admins = Rails.configuration.x.admin_slack_ids # first: the teardown runs even when a line below raises
@@ -27,10 +31,14 @@ class AdminReviewTest < ApplicationSystemTestCase
     visit admin_ship_path(@ship)
     pick "approved"
     assert_selector "[data-deflate-target=total]", text: "6.42"
-    assert_no_field "Why deflated", visible: :visible
+    # D-112: the AI cut and the art hold cut 7.5 to 6.42 on their own, so the field shows from the start, and its words are optional.
+    assert_field "Why deflated", visible: :visible
+    assert_selector "[data-deflate-target=whyOptional]", text: /Optional/
+    assert_no_selector "[data-deflate-target=whyRequired]"
 
     find("button[data-action='deflate#setCoding'][data-percent='50']").click
-    assert_field "Why deflated", visible: :visible
+    assert_selector "[data-deflate-target=whyRequired]", text: /Required/
+    assert_no_selector "[data-deflate-target=whyOptional]"
     assert_equal "2.75", find("input[name=coding_hours]").value
     assert_equal "1.17", find("input[name=art_hours]").value, "art is held at 30% of the new total, rounded down so it never passes it"
     assert_selector "[data-deflate-target=total]", text: "3.92"
@@ -47,7 +55,9 @@ class AdminReviewTest < ApplicationSystemTestCase
 
     fill_in "coding_hours", with: "4.5"
     fill_in "art_hours", with: "1.92"
-    assert_no_field "Why deflated", visible: :visible
+    assert_field "Why deflated", visible: :visible
+    assert_selector "[data-deflate-target=whyOptional]", text: /Optional/
+    assert_no_selector "[data-deflate-target=whyRequired]"
   end
 
   # D-111: 5.3 counted hours, no AI coding and 5542 s of art. Coding 3.76 and art 1.54 add up to the 5.3 claimed, and the form sends
@@ -81,6 +91,101 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_nil @ship.deflation_reason
   end
 
+  # D-112: 7.5 counted hours with 4.4 of AI coding, which counts at a third. Coding is held to 7.5 less two thirds of 4.4, 4.56, and
+  # there is no art. The rules cut 2.94 hours on their own, so the reviewer's words about it are optional.
+  test "an AI cut alone shows Why deflated with the limits' words, and approving at the most needs no words (D-112)" do
+    ai_cut_only
+    visit admin_ship_path(@ship)
+    pick "approved"
+    assert_equal "4.56", find("input[name=coding_hours]").value
+    assert_selector "[data-deflate-target=total]", exact_text: "4.56"
+    assert_field "Why deflated", visible: :visible
+    assert_selector "#admin-ship-deflation-says", text: "The app already writes this into the record: #{AI_WORDS}"
+    assert_selector "[data-deflate-target=whyOptional]", text: /Optional/
+    assert_no_selector "[data-deflate-target=whyRequired]"
+
+    fill_in "Specific technical features", with: "A second ball with its own physics."
+    find("#verdict-submit").click
+    assert_text "Fraud check"
+    @ship.reload
+    assert_equal [ BigDecimal("7.5"), BigDecimal("4.56"), AI_WORDS ], [ @ship.claimed_hours, @ship.review_hours, @ship.deflation_reason ]
+  end
+
+  test "words typed beside the limits' words are kept after them (D-112)" do
+    ai_cut_only
+    visit admin_ship_path(@ship)
+    pick "approved"
+    fill_in "Why deflated", with: "Most of it is one pasted file."
+    fill_in "Specific technical features", with: "A second ball with its own physics."
+    find("#verdict-submit").click
+    assert_text "Fraud check"
+    assert_equal "#{AI_WORDS} Most of it is one pasted file.", @ship.reload.deflation_reason
+  end
+
+  test "below the most a reason is still required, and the limits' words do not stand in for it (D-112)" do
+    ai_cut_only
+    visit admin_ship_path(@ship)
+    pick "approved"
+    assert_selector "[data-deflate-target=whyOptional]", text: /Optional/
+
+    find("button[data-action='deflate#setCoding'][data-percent='50']").click
+    assert_equal "3.75", find("input[name=coding_hours]").value
+    assert_selector "[data-deflate-target=whyRequired]", text: "Required: you approve less coding or art than the rules allow. Say why."
+    assert_no_selector "[data-deflate-target=whyOptional]"
+    assert_selector "#admin-ship-deflation-says", text: AI_WORDS
+
+    fill_in "Specific technical features", with: "A second ball with its own physics."
+    find("#verdict-submit").click
+    assert_text "Say why you approve fewer hours than the rules allow"
+    assert @ship.reload.in_review?
+    assert_equal "3.75", find("input[name=coding_hours]").value, "what was typed comes back"
+    assert_selector "[data-deflate-target=whyRequired]", text: /Required/
+
+    fill_in "Why deflated", with: "A menu was cut."
+    find("#verdict-submit").click
+    assert_text "Fraud check"
+    assert_equal "#{AI_WORDS} A menu was cut.", @ship.reload.deflation_reason
+  end
+
+  test "with nothing cut Why deflated stays hidden until the hours drop, and then has no limits' words (D-112)" do
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0)
+    visit admin_ship_path(@ship)
+    pick "approved"
+    assert_equal "7.5", find("input[name=coding_hours]").value
+    assert_no_field "Why deflated", visible: :visible
+    assert_no_selector "#admin-ship-deflation-says", visible: :all
+
+    fill_in "coding_hours", with: "7.49"
+    assert_field "Why deflated", visible: :visible
+    assert_selector "[data-deflate-target=whyRequired]", text: /Required/
+    assert_no_selector "#admin-ship-deflation-says", visible: :all
+
+    fill_in "coding_hours", with: "7.5"
+    assert_no_field "Why deflated", visible: :visible
+  end
+
+  # D-112: on a later ship the hours claimed are the whole project's, so the earlier approval counts toward the total.
+  test "on a later ship Why deflated follows the whole project's hours (D-112)" do
+    make_later_ship
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0)
+    visit admin_ship_path(@ship)
+    pick "approved"
+    assert_selector "#admin-ship-already-approved", text: "Already approved: 3 hrs"
+    assert_selector "[data-deflate-target=total]", exact_text: "7.5"
+    assert_no_field "Why deflated", visible: :visible
+
+    fill_in "coding_hours", with: "4"
+    assert_selector "[data-deflate-target=total]", exact_text: "7"
+    assert_field "Why deflated", visible: :visible
+
+    @ship.update_columns(ai_coding_seconds: 90 * 60, art_seconds: 2 * 3600)
+    visit admin_ship_path(@ship)
+    pick "approved"
+    assert_selector "[data-deflate-target=total]", exact_text: "6.42"
+    assert_field "Why deflated", visible: :visible
+    assert_selector "[data-deflate-target=whyOptional]", text: /Optional/
+  end
+
   test "raising the AI coding hours lowers the coding maximum on the page (D-102)" do
     visit admin_ship_path(@ship)
     assert_no_selector "#raise-ai[open]", visible: :all
@@ -110,12 +215,18 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_selector "[data-deflate-target=total]", text: "6.07"
   end
 
-  test "keys focus the fields once their verdict is picked, and a verdict key picks it, then sends it" do
+  test "keys focus the fields, and a verdict key picks it, then sends it" do
     visit admin_ship_path(@ship)
     body = find("body")
 
     body.send_keys("j")
-    assert_not_equal "review_judgement", evaluate_script("document.activeElement.name"), "no judgement field until a verdict is picked"
+    assert_equal "review_judgement", evaluate_script("document.activeElement.name"), "the judgement is there before a verdict is picked (D-112)"
+    evaluate_script("document.activeElement.blur()")
+    body.send_keys("f")
+    assert_equal "review_feedback", evaluate_script("document.activeElement.name"), "so is the note to the participant (D-112)"
+    evaluate_script("document.activeElement.blur()")
+    body.send_keys("h")
+    assert_not_equal "coding_hours", evaluate_script("document.activeElement.name"), "the hours are Approve's, so no key finds them until it is picked"
 
     body.send_keys("a")
     assert_selector "button[data-verdict=approved][aria-pressed=true]"
@@ -159,39 +270,84 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_field "Ban evidence", visible: :visible
   end
 
-  test "picking a verdict shows only its own fields and a submit button named for it" do
+  test "picking a verdict shows its own fields and a submit button named for it, and the note and judgement stay" do
     visit admin_ship_path(@ship)
     assert_selector "button[data-verdict]", count: 4
-    assert_no_selector "#verdict textarea", visible: :visible
+    # D-112: the judgement and the note to the participant belong to no verdict, so they are all there is before one is picked.
+    assert_selector "#verdict textarea", count: 2, visible: :visible
+    assert_field "Your judgement", visible: :visible
+    assert_field "Note to the participant", visible: :visible
+    assert_no_field "Coding hours", visible: :visible
+    assert_no_field "Why deflated", visible: :visible
+    assert_no_field "Ban evidence", visible: :visible
     assert_no_selector "#verdict-submit", visible: :visible
 
     pick "approved"
     assert_field "Coding hours"
     assert_field "Art hours"
     assert_field "Specific technical features"
+    assert_field "Why deflated", visible: :visible
     assert_field "Your judgement"
-    assert_no_field "Why deflated", visible: :visible
-    assert_no_field "Note to the participant", visible: :visible
+    assert_field "Note to the participant"
     assert_no_field "Ban evidence", visible: :visible
     assert_selector "#verdict-submit", text: /Approve\s*6\.42\s*hrs/i
 
     pick "changes_needed"
     assert_field "Note to the participant"
+    assert_field "Your judgement"
     assert_no_field "Coding hours", visible: :visible
-    assert_no_field "Your judgement", visible: :visible
+    assert_no_field "Why deflated", visible: :visible
     assert_no_field "Ban evidence", visible: :visible
     assert_selector "#verdict-submit", text: "Send changes needed"
 
     pick "rejected"
     assert_field "Your judgement"
-    assert_no_field "Note to the participant", visible: :visible
+    assert_field "Note to the participant"
     assert_no_field "Coding hours", visible: :visible
+    assert_no_field "Ban evidence", visible: :visible
     assert_selector "#verdict-submit", text: "Reject ship"
 
     pick "banned"
     assert_field "Ban evidence"
-    assert_no_field "Your judgement", visible: :visible
+    assert_field "Your judgement"
+    assert_field "Note to the participant"
+    assert_no_field "Coding hours", visible: :visible
     assert_selector "#verdict-submit", text: "Ban and reject"
+  end
+
+  test "the note and the judgement show before a verdict is picked, and f and j focus them under each verdict (D-112)" do
+    visit admin_ship_path(@ship)
+    assert_field "Note to the participant", visible: :visible
+    assert_field "Your judgement", visible: :visible
+
+    [ nil, "approved", "changes_needed", "rejected", "banned" ].each do |verdict|
+      pick(verdict) if verdict
+      assert_equal "review_feedback", key_focuses("f"), "f under #{verdict || "no verdict"}"
+      assert_equal "review_judgement", key_focuses("j"), "j under #{verdict || "no verdict"}"
+    end
+    assert @ship.reload.in_review?, "focusing sends nothing"
+  end
+
+  test "a note to the participant goes with an approval, and is kept (D-112)" do
+    visit admin_ship_path(@ship)
+    pick "approved"
+    fill_in "Specific technical features", with: "A second ball with its own physics."
+    fill_in "Note to the participant", with: "The second ball is a joy."
+    find("#verdict-submit").click
+    assert_text "Fraud check"
+    assert_equal "The second ball is a joy.", @ship.reload.review_feedback
+  end
+
+  test "a reject takes the note to the participant beside the judgement it needs (D-112)" do
+    visit admin_ship_path(@ship)
+    pick "rejected"
+    fill_in "Your judgement", with: "A template with a new title."
+    fill_in "Note to the participant", with: "This is not your game."
+    find("#verdict-submit").click
+    assert_selector ".ash__status [data-decision=rejected]"
+    @ship.reload
+    assert @ship.rejected?
+    assert_equal [ "This is not your game.", "A template with a new title." ], [ @ship.review_feedback, @ship.review_judgement ]
   end
 
   test "approving works from the picked verdict to the fraud check" do
@@ -273,6 +429,18 @@ class AdminReviewTest < ApplicationSystemTestCase
 
   private
     def pick(verdict) = find("button[data-verdict=#{verdict}]").click
+
+    # D-112: 4.4 of the 7.5 counted hours are AI coding and none is art, so the AI cut is the only one the rules make.
+    def ai_cut_only = @ship.update_columns(ai_coding_seconds: (4.4 * 3600).to_i, art_seconds: 0)
+
+    # Presses a key with nothing focused and says which field the page focused for it, then lets go of it so the next key isn't typed in.
+    def key_focuses(key)
+      evaluate_script("document.activeElement.blur()")
+      find("body").send_keys(key)
+      name = evaluate_script("document.activeElement.name")
+      evaluate_script("document.activeElement.blur()")
+      name
+    end
 
     # D-097, D-101: an earlier approved ship of the same project, so this one is a later ship.
     def make_later_ship

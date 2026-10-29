@@ -1,6 +1,12 @@
 require "test_helper"
 
 class ShipsControllerTest < ActionDispatch::IntegrationTest
+  # Several tests stub the Hackatime spans (later_ship_project, and the second ship's), which every test in this process
+  # shares. They go back after each test: left in place, the next page view of any test (the NPS popup's, the buddy page's)
+  # would sync Orpheus's six hours from them (StreakActivity.sync_for_user!).
+  setup { @spans_before = Hackatime.stubbed_spans }
+  teardown { Hackatime.stubbed_spans = @spans_before }
+
   test "shipping opens once you're set up" do
     get project_ship_path
     assert_redirected_to onboarding_path

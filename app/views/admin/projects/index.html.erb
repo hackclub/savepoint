@@ -81,7 +81,7 @@
                   <% if project.tracking? %>
                     <%# D-114: the names open their Telescreen workbench (Telescreen), from the stored Hackatime id only. %>
                     <% telescreen = Telescreen.hackatime_url(user, project.hackatime_projects) %>
-                    <% if telescreen %>
+                    <% if telescreen && safe_http_url?(telescreen) %>
                       <%= link_to telescreen, target: "_blank", rel: "noopener", class: "pg-admin-projects__telescreen", id: "#{dom_id(project)}-telescreen",
                             aria: { label: "#{project.hackatime_projects.to_sentence} in Telescreen (opens in a new tab)" } do %><%= sp_icon "search-fill" %><span><%= project.hackatime_projects.join(", ") %></span><% end %>
                     <% else %>

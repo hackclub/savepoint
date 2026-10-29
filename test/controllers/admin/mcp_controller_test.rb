@@ -476,10 +476,18 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
   test "describe_schema lists the views and the admins' hashes" do
     create_insights_views
     schema = mcp_tool(@token, "describe_schema")
-    assert_equal %w[faq_reads nudges orders projects ships site_days streak_activities users visits], schema["views"].map { it["name"] }.sort
+    assert_equal %w[faq_reads nps_responses nudges orders projects ships site_days streak_activities users visits], schema["views"].map { it["name"] }.sort
     users_view = schema["views"].find { it["name"] == "users" }
     assert_includes users_view["columns"].map { it["name"] }, "slack_hash"
     assert_equal [ Digest::SHA256.hexdigest("U0ORPHEUS") ], schema["admin_slack_hashes"]
+  end
+
+  test "query_sql reads every NPS answer (D-118)" do
+    create_insights_views
+    NpsResponse.create!(user: users(:ana), source: "daily", score: 8, doing_well: "prizes", improve: "speed")
+    answer = mcp_tool(@token, "query_sql", { sql: "select score, doing_well, user_id from nps_responses" })
+    assert_not mcp_error?, answer.inspect
+    assert_equal [ [ 8, "prizes", users(:ana).id ] ], answer["rows"]
   end
 
   test "query_sql reads an insights view" do

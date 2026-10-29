@@ -6,6 +6,7 @@ require Rails.root.join("db/migrate/20261028110100_hide_superseded_ships_from_in
 require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insights_views")
 require Rails.root.join("db/migrate/20261027140100_add_faq_reads_to_insights_views")
 require Rails.root.join("db/migrate/20261027160100_add_reader_id_to_insights_faq_reads")
+require Rails.root.join("db/migrate/20261029100100_add_nps_responses_to_insights_views")
 
 # Talking to the admin MCP server (Admin::McpController) in an integration test: a token for an admin, a JSON-RPC call,
 # and a tool's answer as the Ruby it sent.
@@ -46,7 +47,7 @@ module AdminMcpHelpers
   def create_insights_views
     present = ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'")
     seen = ActiveRecord::Base.connection.select_value("select 1 from information_schema.columns where table_schema = 'insights' and table_name = 'projects' and column_name = 'hackatime_seen_seconds'")
-    return if (CreateInsightsViews::VIEWS + %w[visits nudges site_days faq_reads] - present).empty? && seen
+    return if (CreateInsightsViews::VIEWS + %w[visits nudges site_days faq_reads nps_responses] - present).empty? && seen
 
     ActiveRecord::Migration.suppress_messages do
       CreateInsightsViews.new.up
@@ -57,6 +58,7 @@ module AdminMcpHelpers
       AddRetentionDataToInsightsViews.new.up
       AddFaqReadsToInsightsViews.new.up
       AddReaderIdToInsightsFaqReads.new.up
+      AddNpsResponsesToInsightsViews.new.up
     end
   end
 end

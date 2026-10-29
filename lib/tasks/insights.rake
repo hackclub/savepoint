@@ -15,6 +15,7 @@ INSIGHTS_VIEW_MIGRATIONS ||= %w[
   AddFaqReadsToInsightsViews
   AddReaderIdToInsightsFaqReads
   HideSupersededShipsFromInsights
+  AddNpsResponsesToInsightsViews
 ].freeze
 
 namespace :insights do

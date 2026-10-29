@@ -391,8 +391,12 @@ class Ship < ApplicationRecord
     true
   end
 
+  # What a banned participant's rejected ship says when the reviewer wrote nothing of their own under Ban (D-112).
+  BAN_NOTE = "This project was rejected.".freeze
+
   # Fraud found, at review or at the fraud check: the ship is rejected for good and the account banned (User#ban!).
-  # Needs the evidence.
+  # Needs the evidence. The message to the participant is the reviewer's own words under Ban (D-112); a ship at the fraud
+  # check holds the one written under Approve, which isn't the ban's, so it gets BAN_NOTE.
   def ban_for_fraud!(by:, notes:, checklist: nil)
     return false unless pending?
 
@@ -401,10 +405,11 @@ class Ship < ApplicationRecord
     errors.add(:fraud_notes, "Write what shows the fraud") if fraud_notes.nil?
     return false if errors.any?
 
+    from_review = in_review?
     transaction do
-      assign_attributes(reviewer: by, reviewed_at: Time.current, review_checklist: checklist || review_checklist) if in_review?
+      assign_attributes(reviewer: by, reviewed_at: Time.current, review_checklist: checklist || review_checklist) if from_review
       update!(status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current, approved_hours: nil,
-              review_feedback: review_feedback.presence || "This project was rejected.", decided_by: by, decided_at: Time.current)
+              review_feedback: (review_feedback.presence if from_review) || BAN_NOTE, decided_by: by, decided_at: Time.current)
       project.user.ban!(fraud_notes, by:)
     end
     true

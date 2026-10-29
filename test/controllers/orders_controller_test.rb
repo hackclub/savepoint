@@ -29,7 +29,7 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "That's 5 hours, and you've 0.5 approved to spend.", flash[:shop_error]
   end
 
-  test "hours waiting for their fraud check can't be spent, and a banned account can't claim (D-063)" do
+  test "hours waiting for their fraud check can't be spent, and a banned account can't claim (D-063, D-113)" do
     ship = approve(@project, hours: 7)
     ship.update_columns(status: "awaiting_fraud", fraud_status: "pending", approved_hours: nil, review_hours: 7)
     sign_in_orpheus
@@ -44,7 +44,12 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_no_difference -> { @project.orders.count } do
       post shop_order_path, params: { order: { prize_key: "micro" } }
     end
-    assert_equal OrdersController::BANNED, flash[:shop_error]
+    # D-113: the ban ends their open session before the claim is looked at, so it never reaches OrdersController::BANNED
+    # (which stays, for a claim that lands in the moment between).
+    assert_redirected_to root_path
+    assert_nil session[:user_id]
+    assert_equal ApplicationController::BANNED_ALERT, flash[:alert]
+    assert_nil flash[:shop_error]
   end
 
   # Stands in for a claim that got in first: it runs as the project's lock is asked for, so before the lock is held.

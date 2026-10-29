@@ -175,6 +175,7 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".project__reviewer-note", 0, "the latest approved ship has none"
   end
 
+  # D-113: a banned account's session ends on its next request, so after a ban this page is only seen by an admin viewing as them.
   test "after a ban the rejected ship's page shows the reviewer's own words, and without any the default" do
     ready_to_ship
     post project_ship_path, params: { ship: ship_params }
@@ -183,9 +184,14 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     assert ship.decide!("banned", by: users(:ana), evidence: "The hours are another person's.", feedback: "This is a copy of Pong Remix, so it can't count.")
     assert users(:orpheus).reload.banned?
     get project_ship_path
-    assert_select ".ship__reviewer-note", "This is a copy of Pong Remix, so it can't count."
-    assert_select ".ship__done-text", /can't be shipped again/
-    assert_no_match(/This project was rejected/, response.body)
+    assert_redirected_to root_path, "the banned participant is signed out, not shown the page"
+
+    view_as_banned_orpheus do
+      get project_ship_path
+      assert_select ".ship__reviewer-note", "This is a copy of Pong Remix, so it can't count."
+      assert_select ".ship__done-text", /can't be shipped again/
+      assert_no_match(/This project was rejected/, response.body)
+    end
   end
 
   test "after a ban with no message from the reviewer the rejected ship's page says the project was rejected" do
@@ -193,8 +199,10 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     post project_ship_path, params: { ship: ship_params }
     assert projects(:orpheus).ships.sole.decide!("banned", by: users(:ana), evidence: "The hours are another person's.")
 
-    get project_ship_path
-    assert_select ".ship__reviewer-note", "This project was rejected."
+    view_as_banned_orpheus do
+      get project_ship_path
+      assert_select ".ship__reviewer-note", "This project was rejected."
+    end
   end
 
   test "a participant who is due answers the NPS questions before shipping" do
@@ -709,6 +717,21 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
       link_hackatime(users(:orpheus))
       projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
       sign_in_as_orpheus
+    end
+
+    # D-113: for the block, Ana (who reviewed the ship) is an admin viewing the site as Orpheus, whom the ban signed out. Signing in
+    # replaces whatever session the browser held. The admin list goes back after.
+    def view_as_banned_orpheus
+      admins = Rails.configuration.x.admin_slack_ids
+      Rails.configuration.x.admin_slack_ids = [ users(:ana).slack_id ]
+      mock_hack_club_auth(uid: users(:ana).hca_id, slack_id: users(:ana).slack_id, email: users(:ana).email, name: users(:ana).name,
+                          first_name: users(:ana).first_name)
+      post "/auth/hackclub"
+      follow_redirect!
+      post admin_user_impersonation_path(users(:orpheus))
+      yield
+    ensure
+      Rails.configuration.x.admin_slack_ids = admins
     end
 
     # The fixture screenshot with a trailing byte, so its checksum is new (D-016).

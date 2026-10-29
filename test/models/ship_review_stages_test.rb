@@ -221,6 +221,35 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal 0, @project.reload.hours_approved
   end
 
+  # D-112: what the reviewer writes to the participant under Ban is what the rejected ship says. A ship at its fraud check holds
+  # the message written under Approve, which was for an approval and isn't the ban's.
+
+  test "a ban at review keeps the message the reviewer typed under Ban" do
+    assert @ship.decide!("banned", by: @reviewer, evidence: "The hours are another person's.", feedback: "This is a copy of Pong Remix, so it can't count.")
+
+    assert_equal "This is a copy of Pong Remix, so it can't count.", @ship.reload.review_feedback
+  end
+
+  test "a ban at the fraud check drops the message written under Approve, for the default" do
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", feedback: "Loved the boss fight!")
+    assert_equal "Loved the boss fight!", @ship.reload.review_feedback
+
+    assert @ship.ban_for_fraud!(by: @reviewer, notes: "Same game as another account.")
+
+    assert_equal "This project was rejected.", @ship.reload.review_feedback
+  end
+
+  test "banning the account rejects a ship at its fraud check without the message written under Approve" do
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", feedback: "Loved the boss fight!")
+
+    @project.user.ban!("Fraud.", by: @reviewer)
+
+    @ship.reload
+    assert @ship.rejected?
+    assert_equal "banned", @ship.fraud_status
+    assert_equal "This project was rejected.", @ship.review_feedback
+  end
+
   test "a ship waiting for its fraud check goes back to review with a reason, and the page refills from the earlier review" do
     assert_not @ship.send_back_to_review!(by: @reviewer, reason: "x"), "only a ship that waits for the fraud check"
     @ship.update!(review_checklist: { "runs" => true })

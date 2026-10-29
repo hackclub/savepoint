@@ -1,5 +1,5 @@
-# Everyone who's set up, admins aside (D-032), ranked by hours today or in total (D-015): what the leaderboard page, the stairs on your
-# project page and the bot's leaderboard nudges all read from, so they agree. Ties go to whoever pledged first.
+# Everyone who's set up, admins aside (D-032) and banned accounts too (D-113), ranked by hours today or in total (D-015): what the
+# leaderboard page, the stairs on your project page and the bot's leaderboard nudges all read from, so they agree. Ties go to whoever pledged first.
 #
 # Once a day (LeaderboardSnapshotJob) everyone's total rank is noted on their project (week_rank, the column's old
 # name), so the board can show who's moved since the last snapshot and the bot can say who passed you.
@@ -27,10 +27,11 @@ module Leaderboard
     user ? user.local_date(now) : now.utc.to_date
   end
 
-  # Set-up projects in order, with their users (and screenshots, for the board). Today is the viewer's `date`.
+  # Set-up projects in order, with their users (and screenshots, for the board). Today is the viewer's `date`. A banned
+  # account's project is left out, sorted either way.
   def self.ranked(sort: "total", date: date_for(nil), projects: Project.includes(:user, screenshot_attachment: :blob))
     today = sort == "today"
-    projects = projects.select { |project| project.set_up? && !project.user.listed_admin? }
+    projects = projects.select { |project| project.set_up? && !project.user.listed_admin? && !project.user.banned? }
     preload_board(projects, date)
     projects.sort_by { |project| [ -(today ? project.hours_today(today: date) : project.hours_logged), -project.hours_logged, project.id ] }
   end

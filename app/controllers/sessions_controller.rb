@@ -3,12 +3,16 @@
 class SessionsController < ApplicationController
   layout "save_point" # for the Hackatime step
 
+  # A browser that still holds a banned account's session can sign in as someone else: the sign-in replaces that session
+  # (reset_session below), and a banned person signing in again is refused here.
+  skip_before_action :end_banned_session, only: :create
+
   def create
     auth = request.env["omniauth.auth"]
     # Which claims came back, never their values (they're personal).
     Rails.logger.info("[hca] claim keys: #{auth.extra.raw_info.to_h.keys.sort.join(", ")}") if Rails.env.development?
     user = User.from_omniauth(auth, utm: Visit.tags_from_cookie(cookies.signed[:sp_utm])) # first tags seen, for new users (D-043)
-    return redirect_to(root_path, alert: "This account can't sign in to Save Point.") if user.banned? # D-063: banned by an admin
+    return redirect_to(root_path, alert: BANNED_ALERT) if user.banned? # D-063: banned by an admin
     asked_for_address = request.env["omniauth.params"]&.dig("want") == "address"
     return_to = safe_return_path(request.env["omniauth.origin"])
     buddy_code = session[:buddy_code] # a buddy invite accepted before signing in still pairs you after onboarding

@@ -59,15 +59,22 @@ class User < ApplicationRecord
   end
 
   # D-063: banned by an admin after a fraud verdict (Ship#ban_for_fraud!). A banned account can't sign in, ship or claim
-  # a prize, and its other ships still waiting for a verdict are rejected. Nobody is told.
+  # a prize, and its other ships still waiting for a verdict are rejected. D-113: its open sessions end on the next
+  # request (ApplicationController#end_banned_session), the app sends it no Slack DM (SlackBot, SlackMessageJob,
+  # Nudge::Context#reachable?) and it's off the leaderboard (Leaderboard.ranked). Nobody is told.
+  scope :banned, -> { where.not(banned_at: nil) }
+
   def banned? = banned_at.present?
 
   def ban!(reason, by:)
     transaction do
       update!(banned_at: Time.current, ban_reason: reason)
       project&.ships&.pending&.find_each do |ship|
-        ship.update!(status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current,
-                     fraud_notes: "Banned with the account: #{reason}", decided_by: by, decided_at: Time.current)
+        rejection = { status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current,
+                      fraud_notes: "Banned with the account: #{reason}", decided_by: by, decided_at: Time.current }
+        # D-112: a ship that waits for its fraud check holds the message written under Approve, which isn't the ban's.
+        rejection[:review_feedback] = Ship::BAN_NOTE if ship.awaiting_fraud?
+        ship.update!(rejection)
       end
     end
   end

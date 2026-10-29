@@ -9,14 +9,35 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :signed_in?, :impersonating?, :true_user
 
+  # First, so a banned account's request writes nothing for them (a timezone, a visit, when they were last seen) before it ends.
+  before_action :end_banned_session
   before_action :refuse_writes_while_impersonating
   before_action :remember_timezone
   before_action :record_utm
   before_action :record_presence
 
   VIEWING_AS_ALERT = "You're viewing as them. Stop viewing as them to do that.".freeze
+  # What a banned account is told when its session ends (D-113), and when it tries to sign in (D-063, SessionsController).
+  BANNED_ALERT = "This account can't sign in to Save Point.".freeze
 
   private
+    # D-113: a ban ends the sessions already open, on the account's next request, whatever it asks for: the session goes and
+    # they're sent to the signed-out home page with the sign-in refusal (a fetch for JSON gets a 401 with it). That page has
+    # no session to end, so there's no loop. Whoever's really behind the session decides (true_user): an admin viewing as a
+    # banned person is the admin, so that view goes on.
+    def end_banned_session
+      return if session[:user_id].blank? # signed out: nothing to look up
+      return unless true_user&.banned?
+
+      reset_session
+      flash[:alert] = BANNED_ALERT
+      if request.format.json?
+        render json: { error: BANNED_ALERT }, status: :unauthorized
+      else
+        redirect_to root_path
+      end
+    end
+
     # Viewing as someone is read-only: an admin who could write as them could claim their prize to any address, ship
     # or edit their project. Only ending the view (Admin::ImpersonationsController#destroy) and signing out
     # (SessionsController#destroy) get through.

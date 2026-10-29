@@ -137,7 +137,7 @@ class AdminInsightsTest < ActiveSupport::TestCase
 
     assert_equal({ approved: 1, claimed: 1 }, ParticipantFunnel.waiting(funnel))
 
-    projects(:ana).ships.update_all(status: "approved")
+    projects(:ana).ships.update_all(approved_columns(1))
     ship(projects(:ana)).update_columns(created_at: Time.utc(2026, 10, 26, 8))
     assert_equal 0, ParticipantFunnel.waiting(funnel)[:approved], "someone who has an approved ship isn't waiting for their first"
   end
@@ -183,7 +183,8 @@ class AdminInsightsTest < ActiveSupport::TestCase
 
     def ship(project, status: "in_review")
       project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
-                            repo_url: "https://example.com/repo", demo_url: "https://example.com/demo", hours: 1, status:,
+                            repo_url: "https://example.com/repo", demo_url: "https://example.com/demo", hours: 1,
+                            **(status == "approved" ? approved_columns(1) : { status: }),
                             screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
     end
 

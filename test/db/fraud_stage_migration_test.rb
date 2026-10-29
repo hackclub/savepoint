@@ -17,7 +17,7 @@ class FraudStageMigrationTest < ActiveSupport::TestCase
     end
     waiting, rejected, approved = make.("waiting"), make.("rejected"), make.("approved")
     rejected.update_columns(status: "changes_needed")
-    approved.update_columns(status: "approved", approved_hours: 4.5, decided_by_id: users(:orpheus).id, decided_at: Time.utc(2026, 11, 1, 12))
+    approved.update_columns(approved_columns(4.5, decided_by_id: users(:orpheus).id, decided_at: Time.utc(2026, 11, 1, 12)))
 
     ActiveRecord::Migration.suppress_messages do
       migration = AddFraudStageToShips.new

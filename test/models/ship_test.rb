@@ -22,7 +22,7 @@ class ShipTest < ActiveSupport::TestCase
     assert_equal ship, @project.ship_in_review
     assert_not @project.shipped?, "not shipped until it's approved"
 
-    ship.update!(status: "approved")
+    ship.update!(approved_columns(ship.hours))
     assert @project.reload.shipped?
   end
 

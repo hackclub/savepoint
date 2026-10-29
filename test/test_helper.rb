@@ -137,6 +137,13 @@ module ShopHelpers
   end
 end
 
+module ShipHelpers
+  # D-111: the columns of an approved ship as the fraud check leaves them: the review's hours are the approved hours and
+  # nothing is deducted. The database refuses an approved ship whose hours don't add up, so a test that skips the review writes these.
+  def approved_columns(hours, **more) = { status: "approved", fraud_status: "passed", review_hours: hours, approved_hours: hours }.merge(more)
+end
+
+ActiveSupport::TestCase.include ShipHelpers
 ActiveSupport::TestCase.include ShopHelpers
 ActiveSupport::TestCase.include HackClubAuthHelpers
 ActiveSupport::TestCase.include HackatimeHelpers

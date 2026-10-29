@@ -176,7 +176,7 @@ class AdminSummaryTest < ActiveSupport::TestCase
   end
 
   test "unapproved never goes below 0 when a ship holds more than Hackatime shows" do
-    ship(6.0, status: "approved")
+    ship(6.0, status: "approved", approved_hours: 6.0)
 
     assert_equal({ unapproved_hours: 0.0, pending_hours: 0.0, approved_hours: 6.0 }, AdminSummary.new.funnel)
   end
@@ -185,6 +185,6 @@ class AdminSummaryTest < ActiveSupport::TestCase
     def ship(hours, status: "in_review", approved_hours: nil, project: projects(:ana))
       project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                             repo_url: "https://example.com/repo", demo_url: "https://example.com/demo", hours:, status:, approved_hours:,
-                            screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+                            review_hours: approved_hours, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
     end
 end

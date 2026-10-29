@@ -14,11 +14,11 @@
   </div>
   <div>
     <dt>AI coding <small>counts at a third</small></dt>
-    <dd id="admin-ship-ai-coding"><% if limits.ai_known? %><% if limits.ai_raised? %>Hackatime <%= format.(limits.hackatime_ai) %> hrs, raised to <%= format.(limits.ai_coding) %> hrs<% else %><%= format.(limits.ai_coding) %> hrs<% end %><% if limits.ai_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
+    <dd id="admin-ship-ai-coding"><% if limits.ai_known? %><% if limits.ai_raised? %>Hackatime <%= format.(limits.hackatime_ai) %> hrs, raised to <%= format.(limits.ai_coding) %> hrs<% else %><%= format.(limits.ai_coding) %> hrs<% end %><% if limits.ai_cut.positive? %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
   </div>
   <div>
     <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
-    <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut >= Ship::Limits::TOLERANCE %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
+    <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut.positive? %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
   </div>
   <% if limits.lapse_coding.positive? %>
     <div id="admin-ship-lapse-coding">

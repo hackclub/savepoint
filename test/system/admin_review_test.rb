@@ -32,8 +32,8 @@ class AdminReviewTest < ApplicationSystemTestCase
     find("button[data-action='deflate#setCoding'][data-percent='50']").click
     assert_field "Why deflated", visible: :visible
     assert_equal "2.75", find("input[name=coding_hours]").value
-    assert_equal "1.18", find("input[name=art_hours]").value, "art is held at 30% of the new total"
-    assert_selector "[data-deflate-target=total]", text: "3.93"
+    assert_equal "1.17", find("input[name=art_hours]").value, "art is held at 30% of the new total, rounded down so it never passes it"
+    assert_selector "[data-deflate-target=total]", text: "3.92"
     assert_no_selector "[data-deflate-target=hold][hidden]", visible: :all
 
     find("button[data-action='deflate#setArt'][data-percent='50']").click
@@ -48,6 +48,37 @@ class AdminReviewTest < ApplicationSystemTestCase
     fill_in "coding_hours", with: "4.5"
     fill_in "art_hours", with: "1.92"
     assert_no_field "Why deflated", visible: :visible
+  end
+
+  # D-111: 5.3 counted hours, no AI coding and 5542 s of art. Coding 3.76 and art 1.54 add up to the 5.3 claimed, and the form sends
+  # them as they stand. A hundredth under either is a deflation, and the box for its reason opens.
+  test "the form's own figures add up to the hours claimed with no reason, and a hundredth below asks for one (D-111)" do
+    users(:ana).streak_activities.update_all(coded_seconds: 19_080)
+    @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    visit admin_ship_path(@ship)
+    pick "approved"
+    assert_equal [ "3.76", "1.54" ], [ find("input[name=coding_hours]").value, find("input[name=art_hours]").value ]
+    assert_selector "[data-deflate-target=total]", text: "5.3"
+    assert_no_field "Why deflated", visible: :visible
+
+    fill_in "coding_hours", with: "3.75"
+    assert_field "Why deflated", visible: :visible
+    fill_in "art_hours", with: "1.54"
+    assert_equal "1.53", find("input[name=art_hours]").value, "art held at 30% of the lower coding, rounded down"
+    assert_selector "[data-deflate-target=total]", text: "5.28"
+
+    fill_in "coding_hours", with: "3.76"
+    fill_in "art_hours", with: "1.53"
+    assert_field "Why deflated", visible: :visible
+
+    fill_in "art_hours", with: "1.54"
+    assert_no_field "Why deflated", visible: :visible
+    fill_in "Specific technical features", with: "A second ball with its own physics."
+    find("#verdict-submit").click
+    assert_text "Fraud check"
+    @ship.reload
+    assert_equal [ BigDecimal("5.3"), BigDecimal("5.3") ], [ @ship.claimed_hours, @ship.review_hours ]
+    assert_nil @ship.deflation_reason
   end
 
   test "raising the AI coding hours lowers the coding maximum on the page (D-102)" do

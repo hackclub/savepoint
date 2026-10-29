@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_110100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -327,6 +327,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_110100) do
     t.index ["snapshot_edited_by_id"], name: "index_ships_on_snapshot_edited_by_id"
     t.index ["status"], name: "index_ships_on_status"
     t.index ["superseded_by_id"], name: "index_ships_on_superseded_by_id"
+    t.check_constraint "(status::text <> ALL (ARRAY['awaiting_fraud'::character varying, 'approved'::character varying]::text[])) OR claimed_hours IS NULL OR review_hours IS NULL OR review_hours >= claimed_hours OR deflation_reason IS NOT NULL AND deflation_reason ~ '\\S'::text", name: "ships_deflation_has_reason"
+    t.check_constraint "fraud_deduction_hours <= 0::numeric OR fraud_notes IS NOT NULL AND fraud_notes ~ '\\S'::text", name: "ships_deduction_has_notes"
+    t.check_constraint "status::text <> 'approved'::text OR approved_hours IS NOT NULL AND review_hours IS NOT NULL AND approved_hours = (review_hours - fraud_deduction_hours)", name: "ships_approved_hours_add_up"
   end
 
   create_table "site_days", force: :cascade do |t|

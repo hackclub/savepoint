@@ -47,9 +47,12 @@
   <p class="ash__description" id="admin-ship-feedback"><%= ship.review_feedback %></p>
 <% end %>
 <% if ship.approved? %>
-  <%# What the sync sends to the handbook's justification fields (AirtableFields.justifications). %>
-  <% fields = (AirtableFields.justifications(ship, earlier: earlier_ship) if earlier_ship.checked?) %>
+  <%# What the sync sends to the handbook's justification fields (AirtableFields.justifications). D-111: a deflation with a part
+      that has no reason isn't sent at all (the sync raises), so the page says so instead of drawing its text. %>
+  <% fields = (AirtableFields.justifications(ship, earlier: earlier_ship, strict: false) if earlier_ship.checked?) %>
+  <% problem = AirtableFields.deflation_problem(ship) %>
   <p class="sp-label ash__justify-label">For Airtable</p>
+  <% if problem %><p class="ash__problem" id="admin-ship-deflation-problem" role="alert"><%= sp_icon "warning-fill" %>Not sent to Airtable: <%= problem %>. Every deflation needs a reason.</p><% end %>
   <dl class="ash__justify" id="admin-ship-airtable">
     <% if fields %>
       <% fields.each do |name, value| %>

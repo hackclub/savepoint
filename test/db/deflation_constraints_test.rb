@@ -77,11 +77,12 @@ class DeflationConstraintsTest < ActiveSupport::TestCase
   end
 
   # D-111: a ship approved with 5.29 hours of the 5.3 claimed, no reason, from the round-down.
-  def stored_before_the_rule(project, title, status: "approved", coding: 3.76, art: 1.53, review: 5.29, claimed: 5.3, reason: nil, deduction: 0, notes: nil)
+  def stored_before_the_rule(project, title, status: "approved", coding: 3.76, art: 1.53, review: 5.29, claimed: 5.3, reason: nil, deduction: 0, notes: nil, failed_at: nil)
     ship = make_ship(project:, title:)
     ship.update_columns(status:, fraud_status: (status == "approved" ? "passed" : "pending"), claimed_hours: claimed, review_coding_hours: coding, review_art_hours: art,
                         review_hours: review, approved_hours: (review - deduction if status == "approved"), deflation_reason: reason,
-                        fraud_deduction_hours: deduction, fraud_notes: notes, synced_at: Time.utc(2026, 10, 28, 17), updated_at: Time.utc(2026, 10, 28, 17))
+                        fraud_deduction_hours: deduction, fraud_notes: notes, synced_at: Time.utc(2026, 10, 28, 17), updated_at: Time.utc(2026, 10, 28, 17),
+                        airtable_failed_at: failed_at)
     ship
   end
 
@@ -89,12 +90,12 @@ class DeflationConstraintsTest < ActiveSupport::TestCase
   def migrate_up = ActiveRecord::Migration.suppress_messages { Ship.transaction(requires_new: true) { RequireAReasonForEveryDeflation.new.up } }
   def migrate_down = ActiveRecord::Migration.suppress_messages { RequireAReasonForEveryDeflation.new.down }
 
-  test "the migration makes up a hundredth a ship lost with no reason, and sends the ship and its project to Airtable again" do
+  test "the migration makes up a hundredth a ship lost with no reason, and sends the project at once and the ship ten minutes on" do
     migrate_down
     project = projects(:ana)
     project.update_columns(synced_at: Time.utc(2026, 10, 28, 17))
     both = stored_before_the_rule(project, "Both parts")
-    coding_only = stored_before_the_rule(project, "Coding only", coding: 5.29, art: 0)
+    coding_only = stored_before_the_rule(project, "Coding only", coding: 5.29, art: 0, failed_at: 5.minutes.ago)
     waiting = stored_before_the_rule(project, "Waiting", status: "awaiting_fraud")
     two = stored_before_the_rule(project, "Two hundredths", coding: 3.75, art: 1.53, review: 5.28)
     explained = stored_before_the_rule(project, "Explained", reason: "A menu was cut.")
@@ -111,19 +112,29 @@ class DeflationConstraintsTest < ActiveSupport::TestCase
     assert_nil both.synced_at, "it goes to Airtable again"
     assert_operator both.updated_at, :>, Time.utc(2026, 10, 28, 17)
     assert_nil project.reload.synced_at, "and so does its project"
+    assert_nil project.airtable_failed_at, "at once: its fields don't change with D-111"
     assert_equal Time.utc(2026, 10, 28, 17), other.reload.synced_at, "another project is left alone"
+
+    # The sync skips a row for an hour after a failure. The ship is put 50 minutes into that, so the old pods of a rolling deploy, which
+    # send it without clearing its old deflation sentence, leave it for the new code to send ten minutes on.
+    wait = Airtable::SyncJob::FAILED_WAIT
+    assert_operator both.airtable_failed_at, :>, wait.ago, "not due now"
+    assert_operator both.airtable_failed_at, :<, (wait - 15.minutes).ago, "due within fifteen minutes"
 
     coding_only.reload
     assert_equal [ BigDecimal("5.3"), BigDecimal("5.3"), BigDecimal("5.3"), BigDecimal("0") ],
                  [ coding_only.review_hours, coding_only.approved_hours, coding_only.review_coding_hours, coding_only.review_art_hours ], "with no art it goes to its coding"
+    assert_in_delta 5.minutes.ago.to_f, coding_only.airtable_failed_at.to_f, 60, "a failure later than that stays"
     waiting.reload
     assert_equal [ BigDecimal("5.3"), nil, BigDecimal("1.54") ], [ waiting.review_hours, waiting.approved_hours, waiting.review_art_hours ], "a ship at its fraud check has no approved hours yet"
+    assert_nil waiting.airtable_failed_at, "and was never sent, so it has no wait"
     two.reload
     assert_equal [ BigDecimal("5.3"), BigDecimal("5.3"), BigDecimal("3.75"), BigDecimal("1.55") ],
                  [ two.review_hours, two.approved_hours, two.review_coding_hours, two.review_art_hours ], "two hundredths too"
 
-    assert_equal [ BigDecimal("5.29"), "A menu was cut.", Time.utc(2026, 10, 28, 17) ], [ explained.reload.review_hours, explained.deflation_reason, explained.synced_at ], "a ship with its reason is left alone"
-    assert_equal Time.utc(2026, 10, 28, 17), whole.reload.synced_at, "so is one that lost nothing"
+    assert_equal [ BigDecimal("5.29"), "A menu was cut.", Time.utc(2026, 10, 28, 17), nil ],
+                 [ explained.reload.review_hours, explained.deflation_reason, explained.synced_at, explained.airtable_failed_at ], "a ship with its reason is left alone"
+    assert_equal [ Time.utc(2026, 10, 28, 17), nil ], [ whole.reload.synced_at, whole.airtable_failed_at ], "so is one that lost nothing"
     assert_equal BigDecimal("5.3"), whole.review_hours
     assert_equal [ both, coding_only, waiting, two, explained, whole ].map { it.review_coding_hours + it.review_art_hours }, [ both, coding_only, waiting, two, explained, whole ].map(&:review_hours),
                  "every split still adds up"

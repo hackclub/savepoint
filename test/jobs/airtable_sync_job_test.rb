@@ -289,6 +289,27 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_not @fake.rows(SUBMISSIONS).sole.key?(deflation), "a first sync has nothing to clear"
   end
 
+  # D-111: the migration puts a corrected ship 50 minutes into the sync's hour of waiting, so the old pods of a rolling deploy leave it
+  # alone, and the new code sends it ten minutes on, clearing the sentence its row still holds.
+  test "a corrected ship put 50 minutes into its wait goes ten minutes on, and clears the old deflation sentence (D-111)" do
+    ship = approved_ship(approved_hours: 10)
+    deflation = AirtableFields::DEFLATION_FIELD
+    ship.update_columns(synced_at: nil, airtable_failed_at: 50.minutes.ago)
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => { deflation => "Deflated from 10 to 9.99 hours." } } }
+    Airtable::SyncJob.perform_now
+    assert_empty @fake.rows(SUBMISSIONS), "not due yet"
+    assert_nil ship.reload.synced_at
+
+    travel 11.minutes do
+      Airtable::SyncJob.perform_now
+    end
+    row = @fake.rows(SUBMISSIONS).sole
+    assert row.key?(deflation), "the old sentence is cleared"
+    assert_nil row[deflation]
+    assert_not_nil ship.reload.synced_at
+    assert_nil ship.airtable_failed_at
+  end
+
   test "a ship still deflated sends its sentence over the one its row holds" do
     ship = approved_ship(approved_hours: 10)
     ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 0)

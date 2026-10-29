@@ -6,9 +6,10 @@
 # A ship already in that state is fixed first. Its review is a hundredth or two under the hours claimed, with no reason: the
 # limits' round-down took it (Ship::Limits#coding_top now rounds so approving the most stores exactly the most). It takes the
 # claimed hours as its review hours, and as its approved hours when it is approved. The difference goes to its art hours (its
-# coding hours when it has no art), so the split still adds up. The ship and its project go to Airtable again. This is SQL, not
-# the model: nothing is messaged and nothing posts to Slack. A gap wider than that with no reason can't be made up, nor can an
-# approved ship whose hours don't add up or a deduction without notes. The migration stops and names those ships.
+# coding hours when it has no art), so the split still adds up. Its project goes to Airtable again at once, and the ship about ten
+# minutes later (see FIX). This is SQL, not the model: nothing is messaged and nothing posts to Slack. A gap wider than that with
+# no reason can't be made up, nor can an approved ship whose hours don't add up or a deduction without notes. The migration stops
+# and names those ships.
 class RequireAReasonForEveryDeflation < ActiveRecord::Migration[8.1]
   # `~ '\S'` is a character that isn't whitespace.
   REASON = %q((deflation_reason IS NOT NULL AND deflation_reason ~ '\S'))
@@ -28,6 +29,12 @@ class RequireAReasonForEveryDeflation < ActiveRecord::Migration[8.1]
     "ships_deduction_has_notes" => "have a fraud deduction and no fraud notes"
   }.freeze
 
+  # An approved ship waits ten minutes before it goes to Airtable again. The sync skips a row for an hour after a failure
+  # (Airtable::SyncJob::FAILED_WAIT), so airtable_failed_at is put 50 minutes back, or left where it is when it is later. While a
+  # rolling deploy runs, the old pods still run the sync with the old code. That code would send the ship without clearing its old
+  # deflation sentence (an upsert leaves out a field with no value) and stamp it synced, so the new code never sees it. Ten minutes
+  # on, the old pods are gone and the new code sends it, clearing that sentence (AirtableFields.clearing_stale_deflation). The
+  # projects go at once: their fields don't change with D-111.
   FIX = <<~'SQL'
     UPDATE ships
     SET review_art_hours = CASE WHEN review_coding_hours IS NOT NULL AND review_art_hours > 0 THEN review_art_hours + (claimed_hours - review_hours) ELSE review_art_hours END,
@@ -35,6 +42,7 @@ class RequireAReasonForEveryDeflation < ActiveRecord::Migration[8.1]
         approved_hours = CASE WHEN status = 'approved' THEN claimed_hours ELSE approved_hours END,
         review_hours = claimed_hours,
         synced_at = NULL,
+        airtable_failed_at = CASE WHEN status = 'approved' THEN GREATEST(airtable_failed_at, now() - interval '50 minutes') ELSE airtable_failed_at END,
         updated_at = now()
     WHERE status IN ('awaiting_fraud', 'approved')
       AND claimed_hours IS NOT NULL AND review_hours IS NOT NULL

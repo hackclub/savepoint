@@ -9,6 +9,11 @@ class StrictDauTest < ActiveSupport::TestCase
   setup do
     @admins = Rails.configuration.x.admin_slack_ids
     Rails.configuration.x.admin_slack_ids = [ "U0NOBODY" ]
+    @category_seconds = Hackatime.stubbed_category_seconds
+    # Noon in New York. The admin DAU counts the Eastern day from midnight (AdminSummary#dau_today), so a piece of time built
+    # "30 minutes ago" is today only if the clock is past 00:30 there. Without this, the suite fails in the half hour after
+    # that midnight (04:00 UTC while New York is on daylight time, 05:00 after it ends).
+    travel_to Time.find_zone("America/New_York").local(2026, 10, 28, 12)
     @ana = users(:ana)
     @orpheus = users(:orpheus)
   end
@@ -16,7 +21,7 @@ class StrictDauTest < ActiveSupport::TestCase
   teardown do
     Rails.configuration.x.admin_slack_ids = @admins
     Hackatime.stubbed_spans = {}
-    Hackatime.stubbed_category_seconds = nil
+    Hackatime.stubbed_category_seconds = @category_seconds
   end
 
   def span(at, minutes) = { "start_time" => at.to_f, "end_time" => (at + minutes.minutes).to_f, "duration" => minutes * 60 }

@@ -1,0 +1,13 @@
+<%# locals: (project:) %>
+<%# D-120: the optional "Bring a buddy" card on the full project page, until you pair, invite or say not now. %>
+<section class="project__buddy-ask" aria-labelledby="project-buddy-ask-title">
+  <div class="project__buddy-ask-text">
+    <h2 class="project__buddy-ask-title" id="project-buddy-ask-title">Bring a buddy <span class="project__buddy-ask-note">· optional</span></h2>
+    <p class="project__step-text">Invite a friend to build with you. You each make your own game.</p>
+  </div>
+  <div class="project__buddy-ask-row">
+    <%= render "buddies/invite_link", project:, mark_invited: true %>
+    <%= button_to "Not now", project_path, method: :patch, params: { project: { buddy_skipped: true } },
+          class: "sp-btn sp-btn--ghost project__buddy-ask-skip" %>
+  </div>
+</section>

@@ -1,6 +1,5 @@
 # Hackatime sends you back here once you've let us read your projects and hours. We ask it who you are, keep that
-# and the token, and tick off linking Hackatime on your project. The bot congratulates you if that was the last
-# setup step left.
+# and the token, and tick off linking Hackatime on your project.
 class HackatimeLinksController < ApplicationController
   # A GET, so the read-only rule for viewing as someone misses it: it would link the admin's Hackatime to them.
   before_action :refuse_while_impersonating, only: :create

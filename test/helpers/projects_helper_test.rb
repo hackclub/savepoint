@@ -33,18 +33,22 @@ class ProjectsHelperTest < ActionView::TestCase
   test "a repo put off till later has no done state, and a real repo URL does" do
     project = projects(:orpheus)
     link_hackatime(project.user)
-    project.assign_attributes(hackatime_projects: [ "rhythm-game" ], repo_url: nil, repo_later: true, buddy_skipped: true)
+    project.assign_attributes(hackatime_projects: [ "rhythm-game" ], repo_url: nil, repo_later: true)
 
-    repo = project_steps(project, step: "buddy").find { |item| item[:key] == "repo" }
+    repo = project_steps(project, step: "hackatime").find { |item| item[:key] == "repo" }
     assert_not repo[:done]
     assert repo[:later]
     assert_equal [ "Git repo", "add before you ship" ], [ repo[:title], repo[:note] ]
-    buddy = project_steps(project, step: "repo").find { |item| item[:key] == "buddy" }
-    assert_not buddy[:done]
-    assert buddy[:later]
+    assert_equal %w[hackatime hackatime_project repo], project_steps(project).map { |item| item[:key] }, "D-120: a buddy isn't a step"
+    assert_equal "Git repo put off", project_setup_summary(project, nil)
+    project.repo_later = false
+    project.repo_url = "https://github.com/orpheus/rhythm-game"
+    assert_equal "Setup done", project_setup_summary(project, nil), "no buddy step left to count"
+    project.repo_url = nil
+    project.repo_later = true
 
     project.repo_url = "https://github.com/orpheus/rhythm-game"
-    repo = project_steps(project, step: "buddy").find { |item| item[:key] == "repo" }
+    repo = project_steps(project, step: "hackatime").find { |item| item[:key] == "repo" }
     assert repo[:done]
     assert_not repo[:later]
     assert_equal "Repo added", repo[:title]

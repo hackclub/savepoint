@@ -17,16 +17,16 @@ class BuddiesControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?] input[name=?][value=true]", project_path, "project[buddy_invited]"
   end
 
-  test "copying your link from setup counts as sending it" do
+  test "copying your link from the project page's buddy card counts as sending it" do
     link_hackatime(users(:orpheus))
     projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true)
     get project_path
-    assert_select ".project__step[data-state=current]", /Bring a buddy/
+    assert_select ".project__buddy-ask", /Bring a buddy/
 
     patch project_path, params: { project: { buddy_invited: true } }
     follow_redirect!
     assert_select ".buddy-card__title", "Invite sent"
-    assert_select ".project__step", /Buddy invite sent/
+    assert_select ".project__buddy-ask", count: 0
   end
 
   test "paired, the sidebar card and the tab show the two of you" do
@@ -37,7 +37,7 @@ class BuddiesControllerTest < ActionDispatch::IntegrationTest
 
     assert_select ".buddy-card__title", "You + pixelana"
     assert_select ".buddy-card__note", "pixelana is building pong"
-    assert_select ".project__step", /Paired with pixelana/
+    assert_select ".project__buddy-ask", count: 0
 
     get buddy_path
     assert_select "h1", "You + pixelana"

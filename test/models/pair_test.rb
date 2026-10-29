@@ -7,8 +7,8 @@ class PairTest < ActiveSupport::TestCase
     assert pair.persisted?
     assert_equal projects(:ana), projects(:orpheus).reload.buddy
     assert_equal projects(:orpheus), projects(:ana).reload.buddy
-    assert projects(:orpheus).step_done?("buddy")
-    assert_not projects(:orpheus).step_open?("buddy")
+    assert_not projects(:orpheus).buddy_prompt?
+    assert_not projects(:ana).buddy_prompt?
 
     again = projects(:ana).pair_with(projects(:orpheus))
     assert_not again.persisted?

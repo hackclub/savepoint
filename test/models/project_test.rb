@@ -114,7 +114,7 @@ class ProjectTest < ActiveSupport::TestCase
     assert project.pace_feasible?(100), "100 x 5 - 100 = 400"
   end
 
-  test "setting up takes linking Hackatime; your project, a repo and a buddy can wait" do
+  test "setting up takes linking Hackatime; your project and a repo can wait, and a buddy isn't a step (D-120)" do
     project = projects(:orpheus)
     assert_equal 0, project.required_steps_done
     assert project.step_locked?("hackatime_project")
@@ -124,10 +124,19 @@ class ProjectTest < ActiveSupport::TestCase
     assert project.tracking?
     assert_not project.step_locked?("hackatime_project")
     assert project.set_up?, "linking Hackatime is all setup needs"
-    assert_equal 2, project.optional_steps_left
+    assert_equal 1, project.optional_steps_left
+    assert_not project.setup_finished?
 
-    project.assign_attributes(repo_later: true, buddy_skipped: true)
+    project.assign_attributes(repo_later: true)
     assert_equal 0, project.optional_steps_left
+    assert project.setup_finished?, "no buddy decision needed"
+    assert_not project.setup_all_done?, "the repo's still put off"
+    assert project.buddy_prompt?
+    project.buddy_skipped = true
+    assert_not project.buddy_prompt?
+    project.assign_attributes(buddy_skipped: false, buddy_invited: true)
+    assert_not project.buddy_prompt?
+    assert_not_includes Project::SETUP_STEPS, "buddy"
     assert project.step_open?("repo"), "a repo put off till later can still be added"
     assert_not project.step_open?("slack"), "Slack isn't a setup step"
   end

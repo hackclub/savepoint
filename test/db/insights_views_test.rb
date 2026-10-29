@@ -9,11 +9,12 @@ require Rails.root.join("db/migrate/20261026160100_add_retention_data_to_insight
 require Rails.root.join("db/migrate/20261028110100_hide_superseded_ships_from_insights")
 require Rails.root.join("db/migrate/20261027140100_add_faq_reads_to_insights_views")
 require Rails.root.join("db/migrate/20261027160100_add_reader_id_to_insights_faq_reads")
+require Rails.root.join("db/migrate/20261029100100_add_nps_responses_to_insights_views")
 
 # The views the analytics service reads (hackclub/save-point-analytics). The test database loads from schema.rb,
 # which doesn't dump views, so the migration runs here when they're absent. The test's transaction rolls it back.
 class InsightsViewsTest < ActiveSupport::TestCase
-  VIEWS = (CreateInsightsViews::VIEWS + %w[visits nudges site_days faq_reads]).freeze
+  VIEWS = (CreateInsightsViews::VIEWS + %w[visits nudges site_days faq_reads nps_responses]).freeze
   FORBIDDEN = %w[email name address phone_number birthdate slack_id hackatime_access_token].freeze
 
   setup do
@@ -32,6 +33,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
       HideSupersededShipsFromInsights.new.up
       AddFaqReadsToInsightsViews.new.up
       AddReaderIdToInsightsFaqReads.new.up
+      AddNpsResponsesToInsightsViews.new.up
     end
   end
 
@@ -71,7 +73,7 @@ class InsightsViewsTest < ActiveSupport::TestCase
   test "the UTM migration reverses" do
     ActiveRecord::Migration.suppress_messages do
       AddUtmToInsightsViews.new.down
-      assert_equal %w[faq_reads nudges orders projects ships site_days streak_activities users], ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
+      assert_equal %w[faq_reads nps_responses nudges orders projects ships site_days streak_activities users], ActiveRecord::Base.connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
       AddUtmToInsightsViews.new.up
     end
   end
@@ -195,10 +197,20 @@ class InsightsViewsTest < ActiveSupport::TestCase
     ActiveRecord::Migration.suppress_messages do
       AddRetentionDataToInsightsViews.new.down
       connection = ActiveRecord::Base.connection
-      assert_equal %w[faq_reads orders projects ships streak_activities users visits], connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
+      assert_equal %w[faq_reads nps_responses orders projects ships streak_activities users visits], connection.select_values("select viewname from pg_views where schemaname = 'insights'").sort
       assert_not_includes connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'projects'"), "first_coded_at"
       assert_not_includes connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'users'"), "onboarding_step_times"
       AddRetentionDataToInsightsViews.new.up
     end
+  end
+
+  test "insights.nps_responses shows every answer and no person's details (D-118)" do
+    answer = NpsResponse.create!(user: users(:ana), source: "daily", score: 9, doing_well: "the prizes", improve: "faster review", anything_else: "thanks")
+    connection = ActiveRecord::Base.connection
+
+    row = connection.select_rows("select score, doing_well, improve, anything_else, user_id from insights.nps_responses where nps_response_id = #{answer.id}").first
+    assert_equal [ 9, "the prizes", "faster review", "thanks", users(:ana).id ], row
+    assert_equal %w[anything_else created_at doing_well improve nps_response_id project_id score user_id],
+                 connection.select_values("select column_name from information_schema.columns where table_schema = 'insights' and table_name = 'nps_responses'").sort
   end
 end

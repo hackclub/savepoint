@@ -43,6 +43,7 @@ module AdminMcp::Tools::Ships
           "The verdict holds review_feedback (the note the participant sees), review_judgement (the reviewer's internal note) and review_checklist (the ticks, frozen at the decision), " \
           "the review's coding and art hours, the fraud check (fraud_status, deduction, notes), who held each, and the send_backs (a ship that waited for its fraud check and went back to review). " \
           "For a ship in review, checklist_defaults lists the ticks the app would pre-fill, each with its reason. " \
+          "For an approved ship, justifications holds what goes to Airtable, and deflation_problem says which part of a deflation has no reason (D-111: every deflation needs one), so the sync holds it back. " \
           "For a ship in review it asks Hackatime for the AI coding and art time once, as opening the page does. It looks up GitHub and Airtable, so it can take a few seconds.",
           { ship_id: { type: "integer", description: "The ship ID." } }, required: %w[ship_id]
 
@@ -73,7 +74,8 @@ module AdminMcp::Tools::Ships
         send_backs: ship.send_backs.includes(:user).map { { by: it.user.first_name, reason: it.reason, at: it.created_at, earlier_review: it.earlier_review } },
         held_by: Claim.live.where(ship:).includes(:user).map { { stage: it.stage, user: it.user.first_name } },
         checklist_defaults: (ship.checklist_defaults(earlier:, limits: review.limits).transform_values { |(ticked, reason)| { ticked:, reason: } } if ship.in_review?),
-        justifications: (AirtableFields.justifications(ship, earlier:) if ship.approved? && earlier.checked?),
+        justifications: (AirtableFields.justifications(ship, earlier:, strict: false) if ship.approved? && earlier.checked?),
+        deflation_problem: (AirtableFields.deflation_problem(ship) if ship.approved?),
         other_ships: review.others.map { { id: it.id, status: it.status, hours: it.hours.to_f, shipped_at: it.created_at } }
       )
     end
@@ -91,6 +93,7 @@ module AdminMcp::Tools::Ships
     writes "review_ship", "Review a ship",
            "Gives a ship in review its verdict, once (the review page's buttons, Ship#decide!). approved holds the coding and art hours you set (each defaults to the most the limits allow and is " \
            "clamped to it: AI coding counts at a third, art at most 30% of the total; see get_ship's limits) and needs technical_features, and a deflation_reason when you go below what the rules allow. " \
+           "Approving the most the rules allow stores exactly most_to_approve, which is the hours claimed when nothing is cut; the limits' own words for an AI or art cut are kept with your reason (D-111: every deflation has a reason). " \
            "It then moves to the fraud check (fraud_ship): the hours are not the participant's to spend until that passes. changes_needed sends it back and needs feedback: the note the participant sees (D-049). " \
            "rejected is final and needs judgement. banned is fraud found at review: it needs evidence, rejects the ship and bans the account. " \
            "Nobody is told by this: the participant sees the result on the site. You can't review your own ship, or one another admin has open, or one the participant replaced by shipping again (D-109), or one with an earlier ship of the project still in its fraud check. " \
@@ -100,7 +103,7 @@ module AdminMcp::Tools::Ships
              coding_hours: { type: "number", minimum: 0, description: "For approved: the coding hours to approve. Defaults to the most the limits allow. On a later ship of a project (one with an earlier approval) these are the NEW coding hours since that approval (D-097)." },
              art_hours: { type: "number", minimum: 0, description: "For approved: the art hours to approve. Defaults to the most the art hold allows. On a later ship these are the NEW art hours since the earlier approval." },
              technical_features: { type: "string", description: "For approved: the specific technical features that explain the hours." },
-             deflation_reason: { type: "string", description: "For approved: why you approve less than the rules allow." },
+             deflation_reason: { type: "string", description: "For approved: why you approve less than the rules allow. Required when your coding or art hours are below what get_ship's limits allow." },
              ai_coding_hours: { type: "number", minimum: 0, description: "For approved: the AI coding hours, when the code looks AI-generated (D-102). Above Hackatime's figure only (get_ship's limits), never above the coding claimed. Needs ai_reason. Leave out to keep what is set." },
              ai_reason: { type: "string", description: "With ai_coding_hours: what looked AI-generated." },
              feedback: { type: "string", description: "The note to the participant. Required for changes_needed, optional otherwise." },

@@ -109,6 +109,6 @@ class GoalTest < ApplicationSystemTestCase
       ship = @project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every cell is a drum pad, and it is a game.",
                                     repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://beat.sheet", hours:,
                                     screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
-      ship.update_columns(status: "approved", approved_hours: hours)
+      ship.update_columns(approved_columns(hours))
     end
 end

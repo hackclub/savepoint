@@ -669,8 +669,9 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
       StreakActivity.sync_for_user!(users(:orpheus).reload)
       project = Project.find(project.id)
       project.ships.new(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
-                        repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat", status: "approved",
-                        hours: project.hours_logged.to_f + ship_hours, created_at: 3.days.ago).save!(validate: false)
+                        repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat",
+                        hours: project.hours_logged.to_f + ship_hours, created_at: 3.days.ago,
+                        **approved_columns(project.hours_logged.to_f + ship_hours)).save!(validate: false)
       sign_in_as_orpheus
       Project.find(project.id)
     end

@@ -55,6 +55,82 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal [ BigDecimal("8"), BigDecimal("0"), BigDecimal("8") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
   end
 
+  # D-111: a participant's ship of 5.3 counted hours, with no AI coding and 5542 s of art. The review stored 5.29 with no reason, because
+  # coding and art were each rounded down on their own. Approving the most the rules allow now stores the 5.3 claimed.
+  test "approving the most the rules allow stores the hours claimed with no reason, and the fraud check passes them whole (D-111)" do
+    @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    @ship.reload
+    assert_equal [ BigDecimal("5.3"), BigDecimal("5.3") ], [ @ship.claimed_hours, @ship.review_hours ]
+    assert_equal [ BigDecimal("3.76"), BigDecimal("1.54") ], [ @ship.review_coding_hours, @ship.review_art_hours ], "the hundredth the round-down lost is art's"
+    assert_nil @ship.deflation_reason, "nothing was cut"
+
+    assert @ship.pass_fraud!(by: @reviewer)
+    assert_equal BigDecimal("5.3"), @ship.reload.approved_hours
+    assert_equal 5.3, @project.reload.hours_approved
+    assert_nil AirtableFields.deflation(@ship)
+    assert_nil AirtableFields.deflation_problem(@ship)
+  end
+
+  test "approving the most stores exactly the most, and the claimed hours when nothing is cut, for any hours (D-111)" do
+    rng = Random.new(111)
+    cut = uncut = 0
+    150.times do
+      claimed = BigDecimal((rng.rand * 9.99 + 0.01).round(2).to_s)
+      ai = rng.rand < 0.4 ? 0 : (rng.rand * claimed.to_f * 3600 * rng.rand).to_i
+      art = rng.rand < 0.3 ? 0 : (rng.rand * claimed.to_f * 3600 * rng.rand).to_i
+      @ship.update_columns(status: "in_review", fraud_status: nil, reviewer_id: nil, claimed_hours: nil, review_coding_hours: nil, review_art_hours: nil,
+                           review_hours: nil, deflation_reason: nil, approved_hours: nil, hours: claimed, ai_coding_seconds: ai, art_seconds: art)
+      most = Ship::Limits.new(claimed:, ai_coding_seconds: ai, art_seconds: art).most
+      label = [ claimed, ai, art ].inspect
+
+      assert @ship.reload.decide!("approved", by: @reviewer, technical_features: "A rhythm grid."), "#{label}: #{@ship.errors.full_messages.to_sentence}"
+      @ship.reload
+      assert_equal claimed, @ship.claimed_hours, label
+      assert_equal most, @ship.review_hours, label
+      assert_equal @ship.review_coding_hours + @ship.review_art_hours, @ship.review_hours, label
+      if most < claimed
+        cut += 1
+        assert @ship.deflation_reason.present?, "a cut is named for #{label}"
+      else
+        uncut += 1
+        assert_nil @ship.deflation_reason, label
+      end
+      assert @ship.pass_fraud!(by: @reviewer), label
+      assert_equal most, @ship.reload.approved_hours, label
+    end
+    assert_operator cut, :>, 20
+    assert_operator uncut, :>, 20
+  end
+
+  test "a figure a hundredth below the most needs a reason, and then the ship stores that figure (D-111)" do
+    @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    assert_not @ship.decide!("approved", by: @reviewer, coding_hours: "3.75", technical_features: "A rhythm grid.")
+    assert_equal [ "Say why you approve fewer hours than the rules allow" ], @ship.errors[:deflation_reason]
+    assert @ship.reload.in_review?
+
+    assert @ship.decide!("approved", by: @reviewer, coding_hours: "3.75", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut.")
+    @ship.reload
+    assert_equal [ BigDecimal("3.75"), BigDecimal("1.53"), BigDecimal("5.28") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
+    assert_equal "A menu was cut.", @ship.deflation_reason, "the limits cut nothing, so only the reviewer's words"
+  end
+
+  test "hours that went down with no words to say why can't be approved, even when no figure was typed below the limits (D-111)" do
+    nothing_to_say = Struct.new(:claimed, :reason) { def approve(*) = [ BigDecimal("2"), BigDecimal("2"), false ] }.new(BigDecimal("5.3"), nil)
+    @ship.define_singleton_method(:limits) { |*| nothing_to_say }
+    assert_not @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert_equal [ "Say why you approve fewer than the 5.3 hrs claimed" ], @ship.errors[:deflation_reason]
+    assert @ship.reload.in_review?
+    assert_nil @ship.review_hours
+  end
+
+  test "a reason given when nothing was cut is not kept" do
+    @ship.update_columns(art_seconds: 0, ai_coding_seconds: 0)
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", deflation_reason: "Nothing to say.")
+    assert_nil @ship.reload.deflation_reason
+    assert_equal 10, @ship.review_hours
+  end
+
   test "changes needed needs the note, and they can ship again" do
     assert_not @ship.decide!("changes_needed", by: @reviewer, feedback: " ")
     assert_equal [ "Tell the participant what to change" ], @ship.errors[:review_feedback]
@@ -264,6 +340,42 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     new_hours = second.reload.approved_hours - @ship.approved_hours
     assert_equal BigDecimal("2"), new_hours, "only the two new hours were added on top of the first approval"
     assert_equal second.approved_hours.to_f, @project.reload.hours_approved, "the total is the latest approval, not the two added together"
+  end
+
+  # D-097, D-111: the later ship's hours are cumulative, so approving the most on the new hours reaches the most on the whole
+  # project, and the cut the limits make on it is named.
+  test "a later ship approving the most reaches the most on the whole project, with the limits' words for the cut (D-111)" do
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
+    travel 1.hour
+    second = ship_again(14)
+    second.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
+    assert @ship.reload.pass_fraud!(by: @reviewer)
+    most = Ship::Limits.new(claimed: 14, ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600).most
+
+    assert second.decide!("approved", by: @reviewer, technical_features: "More levels.")
+    second.reload
+    assert_equal [ BigDecimal("14"), most ], [ second.claimed_hours, second.review_hours ]
+    assert_equal second.review_coding_hours + second.review_art_hours, second.review_hours
+    assert_match(/AI coding/, second.deflation_reason)
+    assert second.pass_fraud!(by: @reviewer)
+    assert_equal most, second.reload.approved_hours
+    assert_nil AirtableFields.deflation_problem(second)
+  end
+
+  test "a later ship approving below the most needs a reason, and a later ship with nothing cut needs none (D-111)" do
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
+    travel 1.hour
+    second = ship_again(14)
+    second.update_columns(ai_coding_seconds: 0, art_seconds: 0)
+    assert @ship.reload.pass_fraud!(by: @reviewer)
+
+    assert_not second.decide!("approved", by: @reviewer, coding_hours: "3", technical_features: "More levels.")
+    assert_equal [ "Say why you approve fewer hours than the rules allow" ], second.errors[:deflation_reason]
+    assert second.decide!("approved", by: @reviewer, technical_features: "More levels.")
+    assert_equal [ BigDecimal("14"), BigDecimal("14") ], [ second.reload.claimed_hours, second.review_hours ]
+    assert_nil second.deflation_reason
   end
 
   test "a replaced ship does not reach Airtable or the metrics" do

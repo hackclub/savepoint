@@ -51,7 +51,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     ship = @orpheus.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                                   repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/play",
                                   hackatime_projects: [ "rhythm-game" ], hours: 12.5, screenshot: upload, screenshot_shows_game: true)
-    ship.update!(status: "approved", approved_hours:)
+    ship.update!(approved_columns(approved_hours))
     ship
   end
 
@@ -213,11 +213,11 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     second = @orpheus.ships.create!(title: "Beat Sheet 2", description: "A rhythm game where every beat is a cell lighting up in time, again.",
                                     repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/play",
                                     hours: 15, screenshot: upload, screenshot_shows_game: true)
-    second.update!(status: "approved", approved_hours: 15)
+    second.update!(approved_columns(15))
     third = @orpheus.ships.create!(title: "Beat Sheet 3", description: "A rhythm game where every beat is a cell lighting up in time, thrice.",
                                    repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/play",
                                    hours: 4, screenshot: upload, screenshot_shows_game: true)
-    third.update_columns(status: "approved", approved_hours: 4) # older data: the model now refuses a total below the earlier approval (D-097)
+    third.update_columns(approved_columns(4)) # older data: the model now refuses a total below the earlier approval (D-097)
     assert_equal 10.0, AirtableFields.ship(first)["Optional - Override Hours Spent"]
     row = AirtableFields.ship(second)
     assert_equal 5.0, row["Optional - Override Hours Spent"]
@@ -225,6 +225,78 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_match "claims only the 5 hours since then", row["Optional - Override Duplicate Justification"]
     assert_match "10 hours since Save Point began", row["Optional - Override Duplicate Justification"]
     assert_equal 0.0, AirtableFields.ship(third)["Optional - Override Hours Spent"], "never below zero"
+  end
+
+  # D-111: a deflation whose cut below the limits has no reason isn't sent. It waits its hour like any row that can't be built, with the
+  # error's class in the log and no value, and goes once the reason is there. The database holds the reason of the whole cut, so this
+  # takes a ship the limits' own words explain in part: 4 hours claimed, the limits cut 1 of AI coding, the reviewer took 1 more.
+  test "a ship deflated below the limits with no reason waits, is logged by class, and goes when it has its reason (D-111)" do
+    ship = approved_ship(approved_hours: 10)
+    ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 0)
+    limits_say = ship.limits(10).reason
+    # the limits' words and none of the reviewer's
+    ship.update_columns(claimed_hours: 10, review_hours: 5, approved_hours: 5, review_coding_hours: 5, review_art_hours: 0, deflation_reason: limits_say)
+    other = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.", repo_url: "https://github.com/ana/pong",
+                                         demo_url: "https://example.com/pong", hours: 3, screenshot: upload, screenshot_shows_game: true)
+    other.update_columns(approved_columns(3))
+    io = StringIO.new
+    old = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    Airtable::SyncJob.perform_now
+    Rails.logger = old
+
+    assert_equal [ "ship-#{other.id}" ], @fake.rows(SUBMISSIONS).map { it["save_point_id"] }, "the others go"
+    assert_not_nil ship.reload.airtable_failed_at
+    assert_nil ship.synced_at
+    assert_match "ship-#{ship.id} could not be built, AirtableFields::UnexplainedDeflation", io.string
+    assert_no_match(/Orpheus|orpheus@/, io.string)
+
+    ship.update_columns(deflation_reason: "#{limits_say} Half the levels were cut.")
+    @fake.upserts.clear
+    Airtable::SyncJob.perform_now
+    assert_empty @fake.rows(SUBMISSIONS), "it waits its hour"
+    travel 61.minutes do
+      Airtable::SyncJob.perform_now
+    end
+    row = @fake.rows(SUBMISSIONS).find { it["save_point_id"] == "ship-#{ship.id}" }
+    assert_match "Half the levels were cut.", row["Justification - Deflation Justification"]
+    assert_nil ship.reload.airtable_failed_at
+  ensure
+    Rails.logger = old if old
+  end
+
+  # D-111: a ship corrected to its claimed hours has no deflation sentence now. The upsert leaves out a field with no value, so the sentence
+  # the row already holds is cleared with a nil, and only when it is the app's own: words written in Airtable stay.
+  test "a corrected ship clears the deflation sentence its row still holds, and leaves words written in Airtable (D-111)" do
+    ship = approved_ship(approved_hours: 10)
+    deflation = AirtableFields::DEFLATION_FIELD
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => { deflation => "Deflated from 10 to 9.99 hours: the reviewer's cut below the limits (-0.01 hrs)." } } }
+    Airtable::SyncJob.perform_now
+    row = @fake.rows(SUBMISSIONS).sole
+    assert row.key?(deflation), "sent as a nil, which clears the cell"
+    assert_nil row[deflation]
+
+    ship.update_columns(synced_at: nil)
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => { deflation => "Armand's own note on the hours." } } }
+    @fake.upserts.clear
+    Airtable::SyncJob.perform_now
+    assert_not @fake.rows(SUBMISSIONS).sole.key?(deflation), "words written in Airtable stay"
+
+    ship.update_columns(synced_at: nil)
+    @fake.existing = {}
+    @fake.upserts.clear
+    Airtable::SyncJob.perform_now
+    assert_not @fake.rows(SUBMISSIONS).sole.key?(deflation), "a first sync has nothing to clear"
+  end
+
+  test "a ship still deflated sends its sentence over the one its row holds" do
+    ship = approved_ship(approved_hours: 10)
+    ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 0)
+    ship.update_columns(claimed_hours: 10, review_hours: 8, approved_hours: 8, review_coding_hours: 8, review_art_hours: 0,
+                        deflation_reason: "#{ship.limits(10).reason} A menu was cut.")
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => { AirtableFields::DEFLATION_FIELD => "Deflated from 10 to 9.99 hours." } } }
+    Airtable::SyncJob.perform_now
+    assert_match "Deflated from 10 to 8 hours", @fake.rows(SUBMISSIONS).sole[AirtableFields::DEFLATION_FIELD]
   end
 
   test "a ship address with two street lines splits them, and the phone never goes" do

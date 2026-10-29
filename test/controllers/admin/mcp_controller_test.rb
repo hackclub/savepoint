@@ -240,6 +240,44 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_nil full["checklist_defaults"]
   end
 
+  # D-111: the sync won't send a deflation with a part that has no reason, but get_ship still answers, and says which part.
+  test "get_ship answers for an approved ship whose cut has a part with no reason, and names that part (D-111)" do
+    ship = make_ship
+    ship.update_columns(hours: 10, ai_coding_seconds: 3 * 3600, art_seconds: 0)
+    users(:ana).streak_activities.update_all(coded_seconds: 10 * 3600)
+    Ship::EarlierShip.token = "pat-test"
+    Web.adapter = ->(_method, url, _headers) { Web::Response.new(status: 200, headers: {}, body: URI(url).host == "api.github.com" ? "[]" : { records: [] }.to_json) }
+    limits_say = ship.limits(10).reason
+    ship.update_columns(approved_columns(5, claimed_hours: 10, review_coding_hours: 5, review_art_hours: 0, deflation_reason: limits_say,
+                                         decided_by_id: users(:orpheus).id, decided_at: Time.current))
+
+    full = mcp_tool(@token, "get_ship", { ship_id: ship.id })
+    assert_equal "the reviewer's cut of 3 hrs has no reason", full["deflation_problem"]
+    assert_not full["justifications"].key?("Justification - Deflation Justification"), "left out, not drawn from part of it"
+
+    ship.update_columns(deflation_reason: "#{limits_say} A menu was cut.")
+    full = mcp_tool(@token, "get_ship", { ship_id: ship.id })
+    assert_nil full["deflation_problem"]
+    assert_match "The reviewer's reason: A menu was cut.", full["justifications"]["Justification - Deflation Justification"]
+  ensure
+    Ship::EarlierShip.token = nil
+  end
+
+  test "review_ship stores exactly the most the rules allow, and asks for words at any hundredth below it (D-111)" do
+    ship = make_ship
+    users(:ana).streak_activities.update_all(coded_seconds: 19_080)
+    ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
+
+    below = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 3.75, art_hours: 1.54, technical_features: "A second ball." })
+    assert_equal false, below["decided"]
+    assert_match(/Say why you approve fewer hours/, below["message"])
+
+    done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", technical_features: "A second ball." })
+    assert_equal true, done["decided"]
+    assert_equal [ BigDecimal("5.3"), nil ], [ ship.reload.review_hours, ship.deflation_reason ]
+  end
+
   test "list_orders shows the address only for the ones to order" do
     waiting = make_order("micro", "waiting")
     ordered = make_order("u2c", "ordered", ordered_by: users(:orpheus))

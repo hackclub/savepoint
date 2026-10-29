@@ -94,7 +94,7 @@ class ShipAgainTest < ApplicationSystemTestCase
   private
     def approved_ship(hours)
       @project.ships.new(title: "v1", description: "x" * 50, repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://a.itch.io/b",
-                         hours:, status: "approved", approved_hours: hours, created_at: 4.days.ago).save!(validate: false)
+                         hours:, created_at: 4.days.ago, **approved_columns(hours)).save!(validate: false)
     end
 
     def shot(name)

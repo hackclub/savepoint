@@ -24,9 +24,10 @@ class Admin::HomeController < Admin::BaseController
     render_section
   end
 
-  # The latest written NPS answers, where sign-ups come from (UTM tags), and which FAQ questions get read.
+  # The latest written NPS answers (every one with ?nps=all, D-119), where sign-ups come from (UTM tags), and which FAQ questions get read.
   def signups
     @nps = NpsStats.new
+    @all_answers = params[:nps] == "all"
     @utm = UtmStats.new
     @faq = FaqStats.new
     render_section

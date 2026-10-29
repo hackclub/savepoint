@@ -258,6 +258,41 @@ class Admin::HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr", text: /No tags\s*2\s*#{untagged}\s*#{(100.0 * untagged / 2).round}%/
   end
 
+  test "sign-ups: more than 30 answers add a link to every answer, newest first, admins left out (D-119)" do
+    base = Time.utc(2026, 10, 20, 12)
+    31.times { |i| NpsResponse.create!(user: users(:ana), source: "daily", score: 8, doing_well: i.zero? ? "The oldest one" : "Answer #{i}", improve: "x", created_at: base + i.hours) }
+    NpsResponse.create!(user: users(:orpheus), source: "daily", score: 9, doing_well: "An admin answer", improve: "x", created_at: base + 40.hours)
+    sign_in_as(users(:orpheus))
+
+    get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }
+    assert_select "a.admin-more__all[href=?]", admin_signups_path(nps: "all"), text: "Show all 31 answers"
+    assert_select ".admin-answer__qa dd", text: "The oldest one", count: 0
+    assert_select ".admin-answer__qa dd", text: "Answer 30"
+
+    get admin_signups_path(nps: "all"), headers: { "Turbo-Frame" => "admin-signups" }
+    assert_select ".admin-answer", 31
+    assert_select ".admin-answer__qa dd", text: "The oldest one", count: 1
+    assert_select ".admin-answer__qa dd", text: "An admin answer", count: 0
+    assert_select "a.admin-more__all", 0
+    assert_select ".pg-admin-home__sub", text: /Every answer/
+    assert_select ".admin-answer:first-child .admin-answer__qa dd", text: "Answer 30"
+  end
+
+  test "sign-ups: no link to every answer at 30 answers or fewer" do
+    30.times { |i| NpsResponse.create!(user: users(:ana), source: "daily", score: 8, doing_well: "Answer #{i}", improve: "x", created_at: Time.utc(2026, 10, 20) + i.hours) }
+    sign_in_as(users(:orpheus))
+    get admin_signups_path, headers: { "Turbo-Frame" => "admin-signups" }
+    assert_select "a.admin-more__all", 0
+  end
+
+  test "sign-ups: only an admin can ask for every answer" do
+    get admin_signups_path(nps: "all"), headers: { "Turbo-Frame" => "admin-signups" }
+    assert_response :not_found
+    sign_in_as(users(:ana))
+    get admin_signups_path(nps: "all"), headers: { "Turbo-Frame" => "admin-signups" }
+    assert_response :not_found
+  end
+
   test "sign-ups: the FAQ table lists every question, most people first, with opens and the average per person" do
     key = "prizes.can-i-get-more-than-one-prize"
     other = "basics.can-i-start-a-new-game"

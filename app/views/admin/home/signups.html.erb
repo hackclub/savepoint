@@ -4,21 +4,25 @@
     Folded in from the old Numbers page (D-073). %>
 <div class="pg-admin-home"><div class="sp-container">
 <%= turbo_frame_tag "admin-signups" do %>
-  <h3 class="pg-admin-home__sub">The latest answers <span>newest first, admins left out</span></h3>
+  <h3 class="pg-admin-home__sub"><%= @all_answers ? "Every answer" : "The latest answers" %> <span>newest first, admins left out</span></h3>
   <% if !@nps.any? %>
     <p class="admin-chart admin-chart__empty">Nobody has answered yet. Participants answer when they ship, and the project page asks every 12 hours.</p>
   <% else %>
-    <% answers = @nps.latest.to_a %>
-    <ol class="admin-answers" aria-label="The latest NPS answers">
-      <% answers.first(5).each do |answer| %><%= render "admin/home/nps_answer", answer: %><% end %>
+    <% answers = (@all_answers ? @nps.all : @nps.latest).to_a %>
+    <% shown = @all_answers ? answers : answers.first(5) %>
+    <ol class="admin-answers" aria-label="<%= @all_answers ? "Every NPS answer" : "The latest NPS answers" %>">
+      <% shown.each do |answer| %><%= render "admin/home/nps_answer", answer: %><% end %>
     </ol>
-    <% if answers.size > 5 %>
+    <% if !@all_answers && answers.size > 5 %>
       <details class="admin-more">
         <summary><%= sp_icon "down-fill" %>Show <%= answers.size - 5 %> more answers</summary>
         <ol class="admin-answers" aria-label="More NPS answers">
           <% answers.drop(5).each do |answer| %><%= render "admin/home/nps_answer", answer: %><% end %>
         </ol>
       </details>
+    <% end %>
+    <% if !@all_answers && @nps.count > NpsStats::LATEST %>
+      <%= link_to "Show all #{@nps.count} answers", admin_signups_path(nps: "all"), class: "admin-more__all" %>
     <% end %>
   <% end %>
 

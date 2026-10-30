@@ -8,7 +8,8 @@
 # host answers 4xx or 5xx. Never raises.
 #
 # The answers are cached by what they depend on: the repository's by its URL, the playable link's by the link. A definite answer
-# stays 10 minutes, a definite failure 1 minute, and an unchecked one isn't kept.
+# stays 10 minutes, a definite failure 1 minute, and an unchecked one isn't kept. One exception: while the repository's README lacks
+# the playable link (or there is no README), it is read again on each ask, so a participant who fixes it and comes back passes at once.
 class Ship::Checklist
   Item = Data.define(:key, :label, :state, :detail, :blocker) do
     # state: :ok, :fail, :warn (worth a look), :wait (nothing to check yet), :unchecked (couldn't ask, D-022).
@@ -64,13 +65,27 @@ class Ship::Checklist
   def as_json(*) = { items: items.as_json, blocked: blocked? }
 
   private
-    # The repository's three checks and its README text, asked once for a repository (cached by its URL).
+    # The repository's three checks and its README text, asked once for a repository (cached by its URL). The README is the exception
+    # to "cached by repository": while it lacks the playable link, the participant is about to fix it, so it is read again (one call)
+    # instead of served from the cache.
     def repo_group
-      remember([ "ship-repo", @repo_url ]) do
+      key = [ "ship-repo", @repo_url ]
+      cached = Rails.cache.read(key)
+      if cached.nil?
         repo = repo_item
         readme = readme_item(repo)
-        { repo:, readme:, commits: commits_item(repo), text: @readme_text }
+        return store(key, { repo:, readme:, commits: commits_item(repo), text: @readme_text })
       end
+      return cached unless readme_may_have_changed?(cached)
+
+      readme = readme_item(cached[:repo])
+      store(key, cached.merge(readme:, text: @readme_text))
+    end
+
+    def readme_may_have_changed?(group)
+      return false unless @github && group[:repo].state == :ok
+
+      group[:readme].state == :fail || (group[:readme].state == :ok && web_url?(@demo_url) && !readme_mentions_demo?(group[:text]))
     end
 
     # Cached by key: definite for 10 minutes, a definite failure for 1, and what couldn't be checked not at all. The block gives an item or
@@ -79,7 +94,10 @@ class Ship::Checklist
       cached = Rails.cache.read(key)
       return cached if cached
 
-      value = yield
+      store(key, yield)
+    end
+
+    def store(key, value)
       items = value.is_a?(Hash) ? value.values.grep(Item) : [ value ]
       states = items.map(&:state)
       ttl = if states.include?(:unchecked) then nil

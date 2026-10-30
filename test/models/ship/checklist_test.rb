@@ -127,7 +127,7 @@ class Ship::ChecklistTest < ActiveSupport::TestCase
     Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "https://example.com/play").items
     assert_equal first, calls.size, "the same links again ask nothing"
     Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "https://example.com/other").items
-    assert_equal first + 1, calls.size, "a new link asks only about the link: the repository's answers stand"
+    assert_equal first + 2, calls.size, "a new link asks about the link and re-reads the README (it may have the link now): the repository and commits answers stand"
 
     calls.clear
     Web.adapter = ->(_m, url, _h) { calls << url; Web::Response.new(status: 503, headers: {}, body: "{}") }
@@ -135,5 +135,88 @@ class Ship::ChecklistTest < ActiveSupport::TestCase
     assert_equal 2, calls.size, "unchecked answers aren't kept: each try asks again"
   ensure
     Rails.singleton_class.define_method(:cache) { original }
+  end
+
+  def with_memory_cache
+    store = ActiveSupport::Cache::MemoryStore.new
+    original = Rails.cache
+    Rails.singleton_class.define_method(:cache) { store }
+    yield
+  ensure
+    Rails.singleton_class.define_method(:cache) { original }
+  end
+
+  def readme_world(calls, text_box, readme_status: 200)
+    Web.adapter = lambda do |_m, url, _h|
+      calls << url
+      if url.match?(%r{/readme\z}) then readme_status == 200 ? readme(text_box.first) : Web::Response.new(status: readme_status, headers: {}, body: "{}")
+      elsif url.include?("/commits") then ok("[]")
+      elsif url.end_with?("/b") then ok({ private: false }.to_json)
+      else ok
+      end
+    end
+  end
+
+  test "the README is read again after the link was missing: the participant fixes it and comes back" do
+    with_memory_cache do
+      calls = []
+      text = [ "A game." ]
+      readme_world(calls, text)
+      check = -> { Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "https://kocio07.itch.io/tnpgxd").items.index_by(&:key) }
+      assert_equal :fail, check.call[:readme_demo].state
+      text[0] = "Play here -> https://kocio07.itch.io/tnpgxd"
+      assert_equal :ok, check.call[:readme_demo].state, "no waiting for the cache to expire"
+      assert_equal 2, calls.count { it.end_with?("/readme") }
+      assert_equal 1, calls.count { it.include?("/commits") }, "the commits are not asked again"
+      assert_equal 1, calls.count { it.end_with?("/a/b") }, "the repository is not asked again"
+      check.call
+      assert_equal 2, calls.count { it.end_with?("/readme") }, "a README with the link is kept"
+    end
+  end
+
+  test "a new playable link next to an old one is found once the README has it" do
+    with_memory_cache do
+      calls = []
+      text = [ "Old: https://jamegam.example/old" ]
+      readme_world(calls, text)
+      checks = ->(demo) { Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: demo).items.index_by(&:key)[:readme_demo].state }
+      assert_equal :ok, checks.call("https://jamegam.example/old")
+      assert_equal :fail, checks.call("https://x.itch.io/new")
+      text[0] += "\nPlay: https://x.itch.io/new"
+      assert_equal :ok, checks.call("https://x.itch.io/new")
+      assert_equal :ok, checks.call("https://jamegam.example/old")
+    end
+  end
+
+  test "no re-read while the playable link is missing or isn't a link yet, and a README that can't be re-read never blocks" do
+    with_memory_cache do
+      calls = []
+      text = [ "A game." ]
+      readme_world(calls, text)
+      3.times { Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "").items }
+      assert_equal 1, calls.count { it.end_with?("/readme") }
+      readme_world(calls, text, readme_status: 503)
+      item = Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "https://x.itch.io/new").items.index_by(&:key)[:readme_demo]
+      assert_equal :unchecked, item.state
+      assert_not item.blocker && item.state == :fail
+    end
+  end
+
+  test "a README that was missing is found once it is added" do
+    with_memory_cache do
+      calls = []
+      readme_world(calls, [ "x" ], readme_status: 404)
+      check = -> { Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "").items.index_by(&:key)[:readme].state }
+      assert_equal :fail, check.call
+      readme_world(calls, [ "A game." ])
+      assert_equal :ok, check.call
+    end
+  end
+
+  test "the link is found in the README text of the two reports" do
+    assert Ship::Checklist.mentions_link?("Play here -> https://kocio07.itch.io/tnpgxd", "https://kocio07.itch.io/tnpgxd")
+    both = "old https://jamegam.hackclub.com/x and new https://z.itch.io/g"
+    assert Ship::Checklist.mentions_link?(both, "https://z.itch.io/g")
+    assert Ship::Checklist.mentions_link?(both, "https://jamegam.hackclub.com/x")
   end
 end

@@ -147,8 +147,26 @@ class Ship::Checklist
       return item(:readme_demo, :wait, blocker: true) unless web_url?(@demo_url)
 
       if readme_mentions_demo?(group[:text]) then item(:readme_demo, :ok)
+      elsif (found = same_host_link(group[:text]))
+        item(:readme_demo, :fail, "Your README links #{found}, but your playable link is #{@demo_url}. Make them the same: change the README or the playable link. Then come back here.", blocker: true)
       else item(:readme_demo, :fail, "Add your playable link, #{@demo_url}, to the README, so people can find the game from the repository. Then come back here.", blocker: true)
       end
+    end
+
+    # D-123: the first http(s) link in the README on the playable link's host, so a near miss can be named.
+    def same_host_link(text)
+      host = URI.parse(@demo_url.to_s.strip.then { it.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? it : "https://#{it}" }).host.to_s.downcase
+      return if host.blank?
+
+      text.to_s.scan(%r{https?://[^\s<>"'\])]+}i).each do |link|
+        link = link.sub(/[.,;:!?*_`]+\z/, "")
+        return link if URI.parse(link).host.to_s.downcase == host
+      rescue URI::InvalidURIError
+        next
+      end
+      nil
+    rescue URI::InvalidURIError
+      nil
     end
 
     def readme_mentions_demo?(text) = self.class.mentions_link?(text, @demo_url)

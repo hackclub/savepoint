@@ -49,6 +49,26 @@ class Ship::ChecklistTest < ActiveSupport::TestCase
     assert_includes missing.detail, "https://example.com/play"
   end
 
+  test "a README link on the same host as the playable link is named (D-123)" do
+    demo = "https://vineethjkatti-tech.itch.io/dontsteponme"
+    item = readme_items("Play [here](https://VineethJKatti-Tech.itch.io/dont-step-on-me).", demo)[:readme_demo]
+    assert_equal :fail, item.state
+    assert item.blocker
+    assert_equal "Your README links https://VineethJKatti-Tech.itch.io/dont-step-on-me, but your playable link is #{demo}. " \
+                 "Make them the same: change the README or the playable link. Then come back here.", item.detail
+  end
+
+  test "a README with no link on the playable link's host keeps the old message (D-123)" do
+    item = readme_items("See https://example.org/other and https://github.com/a/b.", "https://example.com/play")[:readme_demo]
+    assert_equal :fail, item.state
+    assert_equal "Add your playable link, https://example.com/play, to the README, so people can find the game from the repository. Then come back here.", item.detail
+  end
+
+  test "a README with the playable link passes even beside another link on the host (D-123)" do
+    text = "Old https://example.com/old and new https://example.com/play"
+    assert_equal :ok, readme_items(text, "https://example.com/play")[:readme_demo].state
+  end
+
   test "the README match ignores the scheme, the host's case and a trailing slash" do
     [ "http://example.com/play", "example.com/play", "https://EXAMPLE.com/play/", "[play](https://Example.COM/play)" ].each do |text|
       assert Ship::Checklist.mentions_link?(text, "https://example.com/play"), text

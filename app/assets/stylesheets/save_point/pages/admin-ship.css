@@ -106,6 +106,7 @@
 .pg-admin-ship .ash__sha { font: 800 13px/22px ui-monospace, SFMono-Regular, Menlo, monospace; text-decoration: none; }
 .pg-admin-ship .ash__commit-message { min-width: 0; overflow-wrap: anywhere; }
 .pg-admin-ship .ash__commit small { grid-column: 2; font: 600 13px/18px var(--font-body); }
+.pg-admin-ship .ash__commit-time { font-weight: 800; color: var(--ink); }
 .pg-admin-ship .ash__problem { display: flex; align-items: flex-start; gap: 8px; padding: var(--space-3) var(--space-4); border-radius: calc(var(--radius-lg) - 2px - var(--ash-inset)); background: var(--gold-soft); font: 700 15px/22px var(--font-body); color: var(--ink); }
 .pg-admin-ship .ash__problem [data-icon] { flex: none; margin-top: 2px; font-size: 18px; color: var(--gold-ink); }
 .pg-admin-ship .ash__pair { display: grid; gap: var(--space-6); align-items: start; }

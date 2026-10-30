@@ -518,13 +518,41 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "dd", text: "javascript://x.example/%0Aalert(2)"
   end
 
+  test "the Lapse review link and the art row show only with Lapse or art time, and the art row stays when art is unknown (D-125)" do
+    sign_in_as(users(:orpheus))
+    art_row = "#admin-ship-limits dt"
+    lapse_link = "#admin-ship-lapse-review"
+
+    @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
+    get admin_ship_path(@ship)
+    assert_select lapse_link, 0, "no Lapse time, no Lapse review link"
+    assert_select art_row, { text: /Art \(designing and Lapse\)/, count: 0 }, "0 hrs of art hides the row"
+
+    @ship.update_columns(art_seconds: 3600, lapse_seconds: 0)
+    get admin_ship_path(@ship)
+    assert_select lapse_link, 0, "art without Lapse time still has no Lapse review link"
+    assert_select art_row, text: /Art \(designing and Lapse\)/
+
+    @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
+    get admin_ship_path(@ship)
+    assert_select "#{lapse_link}[href^='https://telescreen.hackclub.com/workbench/lapse']", 1
+    assert_select art_row, text: /Art \(designing and Lapse\)/
+
+    @ship.update_columns(art_seconds: nil, lapse_seconds: nil)
+    get admin_ship_path(@ship)
+    assert_select lapse_link, 0, "unknown Lapse time has no Lapse review link"
+    assert_select art_row, text: /Art \(designing and Lapse\)/
+    assert_select "#admin-ship-limits dd", /unknown/
+  end
+
   test "the approve form starts at the most the handbook allows, and shows why (D-030)" do
     @ship.update_columns(ai_coding_seconds: 90 * 60, art_seconds: 0)
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
     assert_response :success
-    assert_select "#admin-ship-limits", text: /Claimed\s*7\.5 hrs\s*Counted.*?7\.5 hrs.*AI coding.*1\.5 hrs\s*−1.*Art \(designing and Lapse\).*0 hrs.*Most to approve\s*6\.5 hrs/m
+    assert_select "#admin-ship-limits", text: /Claimed\s*7\.5 hrs\s*Counted.*?7\.5 hrs.*AI coding.*1\.5 hrs\s*−1.*Most to approve\s*6\.5 hrs/m
     assert_select "input[name=coding_hours][value='6.5'][max='6.5']"
+    assert_select "#admin-ship-limits dt", { text: /Art \(designing and Lapse\)/, count: 0 }, "D-125: no art, no art row"
     assert_select "input[name=art_hours]", 0, "no art, no art field"
     assert_select "textarea[name=deflation_reason]", ""
     assert_select "textarea[name=technical_features]", ""
@@ -791,7 +819,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-person summary [data-trust=yellow]", "trust yellow"
     assert_select "#admin-ship-participant a[href='https://hackclub.slack.com/team/U0ANA']"
     assert_select "#admin-ship-telescreen[href='https://telescreen.hackclub.com/workbench/hackatime/overview?u=1001&p=Gloobls,Halloween+Game']"
-    assert_select "#admin-ship-lapse-review[href='https://telescreen.hackclub.com/workbench/lapse?u=1001']"
+    assert_select "#admin-ship-lapse-review", 0, "D-125: no Lapse time here, so no Lapse review link"
     assert_select "[data-lapses=unavailable]", /session list is unavailable.*admin API key/
   ensure
     Hackatime.define_singleton_method(:project_seconds, original) if original

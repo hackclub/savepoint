@@ -36,7 +36,10 @@
             <% end %>
           <% end %>
           <%= link_to @evidence.telescreen_url, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--sm ash__link-btn", id: "admin-ship-telescreen" do %><%= sp_icon "search-fill" %>Telescreen<% end %>
-          <%= link_to @evidence.lapse_review_url, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--sm ash__link-btn", id: "admin-ship-lapse-review" do %><%= sp_icon "play-fill" %>Lapse review<% end %>
+          <%# D-125: the Lapse review link only when the ship has Lapse time to review. %>
+          <% if @limits.lapse.positive? %>
+            <%= link_to @evidence.lapse_review_url, target: "_blank", rel: "noopener", class: "sp-btn sp-btn--sm ash__link-btn", id: "admin-ship-lapse-review" do %><%= sp_icon "play-fill" %>Lapse review<% end %>
+          <% end %>
           <% if @ship.pending? && !own %>
             <%# D-063: the queue's skip, to the next ship waiting for this stage. %>
             <%= link_to "Skip", (@ship.in_review? ? admin_review_path(skip: @ship.id) : admin_fraud_path(skip: @ship.id)), class: "sp-btn sp-btn--sm ash__skip", data: { shortcut: "n" } %>

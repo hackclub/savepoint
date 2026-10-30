@@ -16,10 +16,13 @@
     <dt>AI coding <small>counts at a third</small></dt>
     <dd id="admin-ship-ai-coding"><% if limits.ai_known? %><% if limits.ai_raised? %>Hackatime <%= format.(limits.hackatime_ai) %> hrs, raised to <%= format.(limits.ai_coding) %> hrs<% else %><%= format.(limits.ai_coding) %> hrs<% end %><% if limits.ai_cut.positive? %> <small>−<%= format.(limits.ai_cut) %></small><% end %><% else %>unknown<% end %></dd>
   </div>
-  <div>
-    <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
-    <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut.positive? %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
-  </div>
+  <%# D-125: the art row is hidden only when it would read 0 hrs; it stays when the art time is unknown. %>
+  <% if !limits.art_known? || limits.lapse.positive? || limits.art.positive? %>
+    <div>
+      <dt>Art (designing and Lapse) <small>at most <%= Ship::Limits::ART_CAP_PERCENT %>% of the total</small></dt>
+      <dd><% if limits.art_known? %><%= format.(limits.art) %> hrs<% if limits.art_cut.positive? %> <small>−<%= format.(limits.art_cut) %></small><% end %><% else %>unknown<% end %></dd>
+    </div>
+  <% end %>
   <% if limits.lapse_coding.positive? %>
     <div id="admin-ship-lapse-coding">
       <dt>Lapse coding <small>counts as coding, outside the cap</small></dt>

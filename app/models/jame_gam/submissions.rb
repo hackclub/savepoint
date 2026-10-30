@@ -7,12 +7,18 @@ class JameGam::Submissions
   API = "https://api.airtable.com/v0"
   BASE = "apprhNJsC9D4nlFRB"
   TABLE = "tblmnQSVJBu5EBoVY"
-  FIELDS = %w[email slack_id code_url hackatime_names review_status jam game_title].freeze
+  FIELDS = %w[email slack_id code_url hackatime_names review_status jam game_title notes justification_additional].freeze
   MAX_PAGES = 10
   CACHE_FOR = 5.minutes
 
   # submitted_at is the record's createdTime: the moment they pressed submit.
-  Submission = Data.define(:id, :submitted_at, :code_url, :hackatime_names, :review_status, :jam, :game_title) do
+  Submission = Data.define(:id, :submitted_at, :code_url, :hackatime_names, :review_status, :jam, :game_title, :notes, :justification_additional) do
+    # The reviewer's reason: `notes`, else `justification_additional` (Augie writes there with notes empty). Both, when they differ.
+    def reason
+      parts = [ notes, justification_additional ].map { it.to_s.strip }.compact_blank.uniq
+      parts.join(" · ").presence
+    end
+
     # The same game as `project`: its repo, or one of its Hackatime projects. The person already matches (the query).
     # Code URL alone misses games, so a shared Hackatime project name counts too.
     def matches?(project)
@@ -94,7 +100,8 @@ class JameGam::Submissions
       fields = record["fields"].to_h
       Submission.new(id: record.fetch("id"), submitted_at: Time.iso8601(record.fetch("createdTime")), code_url: fields["code_url"].to_s,
                      hackatime_names: Array(fields["hackatime_names"]).join(", "), review_status: Array(fields["review_status"]).first.to_s.presence,
-                     jam: Array(fields["jam"]).first.to_s.presence, game_title: Array(fields["game_title"]).first.to_s.presence)
+                     jam: Array(fields["jam"]).first.to_s.presence, game_title: Array(fields["game_title"]).first.to_s.presence,
+                     notes: Array(fields["notes"]).join(" ").strip.presence, justification_additional: Array(fields["justification_additional"]).join(" ").strip.presence)
     end
 
     def failure(response)

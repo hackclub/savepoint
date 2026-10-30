@@ -246,12 +246,11 @@ class ShipTest < ActiveSupport::TestCase
     limits = ->(art) { Ship::Limits.new(claimed: 10, ai_coding_seconds: 0, art_seconds: art) }
 
     defaults = ship.checklist_defaults(earlier: unchecked, limits: limits.(nil))
-    assert_equal %w[screenshot], defaults.keys, "no continued, art_cap or not_double when unknown"
+    assert_equal %w[screenshot], defaults.keys, "no art_cap or not_double when unknown"
     assert_equal true, defaults["screenshot"].first
     assert_empty defaults.keys & %w[runs readme hours_fit]
 
-    assert_equal true, ship.checklist_defaults(earlier: result.(:found, entry.("2026-08-01")), limits: limits.(nil))["continued"].first
-    assert_not ship.checklist_defaults(earlier: result.(:none), limits: limits.(nil)).key?("continued"), "an unfinished game cannot be refused (D-035)"
+    assert_not ship.checklist_defaults(earlier: result.(:found, entry.("2026-08-01")), limits: limits.(nil)).key?("continued"), "no continued-game box (D-124)"
 
     assert_equal true, ship.checklist_defaults(earlier: unchecked, limits: limits.(2 * 3600))["art_cap"].first
     over = ship.checklist_defaults(earlier: unchecked, limits: limits.(6 * 3600))["art_cap"]
@@ -265,26 +264,26 @@ class ShipTest < ActiveSupport::TestCase
 
   test "a saved tick beats the default, both ways, and unknown ticks are unticked (D-050)" do
     ship = ship_now(hours: 3)
-    defaults = { "continued" => [ true, "x" ], "not_double" => [ false, "y" ] }
-    assert_equal true, ship.checklist_tick("continued", defaults)
+    defaults = { "readme" => [ true, "x" ], "not_double" => [ false, "y" ] }
+    assert_equal true, ship.checklist_tick("readme", defaults)
     assert_equal false, ship.checklist_tick("not_double", defaults)
     assert_equal false, ship.checklist_tick("runs", defaults)
 
-    ship.review_checklist = { "continued" => false, "not_double" => true }
-    assert_equal false, ship.checklist_tick("continued", defaults)
+    ship.review_checklist = { "readme" => false, "not_double" => true }
+    assert_equal false, ship.checklist_tick("readme", defaults)
     assert_equal true, ship.checklist_tick("not_double", defaults)
   end
 
   test "deciding freezes the defaults under the reviewer's saved ticks (D-050)" do
-    defaults = { "continued" => [ true, "x" ], "screenshot" => [ true, "y" ] }
+    defaults = { "readme" => [ true, "x" ], "screenshot" => [ true, "y" ] }
     approved = ship_now(hours: 0)
     approved.update!(review_checklist: { "screenshot" => false, "runs" => true })
     assert approve(approved, technical_features: "Beat detection.", checklist_defaults: defaults)
-    assert_equal({ "continued" => true, "screenshot" => false, "runs" => true }, approved.reload.review_checklist)
+    assert_equal({ "readme" => true, "screenshot" => false, "runs" => true }, approved.reload.review_checklist)
 
     rejected = ship_now(hours: 0)
     assert rejected.decide!("changes_needed", by: users(:ana), feedback: "Add a README.", checklist_defaults: defaults)
-    assert_equal({ "continued" => true, "screenshot" => true }, rejected.reload.review_checklist)
+    assert_equal({ "readme" => true, "screenshot" => true }, rejected.reload.review_checklist)
 
     refused = ship_now(hours: 0)
     assert_not refused.decide!("approved", by: users(:ana), checklist_defaults: defaults)

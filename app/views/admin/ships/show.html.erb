@@ -128,7 +128,7 @@
         <aside class="ash__rail" aria-label="Checklist and decision">
         <%# D-049: the reviewer's checklist, saved on every tick (Admin::ShipsController#checklist). It sits closed in the decision
             panel, with how many are ticked in its summary, and never blocks a verdict. %>
-        <% checklist = { "runs" => "The game runs from the demo link", "continued" => "It continues an earlier game, not a brand new one",
+        <% checklist = { "runs" => "The game runs from the demo link",
                          "readme" => "The README says how to run it", "screenshot" => "The screenshot shows the game running",
                          "hours_fit" => "The hours fit the scope of the changes", "art_cap" => "The art time is within the #{Ship::Limits::ART_CAP_PERCENT}% cap",
                          "not_double" => "The hours aren't already approved in another program" } %>

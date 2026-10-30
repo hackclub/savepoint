@@ -263,12 +263,11 @@ class Ship < ApplicationRecord
     true
   end
 
-  # D-050: the checklist ticks the app already knows, each with its reason: { "continued" => [ true, "..." ] }. A key it cannot
+  # D-050: the checklist ticks the app already knows, each with its reason: { "screenshot" => [ true, "..." ] }. A key it cannot
   # decide is left out (never runs, readme or hours_fit). `earlier` is this ship's Ship::EarlierShip result.
   # screenshot_shows_game is not stored: the create validation refuses a ship without it, so an attached screenshot was attested.
   def checklist_defaults(earlier:, limits: self.limits(counted_hours))
     defaults = {}
-    defaults["continued"] = [ true, "Earlier ship found in the Unified YSWS DB." ] if earlier.found?
     defaults["screenshot"] = [ true, "They attested at ship time that it shows the game running." ] if screenshot.attached?
     if limits.art_known?
       defaults["art_cap"] = if limits.art_cut < Ship::Limits::TOLERANCE

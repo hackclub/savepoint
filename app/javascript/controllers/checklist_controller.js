@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Saves each reviewer checklist tick as it happens (D-049), and keeps the "N of 7" in the section's summary current (D-106).
+// Saves each reviewer checklist tick as it happens (D-049), and keeps the "N of 6" in the section's summary current (D-106).
 export default class extends Controller {
   static values = { url: String }
   static targets = [ "count" ]

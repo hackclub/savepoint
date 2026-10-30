@@ -394,7 +394,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
   test "the checklist saves each tick while the ship is in review, and not after" do
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
-    assert_select "[data-controller=checklist][data-checklist-url-value=?] input[type=checkbox]", checklist_admin_ship_path(@ship), 7
+    assert_select "[data-controller=checklist][data-checklist-url-value=?] input[type=checkbox]", checklist_admin_ship_path(@ship), 6
 
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
     assert_response :no_content

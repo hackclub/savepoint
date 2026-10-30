@@ -3,15 +3,18 @@ module AdminMcp::Tools::Projects
   class FindProjects < AdminMcp::Tool
     reads "find_projects", "Find projects",
           "Every project, newest first, as the Projects page lists it: who pledged it, the goal, pace, Hackatime state, hours since Hackatime " \
-          "started counting, streak, buddy and where its ships have got it. query narrows by the project's name or idea, or who it's by. " \
+          "started counting, streak, buddy, where its ships have got it, party_queued (in the play party queue) and play_url (its latest ship's demo link). " \
+          "query narrows by the project's name or idea, or who it's by. party_queued true returns only the play party queue, false only the rest. " \
           "Answers { total, projects }.",
           { query: { type: "string", description: "Part of the project's name or idea, or the person's name, email or Slack display name." },
+            party_queued: { type: "boolean", description: "True for only the projects in the play party queue, false for only those not in it." },
             **AdminMcp::Tool::PAGE }
 
     def self.run(args, _caller)
       projects = Project.includes(:user, :ships, pair_as_first: %i[first_project second_project], pair_as_second: %i[first_project second_project])
                         .order(created_at: :desc, id: :desc)
       projects = projects.search(args[:query].to_s.strip) if args[:query].present?
+      projects = projects.where(party_queued: args[:party_queued]) unless args[:party_queued].nil?
       total, rows = page(projects, args)
       # Everyone's hours in one query, not one each.
       seconds = StreakActivity.where(user_id: rows.map(&:user_id), activity_date: Program::FIRST_STREAK_DATE..).group(:user_id).sum(:coded_seconds)

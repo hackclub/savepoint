@@ -11,7 +11,24 @@ class Ship::CommitTimes
   # seconds: nil when unknown. label: nil, :before_counting or :after_ship.
   Row = Data.define(:commit, :seconds, :label)
 
+  # D-127: the review page draws the commits as a timeline, each block as tall as its counted time. The blocks together aim
+  # at TIMELINE_PX (so a 5 to 20 hour ship fits on a screen or two). A block is never under MIN_PX (one line: time, sha, message).
+  # Past MAX_PX the extra height grows at a fifth of the rate, so a huge block doesn't swallow the page but stays the tallest
+  # (the curve rises with time and never flattens, so two long commits don't tie).
+  TIMELINE_PX = 750
+  MIN_PX = 44
+  MAX_PX = 320
+  TALL_PX = 96 # from here a block has room to wrap the message and show the author and date
+
   attr_reader :rows, :tail_seconds
+
+  # Height in px of a block of `seconds` (nil, for an unknown time, gets the minimum).
+  def height(seconds)
+    return MIN_PX unless seconds
+
+    raw = seconds * scale
+    (raw <= MAX_PX ? [ raw, MIN_PX ].max : MAX_PX + (raw - MAX_PX) * 0.2).round
+  end
 
   def self.for(ship, commits_result)
     user = ship.project&.user
@@ -58,6 +75,14 @@ class Ship::CommitTimes
   def row(commit) = @rows[commit]
 
   private
+    # px a counted second takes: the total of the commits' counted time and the time after the last commit fills TIMELINE_PX.
+    def scale
+      @scale ||= begin
+        total = @rows.each_value.sum { it.seconds.to_i } + @tail_seconds
+        total.positive? ? TIMELINE_PX.fdiv(total) : 0
+      end
+    end
+
     # Overlapping spans (two projects at once) count each moment once.
     def merge(spans)
       spans.map { [ it["start_time"].to_f, it["end_time"].to_f ] }.select { it.last > it.first }.sort.each_with_object([]) do |(start, finish), merged|

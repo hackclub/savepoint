@@ -487,9 +487,31 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     get admin_ship_path(@ship)
 
     assert_response :success
-    assert_select "#admin-ship-commit-tail", /No commit yet.*30m after the last commit, before the ship/m
-    assert_select ".ash__commit", /bbbbbbb.*Fix the ball.*1h 30m since the commit before/m
-    assert_select ".ash__commit", /aaaaaaa.*Add a paddle.*1h since the commit before/m
+    assert_select "#admin-ship-commit-tail", /30m.*No commit yet.*after the last commit, before the ship/m
+    assert_select ".ash__tl-block", /bbbbbbb.*Fix the ball.*1h 30m|1h 30m.*bbbbbbb.*Fix the ball/m
+    assert_select ".ash__tl-block", /1h.*aaaaaaa.*Add a paddle/m
+  end
+
+  test "the review draws the commits as a timeline sized by time, oldest first (D-127)" do
+    sign_in_as(users(:orpheus))
+    users(:ana).update_columns(hackatime_uid: "1001", hackatime_access_token: "token-ana")
+    base = stub_two_commits
+    Hackatime.stubbed_spans = { "1001" => [ hackatime_span(base, 90), hackatime_span(base + 2.hours, 90) ] }
+
+    get admin_ship_path(@ship)
+
+    assert_response :success
+    assert_select "#admin-ship-timeline .ash__tl-marker", 2
+    assert_select "#admin-ship-timeline > li:first-child", /Counting since/
+    assert_select "#admin-ship-timeline > li:last-child", /Shipped/
+    blocks = css_select("#admin-ship-timeline .ash__tl-block")
+    assert_equal [ "aaaaaaa", "bbbbbbb", nil ], blocks.map { it.text[/[ab]{7}/] } # oldest first, then the open block
+    assert_equal "admin-ship-commit-tail", blocks.last["id"]
+    heights = blocks.to_h { [ it["id"] || it.text[/[ab]{7}/], it["style"][/--h: (\d+)px/, 1].to_i ] }
+    assert_equal "bbbbbbb", heights.except("admin-ship-commit-tail").max_by(&:last).first # 1h 30m is more than 1h
+    assert_operator heights["bbbbbbb"], :>, heights["aaaaaaa"]
+    assert_operator heights["aaaaaaa"], :>, heights["admin-ship-commit-tail"] # 1h is more than the 30m after the last commit
+    assert_operator heights["admin-ship-commit-tail"], :>=, Ship::CommitTimes::MIN_PX
   end
 
   test "the review lists the commits as before when Hackatime can't say (D-126)" do
@@ -506,6 +528,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select ".ash__commit", 2
+    assert_select "#admin-ship-timeline", 0
     assert_select "#admin-ship-commit-tail", 0
     assert_select ".ash__commit-time", 0
   end

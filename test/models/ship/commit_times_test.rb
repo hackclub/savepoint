@@ -61,4 +61,16 @@ class Ship::CommitTimesTest < ActiveSupport::TestCase
   test "formats seconds as hours and minutes" do
     assert_equal [ "0m", "<1m", "12m", "1h", "1h 20m" ], [ 0, 20, 12 * 60, 3600, 4800 ].map { Ship::CommitTimes.format(it) }
   end
+
+  test "block height grows with time, never under the minimum, and the longest stays the tallest (D-127)" do
+    commits = [ commit("aaaaaaa", FROM + 1.hour), commit("bbbbbbb", FROM + 5.hours) ]
+    result = times(commits, [ span(FROM, FROM + 5.hours) ]) # 1h, then 4h, then 0 after the last commit
+
+    short, long, tail = result.row(commits.first).seconds, result.row(commits.last).seconds, result.tail_seconds
+    assert_operator result.height(long), :>, result.height(short)
+    assert_operator result.height(short), :>, result.height(tail)
+    assert_equal Ship::CommitTimes::MIN_PX, result.height(tail)
+    assert_equal Ship::CommitTimes::MIN_PX, result.height(nil), "an unknown time gets the minimum"
+    assert_operator result.height(long), :>, Ship::CommitTimes::MAX_PX, "past the cap the block still grows, slowly"
+  end
 end

@@ -107,6 +107,45 @@
 .pg-admin-ship .ash__commit-message { min-width: 0; overflow-wrap: anywhere; }
 .pg-admin-ship .ash__commit small { grid-column: 2; font: 600 13px/18px var(--font-body); }
 .pg-admin-ship .ash__commit-time { font-weight: 800; color: var(--ink); }
+
+/* D-127: the commits as a vertical timeline, oldest first, each block as tall as its counted time (--h, set in the view from
+   Ship::CommitTimes#height; no script). A thin rail runs down the left with a dot at each marker. Corners are concentric with the
+   panel, as the other parts inside it are: the panel is --radius-lg (24px) with a 2px edge and --ash-inset (16px, 20px from 600px)
+   of padding, so a block that sits flush in that padding has radius 24 - 2 - 16 = 6px (24 - 2 - 20 = 2px from 600px). The block's
+   own edge is a 1px darker shade of its fill. Nothing inside a block has a radius of its own, so no deeper level exists. */
+.pg-admin-ship .ash__timeline {
+  --tl-rail: color-mix(in srgb, var(--royal-soft) 60%, var(--royal-ink));
+  position: relative; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 0 0 28px; list-style: none;
+}
+.pg-admin-ship .ash__timeline::before { content: ""; position: absolute; left: 8px; top: 10px; bottom: 10px; width: 2px; background: var(--tl-rail); }
+.pg-admin-ship .ash__tl-marker { position: relative; padding: 2px 0; font: 700 13px/20px var(--font-body); color: var(--ink-muted); }
+.pg-admin-ship .ash__tl-marker::before { content: ""; position: absolute; left: -24px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--tl-rail); }
+.pg-admin-ship .ash__tl-block {
+  --tl-fill: var(--royal-soft); --tl-edge: color-mix(in srgb, var(--tl-fill) 70%, var(--royal-ink));
+  position: relative; box-sizing: border-box; height: var(--h); flex: none; overflow: hidden;
+  display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-3);
+  border: 1px solid var(--tl-edge); border-radius: calc(var(--radius-lg) - 2px - var(--ash-inset));
+  background: var(--tl-fill); color: var(--ink); font: 600 15px/22px var(--font-body);
+}
+.pg-admin-ship .ash__tl-block--muted { --tl-fill: var(--surface-sunken); --tl-edge: var(--line); color: var(--ink-muted); }
+/* The time after the last commit has no commit behind it yet: striped in its own gold, so it reads as unfinished. */
+.pg-admin-ship .ash__tl-block--open {
+  --tl-fill: var(--gold-soft); --tl-edge: color-mix(in srgb, var(--gold-soft) 60%, var(--gold-line));
+  background: repeating-linear-gradient(135deg, var(--gold-soft) 0 10px, color-mix(in srgb, var(--gold-soft) 82%, var(--gold-line)) 10px 20px);
+}
+.pg-admin-ship .ash__tl-time { flex: none; min-width: 5.5ch; font: 800 17px/22px var(--font-body); }
+.pg-admin-ship .ash__tl-block--muted .ash__tl-time { font: 700 13px/22px var(--font-body); }
+.pg-admin-ship .ash__tl-block .ash__sha { flex: none; }
+.pg-admin-ship .ash__tl-message { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-admin-ship .ash__tl-meta { display: none; font: 600 13px/18px var(--font-body); color: var(--ink-muted); }
+/* A tall block has room: the message wraps and the author and date show under it. */
+.pg-admin-ship .ash__tl-block--tall {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; align-items: baseline; gap: 2px var(--space-3); padding: 10px var(--space-3);
+}
+.pg-admin-ship .ash__tl-block--tall .ash__tl-time { grid-row: 1 / span 2; }
+.pg-admin-ship .ash__tl-block--tall .ash__sha { grid-column: 2; grid-row: 1; }
+.pg-admin-ship .ash__tl-block--tall .ash__tl-message { grid-column: 2; grid-row: 2; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.pg-admin-ship .ash__tl-block--tall .ash__tl-meta { display: block; grid-column: 2; grid-row: 3; }
 .pg-admin-ship .ash__problem { display: flex; align-items: flex-start; gap: 8px; padding: var(--space-3) var(--space-4); border-radius: calc(var(--radius-lg) - 2px - var(--ash-inset)); background: var(--gold-soft); font: 700 15px/22px var(--font-body); color: var(--ink); }
 .pg-admin-ship .ash__problem [data-icon] { flex: none; margin-top: 2px; font-size: 18px; color: var(--gold-ink); }
 .pg-admin-ship .ash__pair { display: grid; gap: var(--space-6); align-items: start; }

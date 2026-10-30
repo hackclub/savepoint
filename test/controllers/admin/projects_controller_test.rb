@@ -120,7 +120,7 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     entry = ->(id, status, matches, at: "2026-10-25T10:00:00Z") { { "id" => id, "jam" => "Jam 3", "game_title" => "Pong", "review_status" => status, "submitted_at" => at, "matches" => matches } }
     ana.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 2, jame_gam_flagged_match_count: 1, jame_gam_submission_id: "a1",
                        jame_gam_submissions: [ entry.("a1", "Rejected", true), entry.("a2", "Approved", true, at: "2026-10-20T10:00:00Z"), entry.("a3", "Rejected", false) ])
-    bo.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 3, jame_gam_submissions: [ entry.("b1", "Pending", true), entry.("b2", "Pending", true), entry.("b3", "Approved", true) ])
+    bo.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 3, jame_gam_submissions: [ entry.("b1", "Approved", true), entry.("b2", "approved ", true), entry.("b3", "Approved", true) ])
     cy.update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 1, jame_gam_flagged_match_count: 1, jame_gam_submissions: [ entry.("c1", "Flagged", true) ])
     { orpheus:, ana:, bo:, cy: }
   end
@@ -138,7 +138,7 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr##{dom_id(ana)} td[data-label='Jame gam']", text: "Rejected of 2"
     assert_select "tr##{dom_id(ana)} td[data-label='Jame gam'] .pg-admin-projects__jame--flagged", "Rejected"
     assert_select "tr##{dom_id(cy)} td[data-label='Jame gam']", text: "Flagged of 1"
-    assert_select "tr##{dom_id(bo)} td[data-label='Jame gam']", text: "3, none flagged"
+    assert_select "tr##{dom_id(bo)} td[data-label='Jame gam']", text: "3, all approved"
     assert_select "tr##{dom_id(bo)} td[data-label='Jame gam'] .pg-admin-projects__jame--flagged", 0
     assert_select "tr##{dom_id(orpheus)} td[data-label='Jame gam']", text: "—"
 
@@ -152,13 +152,14 @@ class Admin::ProjectsControllerTest < ActionDispatch::IntegrationTest
   test "D-121: two flagged submissions show as a count, and the project page lists this game's first, then the other games" do
     sign_in_as(users(:orpheus))
     jame_gam_crowd => { ana: }
-    ana.update_columns(jame_gam_flagged_match_count: 2)
+    ana.update_columns(jame_gam_submissions: ana.jame_gam_submissions.map { it["id"] == "a2" ? it.merge("review_status" => "Pending") : it })
     get admin_projects_path
-    assert_select "tr##{dom_id(ana)} .pg-admin-projects__jame--flagged", "2 flagged"
+    assert_select "tr##{dom_id(ana)} .pg-admin-projects__jame--flagged", "2 not approved"
 
     get admin_project_path(ana)
     assert_select "#admin-project-jamegam-mine tbody tr", 2
-    assert_select "#admin-project-jamegam-mine tr[data-status=flagged] .ap__jame-status--flagged", "Rejected"
+    assert_select "#admin-project-jamegam-mine tr[data-status=flagged] .ap__jame-status--flagged", 2
+    assert_select "#admin-project-jamegam-mine tr[data-status=flagged] .ap__jame-status--flagged", text: "Pending"
     assert_select "#admin-project-jamegam-mine tbody tr:first-child", text: /Jam 3\s+Pong\s+Rejected\s+Oct 25/
     assert_select "#admin-project-jamegam-others-title", "Other jame gam games"
     assert_select "#admin-project-jamegam-others tbody tr", 1

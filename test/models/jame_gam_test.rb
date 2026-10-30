@@ -215,9 +215,17 @@ class JameGamTest < ActiveSupport::TestCase
     assert_equal Time.utc(2026, 10, 25), @project.jame_gam_checked_at
   end
 
-  test "a status that rejects, flags, or calls fraud or a ban is flagged" do
-    %w[Rejected rejected Flagged Fraud Banned].each { assert JameGam.flagged?(it), it }
-    [ "Pending", "Approved", nil, "" ].each { assert_not JameGam.flagged?(it), it.inspect }
+  test "any status but exactly Approved is flagged, a blank one too (D-122)" do
+    [ "Rejected", "Pending", "Prize Only", "No Prize", "Needs Augie", "Stickers Only", nil, "", "  ", "Approved but late" ].each { assert JameGam.flagged?(it), it.inspect }
+    [ "Approved", "approved", " Approved " ].each { assert_not JameGam.flagged?(it), it.inspect }
+  end
+
+  test "unapproved statuses list each distinct one of this game once, and the line reads from them (D-122)" do
+    entry = ->(status, matches = true) { { "review_status" => status, "matches" => matches } }
+    list = [ entry.("Rejected"), entry.("rejected "), entry.("Pending"), entry.("Approved"), entry.("No Prize", false), entry.(nil) ]
+    assert_equal [ "Rejected", "Pending", "" ], JameGam.unapproved_statuses(list)
+    assert_equal "This project was marked as Pending in jame gam", JameGam.status_line("Pending")
+    assert_equal "This project hasn't been reviewed in jame gam yet", JameGam.status_line("")
   end
 
   test "the sweep queues every project, tracking or not, spread out, and does nothing without a token" do

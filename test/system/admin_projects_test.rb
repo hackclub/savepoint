@@ -137,7 +137,7 @@ class AdminProjectsTest < ApplicationSystemTestCase
       seed_jame_gam
     end
 
-    # D-121: the first project is flagged with a status long enough to wrap, among 14 of this game's submissions; the second has 3, none flagged.
+    # D-121: the first project is flagged with a status long enough to wrap, among 14 of this game's submissions; the second has 3, all approved.
     def seed_jame_gam
       mine = Project.where("idea LIKE 'A long idea about %'").order(:id).to_a
       entry = ->(index, status, matches) { { "id" => "rec#{index}", "jam" => "Jame Gam #{index}", "game_title" => "A game with a long title number #{index}", "review_status" => status,
@@ -145,7 +145,7 @@ class AdminProjectsTest < ApplicationSystemTestCase
       long = "Rejected after a long review by the jam team, needs a rewrite of the whole game"
       mine[0].update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 14, jame_gam_flagged_match_count: 1,
                              jame_gam_submissions: (0...14).map { entry.(it, it.zero? ? long : "Approved", true) } + [ entry.(99, "Rejected", false) ])
-      mine[1].update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 3, jame_gam_submissions: (0...3).map { entry.(it, "Pending", true) })
+      mine[1].update_columns(jame_gam_checked_at: Time.current, jame_gam_match_count: 3, jame_gam_submissions: (0...3).map { entry.(it, "Approved", true) })
     end
 
     def seed_states

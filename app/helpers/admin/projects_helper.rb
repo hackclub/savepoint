@@ -17,20 +17,20 @@ module Admin::ProjectsHelper
     tag.th(link, scope: "col", aria:, **options)
   end
 
-  # D-121: the jame gam cell, for this game's submissions only. The actual status in a danger chip when any is flagged
-  # ("Rejected", or "2 flagged" when there are several), then "of M"; "M, none flagged" otherwise; a dash with none. The words
-  # carry the meaning, not only the colour.
+  # D-121, D-122: the jame gam cell, for this game's submissions only. The status word in a danger chip when any is not Approved
+  # ("Pending", "no status yet", or "2 not approved" when there are several), then "of M"; "M, all approved" otherwise; a dash
+  # with none. The words carry the meaning, not only the colour. Read from the stored submissions, so it is right before the sweep
+  # recounts the columns.
   def jame_gam_summary(project)
     total = project.jame_gam_match_count
-    flagged = project.jame_gam_flagged_match_count
+    unapproved = project.jame_gam_submissions.count { it["matches"] && JameGam.flagged?(it["review_status"]) }
     if total.zero?
       tag.span("—", class: "pg-admin-projects__muted")
-    elsif flagged.positive?
-      statuses = project.jame_gam_submissions.select { it["matches"] && JameGam.flagged?(it["review_status"]) }.map { it["review_status"] }
-      label = flagged == 1 ? statuses.first : "#{flagged} flagged"
+    elsif unapproved.positive?
+      label = unapproved == 1 ? JameGam.unapproved_statuses(project.jame_gam_submissions).first.presence || "no status yet" : "#{unapproved} not approved"
       tag.span(label, class: "pg-admin-projects__jame pg-admin-projects__jame--flagged") + " of #{total}"
     else
-      "#{total}, none flagged"
+      "#{total}, all approved"
     end
   end
 

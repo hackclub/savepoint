@@ -934,23 +934,34 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#hours-start", /Oct 25, 10:00 UTC\s+\(jame gam submission \(Pending, Oct 25\)\)/
   end
 
-  test "D-121: the review page flags this game at the jame gam, says when it was never checked, and is quiet otherwise" do
+  test "D-122: the review page names the jame gam status of this game unless it is Approved, and says when it was never checked" do
     sign_in_as(users(:orpheus))
     project = projects(:ana)
     get admin_ship_path(@ship)
     assert_select "#admin-ship-jame-gam[data-jame-gam=unchecked]", "Jame gam not checked yet."
 
-    other = { "id" => "recB", "jam" => "Jam 1", "game_title" => "Another game", "review_status" => "Rejected", "submitted_at" => "2026-10-20T10:00:00Z", "matches" => false }
-    project.update_columns(jame_gam_checked_at: Time.current, jame_gam_submissions: [ other ])
+    entry = ->(id, status, matches, title: "Pong") { { "id" => id, "jam" => "Jam 3", "game_title" => title, "review_status" => status, "submitted_at" => "2026-10-25T10:00:00Z", "matches" => matches } }
+    project.update_columns(jame_gam_checked_at: Time.current, jame_gam_submissions: [ entry.("recB", "Rejected", false, title: "Another game") ])
     get admin_ship_path(@ship)
-    assert_select "#admin-ship-jame-gam", 0, "another game's rejection raises nothing"
+    assert_select "#admin-ship-jame-gam", 0, "another game's status raises nothing"
 
-    mine = { "id" => "recA", "jam" => "Jam 3", "game_title" => "Pong", "review_status" => "Rejected", "submitted_at" => "2026-10-25T10:00:00Z", "matches" => true }
-    project.update_columns(jame_gam_submissions: [ mine, other ], jame_gam_match_count: 1, jame_gam_flagged_match_count: 1)
+    project.update_columns(jame_gam_submissions: [ entry.("recA", "Approved", true), entry.("recC", " approved", true) ])
     get admin_ship_path(@ship)
-    assert_select "#admin-ship-jame-gam[data-jame-gam=flagged] strong", "This game was flagged at the jame gam: Rejected"
-    assert_select "#admin-ship-jame-gam-list li", text: /Pong\s+Rejected · Jam 3 · Oct 25/
-    assert_select "#admin-ship-jame-gam-list li", 1
+    assert_select "#admin-ship-jame-gam", 0, "an Approved submission shows nothing"
+
+    project.update_columns(jame_gam_submissions: [ entry.("recA", "Pending", true), entry.("recB", "Approved", true) ])
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam[data-jame-gam=flagged] strong", count: 1, text: "This project was marked as Pending in jame gam"
+
+    project.update_columns(jame_gam_submissions: [ entry.("recA", "Prize Only", true), entry.("recB", "Rejected", true), entry.("recC", "Rejected", true), entry.("recD", "Approved", true) ])
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam strong", 2
+    assert_select "#admin-ship-jame-gam strong", text: "This project was marked as Prize Only in jame gam"
+    assert_select "#admin-ship-jame-gam strong", text: "This project was marked as Rejected in jame gam"
+
+    project.update_columns(jame_gam_submissions: [ entry.("recA", nil, true) ])
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam strong", "This project hasn't been reviewed in jame gam yet"
   end
 
   test "the review page shows where the hours start from, and an admin sets and clears an override" do

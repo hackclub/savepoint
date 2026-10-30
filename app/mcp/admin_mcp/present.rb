@@ -37,7 +37,7 @@ module AdminMcp::Present
       hackatime: hackatime_state(project), hackatime_projects: project.hackatime_projects, hackatime_auto_linked: project.hackatime_auto_linked, hackatime_confirmed: project.hackatime_confirmed?,
       hours: (project.tracking? ? (seconds / 3600.0).round(1) : 0), streak: user.current_streak, repo_url: project.repo_url.presence,
       buddy: (buddy && { project_id: buddy.id, title: buddy.title }), buddy_skipped: project.buddy_skipped, buddy_invited: project.buddy_invited,
-      ship: ship_state(project) }
+      ship: ship_state(project), party_queued: project.party_queued, play_url: project.ships.max_by(&:created_at)&.demo_url.presence }
   end
 
   # Where a project's ships have got it, as the projects page's last column says.

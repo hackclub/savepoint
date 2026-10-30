@@ -188,6 +188,18 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal Program::DATES.end.to_s, project["deadline"]
     assert_equal [ nil, nil, nil ], project.values_at("hackatime_seen_count", "hackatime_seen_hours", "hackatime_seen_at")
 
+    assert_equal [ false, nil ], projects["projects"].first.values_at("party_queued", "play_url")
+    assert_equal [ false, nil ], project.values_at("party_queued", "play_url")
+    assert_equal 0, mcp_tool(@token, "find_projects", { party_queued: true })["total"]
+    ship = make_ship
+    projects(:ana).update_columns(party_queued: true)
+    queued = mcp_tool(@token, "find_projects", { party_queued: true })
+    assert_equal [ projects(:ana).id ], queued["projects"].map { it["id"] }
+    assert_equal [ true, ship.demo_url ], queued["projects"].first.values_at("party_queued", "play_url")
+    assert_equal 0, mcp_tool(@token, "find_projects", { party_queued: false, query: "pong" })["total"]
+    assert_equal [ true, ship.demo_url ], mcp_tool(@token, "get_project", { project_id: projects(:ana).id }).values_at("party_queued", "play_url")
+    projects(:ana).update_columns(party_queued: false)
+
     projects(:ana).update_columns(hackatime_seen_count: 2, hackatime_seen_seconds: 5400, hackatime_seen_at: Time.utc(2026, 10, 24, 9))
     project = mcp_tool(@token, "get_project", { project_id: projects(:ana).id })
     assert_equal [ 2, 1.5 ], project.values_at("hackatime_seen_count", "hackatime_seen_hours")

@@ -103,11 +103,21 @@
             <% end %>
           </p>
           <ol class="ash__commit-list">
+            <%# D-126: the counted Hackatime time since the commit before each one (Ship::CommitTimes), newest first, so the time after the last commit leads. %>
+            <% if @commit_times %>
+              <li class="ash__commit" id="admin-ship-commit-tail">
+                <span class="ash__sha">now</span>
+                <span class="ash__commit-message">No commit yet</span>
+                <small class="admin__muted"><span class="ash__commit-time"><%= Ship::CommitTimes.format(@commit_times.tail_seconds) %></span> after the last commit, before the ship</small>
+              </li>
+            <% end %>
             <% @listed_commits.commits.each do |commit| %>
+              <% timed = @commit_times&.row(commit) %>
               <li class="ash__commit">
                 <%= link_to commit.sha, commit.url, target: "_blank", rel: "noopener", class: "ash__sha" %>
                 <span class="ash__commit-message"><%= commit.message.presence || "(no message)" %></span>
-                <small class="admin__muted"><%= commit.author %> · <%= commit.date.utc.strftime("%b %-d, %H:%M") %></small>
+                <small class="admin__muted"><%= commit.author %> · <%= commit.date.utc.strftime("%b %-d, %H:%M") %><% if timed %> ·
+                  <% if timed.label == :before_counting %>before counting<% elsif timed.label == :after_ship %>after ship<% elsif timed.seconds.nil? %>time unknown (earlier commits not listed)<% else %><span class="ash__commit-time"><%= Ship::CommitTimes.format(timed.seconds) %></span> since the commit before<% end %><% end %></small>
               </li>
             <% end %>
           </ol>

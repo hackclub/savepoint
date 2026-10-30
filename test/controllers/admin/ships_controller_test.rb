@@ -464,6 +464,52 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "textarea[name=review_judgement]"
   end
 
+  def stub_two_commits
+    base = Program::STARTS_AT + 1.day
+    Web.adapter = lambda do |_method, url, _headers|
+      next Web::Response.new(status: 200, headers: {}, body: "<p>Two paddles.</p>") if url.end_with?("/readme")
+      next Web::Response.new(status: 404, headers: {}, body: "{}") unless url.include?("/commits?")
+
+      Web::Response.new(status: 200, headers: {}, body: [
+        { sha: "bbbbbbb1111", html_url: "https://github.com/ana/pong/commit/bbbbbbb", commit: { message: "Fix the ball", author: { name: "Ana", date: (base + 3.hours).utc.iso8601 } } },
+        { sha: "aaaaaaa1111", html_url: "https://github.com/ana/pong/commit/aaaaaaa", commit: { message: "Add a paddle", author: { name: "Ana", date: (base + 1.hour).utc.iso8601 } } }
+      ].to_json)
+    end
+    base
+  end
+
+  test "the review shows the Hackatime time since the commit before each one, and the time after the last (D-126)" do
+    sign_in_as(users(:orpheus))
+    users(:ana).update_columns(hackatime_uid: "1001", hackatime_access_token: "token-ana")
+    base = stub_two_commits
+    Hackatime.stubbed_spans = { "1001" => [ hackatime_span(base, 90), hackatime_span(base + 2.hours, 90) ] }
+
+    get admin_ship_path(@ship)
+
+    assert_response :success
+    assert_select "#admin-ship-commit-tail", /No commit yet.*30m after the last commit, before the ship/m
+    assert_select ".ash__commit", /bbbbbbb.*Fix the ball.*1h 30m since the commit before/m
+    assert_select ".ash__commit", /aaaaaaa.*Add a paddle.*1h since the commit before/m
+  end
+
+  test "the review lists the commits as before when Hackatime can't say (D-126)" do
+    sign_in_as(users(:orpheus))
+    users(:ana).update_columns(hackatime_uid: "1001", hackatime_access_token: "token-ana")
+    stub_two_commits
+    original = Hackatime.method(:heartbeat_spans)
+    Hackatime.define_singleton_method(:heartbeat_spans) { |*, **| raise Hackatime::Unavailable, "down" }
+    begin
+      get admin_ship_path(@ship)
+    ensure
+      Hackatime.define_singleton_method(:heartbeat_spans, original)
+    end
+
+    assert_response :success
+    assert_select ".ash__commit", 2
+    assert_select "#admin-ship-commit-tail", 0
+    assert_select ".ash__commit-time", 0
+  end
+
   test "the review says so plainly when GitHub or the Unified YSWS DB can't help" do
     sign_in_as(users(:orpheus))
     Web.adapter = ->(*) { Web::Response.new(status: 403, headers: { "x-ratelimit-reset" => "1792000000" }, body: "{}") }

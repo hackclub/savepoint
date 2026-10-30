@@ -158,6 +158,8 @@ class Admin::ShipsController < Admin::BaseController
       @earlier_approval = @ship.earlier_approval
       @all_commits = params[:commits] == "all"
       @listed_commits = @earlier_approval && !@all_commits ? @commits.since(@earlier_approval.ship.created_at) : @commits
+      # D-126: the Hackatime time behind each commit, worked from the full list so a figure never lumps in commits that aren't shown.
+      @commit_times = Ship::CommitTimes.for(@ship, @commits)
       @snapshot ||= Ship::Snapshot.new(@ship)
       @readme = Ship::Readme.for(@ship)
       # D-063: the evidence panels. Each part is looked up as the page draws it and shows its own problem line.

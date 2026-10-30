@@ -202,6 +202,17 @@ class Ship::ChecklistTest < ActiveSupport::TestCase
     end
   end
 
+  test "a README that was missing is found once it is added" do
+    with_memory_cache do
+      calls = []
+      readme_world(calls, [ "x" ], readme_status: 404)
+      check = -> { Ship::Checklist.new(repo_url: "github.com/a/b", demo_url: "").items.index_by(&:key)[:readme].state }
+      assert_equal :fail, check.call
+      readme_world(calls, [ "A game." ])
+      assert_equal :ok, check.call
+    end
+  end
+
   test "the link is found in the README text of the two reports" do
     assert Ship::Checklist.mentions_link?("Play here -> https://kocio07.itch.io/tnpgxd", "https://kocio07.itch.io/tnpgxd")
     both = "old https://jamegam.hackclub.com/x and new https://z.itch.io/g"

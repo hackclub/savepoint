@@ -9,7 +9,7 @@
 #
 # The answers are cached by what they depend on: the repository's by its URL, the playable link's by the link. A definite answer
 # stays 10 minutes, a definite failure 1 minute, and an unchecked one isn't kept. One exception: while the repository's README lacks
-# the playable link, it is read again on each ask, so a participant who fixes it and comes back passes at once.
+# the playable link (or there is no README), it is read again on each ask, so a participant who fixes it and comes back passes at once.
 class Ship::Checklist
   Item = Data.define(:key, :label, :state, :detail, :blocker) do
     # state: :ok, :fail, :warn (worth a look), :wait (nothing to check yet), :unchecked (couldn't ask, D-022).
@@ -83,7 +83,9 @@ class Ship::Checklist
     end
 
     def readme_may_have_changed?(group)
-      @github && web_url?(@demo_url) && group[:repo].state == :ok && group[:readme].state == :ok && !readme_mentions_demo?(group[:text])
+      return false unless @github && group[:repo].state == :ok
+
+      group[:readme].state == :fail || (group[:readme].state == :ok && web_url?(@demo_url) && !readme_mentions_demo?(group[:text]))
     end
 
     # Cached by key: definite for 10 minutes, a definite failure for 1, and what couldn't be checked not at all. The block gives an item or

@@ -40,12 +40,12 @@
     sweep stored (Project#refresh_jame_gam!), never from Airtable here. A project the sweep has not reached says so, so no line is
     not mistaken for a clean record. %>
 <% project = ship.project %>
-<% statuses = JameGam.unapproved_statuses(project.jame_gam_submissions) %>
+<% statuses = JameGam.unapproved(project.jame_gam_submissions) %>
 <% if statuses.any? %>
   <div class="ash__problem" id="admin-ship-jame-gam" data-jame-gam="flagged"><%= sp_icon "warning-fill" %>
     <div>
-      <% statuses.each do |status| %>
-        <div><strong><%= JameGam.status_line(status) %></strong></div>
+      <% statuses.each do |status, reason| %>
+        <div><strong><%= JameGam.status_line(status, reason) %></strong></div>
       <% end %>
     </div>
   </div>

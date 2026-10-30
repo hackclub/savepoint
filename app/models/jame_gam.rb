@@ -11,8 +11,17 @@ module JameGam
     submissions.select { it["matches"] && flagged?(it["review_status"]) }.map { it["review_status"].to_s.strip }.uniq(&:downcase)
   end
 
-  # D-122: the sentence the review page shows for one status.
-  def self.status_line(status)
-    status.blank? ? "This project hasn't been reviewed in jame gam yet" : "This project was marked as #{status} in jame gam"
+  # D-122 (2026-10-30 amendment): [status, reason] pairs for the lines, one per distinct status and reason. The reason is the jame gam
+  # reviewer's text (Submission#reason), or nil.
+  def self.unapproved(submissions)
+    submissions.select { it["matches"] && flagged?(it["review_status"]) }
+               .map { [ it["review_status"].to_s.strip, it["reason"].to_s.strip.presence ] }
+               .uniq { |status, reason| [ status.downcase, reason ] }
+  end
+
+  # D-122: the sentence the review page shows for one status, with the reviewer's reason after a colon when there is one.
+  def self.status_line(status, reason = nil)
+    line = status.blank? ? "This project hasn't been reviewed in jame gam yet" : "This project was marked as #{status} in jame gam"
+    reason.present? ? "#{line}: #{reason}" : line
   end
 end

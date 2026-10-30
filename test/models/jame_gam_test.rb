@@ -30,7 +30,7 @@ class JameGamTest < ActiveSupport::TestCase
   end
 
   def submission(code_url: "", hackatime_names: "", at: Time.utc(2026, 10, 25, 10), status: "Pending")
-    JameGam::Submissions::Submission.new(id: "recX", submitted_at: at, code_url:, hackatime_names:, review_status: status, jam: nil, game_title: nil)
+    JameGam::Submissions::Submission.new(id: "recX", submitted_at: at, code_url:, hackatime_names:, review_status: status, jam: nil, game_title: nil, notes: nil, justification_additional: nil)
   end
 
   def project_with(repo_url:, hackatime_projects:) = Project.new(repo_url:, hackatime_projects:)
@@ -49,7 +49,7 @@ class JameGamTest < ActiveSupport::TestCase
     assert_equal "Bearer pat-test", headers["Authorization"]
     query = Rack::Utils.parse_nested_query(URI(url).query)
     assert_equal JameGam::Submissions::FIELDS, query["fields"]
-    assert_equal %w[email slack_id code_url hackatime_names review_status jam game_title], query["fields"]
+    assert_equal %w[email slack_id code_url hackatime_names review_status jam game_title notes justification_additional], query["fields"]
     assert_equal "OR(LOWER({email})='orpheus@hackclub.com', {slack_id}='U0ORPHEUS')", query["filterByFormula"]
   end
 
@@ -198,7 +198,7 @@ class JameGamTest < ActiveSupport::TestCase
 
     assert_equal %w[recOther recA recOld], @project.jame_gam_submissions.map { it["id"] }, "newest first"
     assert_equal [ false, true, true ], @project.jame_gam_submissions.map { it["matches"] }
-    assert_equal %w[id jam game_title review_status submitted_at matches].sort, @project.jame_gam_submissions.first.keys.sort
+    assert_equal %w[id jam game_title review_status submitted_at matches reason].sort, @project.jame_gam_submissions.first.keys.sort
     assert_no_match(/me@x\.com|U1|secret|another"/, @project.jame_gam_submissions.to_json.sub('"another"', ""))
     assert_equal [ 2, 1 ], [ @project.jame_gam_match_count, @project.jame_gam_flagged_match_count ], "the other game's rejection does not count"
     assert_not_nil @project.jame_gam_checked_at
@@ -226,6 +226,30 @@ class JameGamTest < ActiveSupport::TestCase
     assert_equal [ "Rejected", "Pending", "" ], JameGam.unapproved_statuses(list)
     assert_equal "This project was marked as Pending in jame gam", JameGam.status_line("Pending")
     assert_equal "This project hasn't been reviewed in jame gam yet", JameGam.status_line("")
+  end
+
+  test "the reason is notes, else justification_additional, both when they differ, stripped" do
+    reason = ->(notes, extra) { JameGam::Submissions::Submission.new(id: "r", submitted_at: Time.utc(2026, 10, 25), code_url: "", hackatime_names: "", review_status: "Rejected", jam: nil, game_title: nil, notes:, justification_additional: extra).reason }
+    assert_equal "did fraud", reason.("did fraud", nil)
+    assert_equal "Disqualified by Augie: AI-generated art.", reason.(nil, "Disqualified by Augie: AI-generated art.")
+    assert_equal "a · b", reason.("a", "b")
+    assert_equal "a", reason.("a", " a ")
+    assert_nil reason.(nil, nil)
+  end
+
+  test "the sweep stores the reason from notes or justification_additional" do
+    answer({ records: [ record("recA", "2026-10-25T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Rejected", notes: "  did fraud \n"),
+                        record("recB", "2026-10-24T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Rejected", justification_additional: "Disqualified by Augie: AI-generated art.") ] })
+    @project.refresh_jame_gam!
+    assert_equal [ "did fraud", "Disqualified by Augie: AI-generated art." ], @project.reload.jame_gam_submissions.map { it["reason"] }
+  end
+
+  test "unapproved pairs carry the reason, deduped by status and reason, and the line quotes it" do
+    entry = ->(status, reason) { { "review_status" => status, "reason" => reason, "matches" => true } }
+    list = [ entry.("Rejected", "did fraud"), entry.("rejected", "did fraud"), entry.("Rejected", "100% AI"), entry.("Pending", nil), entry.("Approved", "fine") ]
+    assert_equal [ [ "Rejected", "did fraud" ], [ "Rejected", "100% AI" ], [ "Pending", nil ] ], JameGam.unapproved(list)
+    assert_equal "This project was marked as Rejected in jame gam: did fraud", JameGam.status_line("Rejected", "did fraud")
+    assert_equal "This project was marked as Rejected in jame gam", JameGam.status_line("Rejected", " ")
   end
 
   test "the sweep queues every project, tracking or not, spread out, and does nothing without a token" do

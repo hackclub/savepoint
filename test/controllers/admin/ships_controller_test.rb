@@ -959,6 +959,13 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-jame-gam strong", text: "This project was marked as Prize Only in jame gam"
     assert_select "#admin-ship-jame-gam strong", text: "This project was marked as Rejected in jame gam"
 
+    project.update_columns(jame_gam_submissions: [ entry.("recA", "Rejected", true).merge("reason" => "augie: rejecting for ai slop"),
+                                                   entry.("recB", "Rejected", true).merge("reason" => "Disqualified by Augie: AI-generated art.") ])
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-jame-gam strong", 2
+    assert_select "#admin-ship-jame-gam strong", text: "This project was marked as Rejected in jame gam: augie: rejecting for ai slop"
+    assert_select "#admin-ship-jame-gam strong", text: "This project was marked as Rejected in jame gam: Disqualified by Augie: AI-generated art."
+
     project.update_columns(jame_gam_submissions: [ entry.("recA", nil, true) ])
     get admin_ship_path(@ship)
     assert_select "#admin-ship-jame-gam strong", "This project hasn't been reviewed in jame gam yet"

@@ -616,7 +616,7 @@ class Project < ApplicationRecord
     # D-121: every submission by this person, newest first, with nothing personal in it, and the counts the admin list sorts by.
     everything = result.submissions.sort_by(&:submitted_at).reverse.map do
       { "id" => it.id, "jam" => it.jam, "game_title" => it.game_title, "review_status" => it.review_status, "submitted_at" => it.submitted_at.utc.iso8601,
-        "matches" => it.matches?(self) }
+        "matches" => it.matches?(self), "reason" => it.reason }
     end
     update_columns(jame_gam_submitted_at: latest&.submitted_at, jame_gam_submission_id: latest&.id, jame_gam_review_status: latest&.review_status,
                    jame_gam_checked_at: Time.current, jame_gam_submissions: everything,

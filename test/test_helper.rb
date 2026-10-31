@@ -100,15 +100,6 @@ module HackatimeHelpers
     originals&.each { |name, original| Hackatime.define_singleton_method(name, original) }
   end
 
-  # Save Point has no play party date yet, so Program::PLAY_PARTY_ON is the old day. Set it for the block.
-  def with_play_party_on(date)
-    original = Program::PLAY_PARTY_ON
-    silence_warnings { Program.const_set(:PLAY_PARTY_ON, date) }
-    yield
-  ensure
-    silence_warnings { Program.const_set(:PLAY_PARTY_ON, original) }
-  end
-
   # What Hackatime says Orpheus built, for the block: `hours` of it, on Save Point's first day (so every number of
   # hours has it). The block runs on the day after, so that day's over whatever the time is now.
   def with_hackatime_hours(hours, uid: "1001")

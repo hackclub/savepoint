@@ -293,26 +293,6 @@
             <%= render layout: "projects/side_section", locals: sections[:events] do %>
             <section class="project__card project__events" aria-labelledby="project-events-title">
               <h2 class="project__card-title" id="project-events-title">Events</h2>
-              <div class="project__event" data-kind="party">
-                <span class="project__event-date"><%= project_event_date(Program::PLAY_PARTY_ON) %></span>
-                <div class="project__event-text">
-                  <h3 class="project__event-title">Play party</h3>
-                  <p class="project__event-note"><%= Program::PLAY_PARTY_AT.strftime("%A at %-l%P") %> ET · on stream</p>
-                  <p class="project__event-note">
-                    <%= @project.party_queued? ? "We'll play your game live." : "We play everyone's game live. Have something running by then." %>
-                  </p>
-                  <% if @project.party_queued? %>
-                    <span class="project__party-queued">
-                      <%= sp_icon "check-circle-fill" %>In the queue
-                    </span>
-                    <%= button_to "Take my game out", project_path, method: :patch, params: { project: { party_queued: false } },
-                          class: "sp-btn sp-btn--sm sp-btn--ghost project__event-button" %>
-                  <% else %>
-                    <%= button_to "Add my game to the queue", project_path, method: :patch, params: { project: { party_queued: true } },
-                          class: "sp-btn sp-btn--sm sp-btn--royal project__event-button" %>
-                  <% end %>
-                </div>
-              </div>
               <div class="project__event" data-kind="ship">
                 <span class="project__event-date"><%= project_event_date(@project.deadline) %></span>
                 <div class="project__event-text">

@@ -123,8 +123,9 @@ class ProjectsController < ApplicationController
 
     # The screenshot has to be an uploaded file: a string would attach whatever blob its signed id names, and a
     # signed id is public in the leaderboard's image URLs.
+    # D-128: party_queued is not permitted any more. The column stays for the admin MCP's history.
     def setup_params
-      @setup_params ||= params.expect(project: [ :name, :prize_key, :screenshot, :repo_url, :repo_later, :pace_minutes, :build_time, :party_queued,
+      @setup_params ||= params.expect(project: [ :name, :prize_key, :screenshot, :repo_url, :repo_later, :pace_minutes, :build_time,
                                                  :buddy_invited, :buddy_skipped, :hackatime_auto_linked, :hackatime_link_confirmed, hackatime_project_names: [] ]).tap do |permitted|
         permitted.delete(:screenshot) unless permitted[:screenshot].respond_to?(:tempfile)
       end

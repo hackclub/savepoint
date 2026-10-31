@@ -44,10 +44,6 @@ module Program
   # D-028: everyone whose Slack is linked is added to Save Point's channel (JoinSlackChannelsJob). The channel is public,
   # so the bot joins it itself when it isn't in it (SlackBot.joining).
   SLACK_CHANNEL_IDS = [ "C0CBHCHK469" ].freeze
-  # D-023: we play everyone's game live on stream, Thursday 7pm Eastern (EDT, 23:00 UTC).
-  PLAY_PARTY_AT = Time.find_zone("America/New_York").local(2026, 10, 30, 19)
-  # The party's calendar day in Eastern time, for the day strip and the sidebar.
-  PLAY_PARTY_ON = PLAY_PARTY_AT.to_date
 
   # Which day of Save Point it is: { number:, total: }, counted in 24-hour days from STARTS_AT to ENDS_AT (so the same
   # for everyone, whatever their time zone), the last day once it's over, and nil before the start. Days turn over at

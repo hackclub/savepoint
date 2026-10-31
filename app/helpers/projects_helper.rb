@@ -263,7 +263,7 @@ module ProjectsHelper
 
   # Your build days as cells. The days gone show how they went, from Hackatime: "hit" with your pace's minutes on
   # your linked projects (or more), "some" with less, or "missed" with none. Today shows its time so far (and fills in the same way, under its ring) once there is some. Ahead of it
-  # are the play party, the day your hours would be in ("goal") and the deadline ("due"):
+  # are the day your hours would be in ("goal") and the deadline ("due"):
   # on its own after a gap when your days end before it, or in among them when they run on past it. Days run on
   # streak time (2am to 2am where you are), like the streak does.
   def project_schedule(project, today: project.user.streak_today_date)
@@ -278,14 +278,13 @@ module ProjectsHelper
       label = index.zero? || day.day == 1 ? project_date(day) : day.day.to_s
       built = seconds.fetch(day, 0)
       how = if built.zero? then "missed" elsif built >= project.pace_minutes * 60 then "hit" else "some" end
-      # Ahead of today a day shows the time it takes at your pace, with its marker (Goal, Party, Due) under it. Today
+      # Ahead of today a day shows the time it takes at your pace, with its marker (Goal, Due) under it. Today
       # shows what you've built (its tooltip, of how much), or the time it takes while you've built nothing.
       state, value, note =
         if day == today then [ "today", built.zero? ? sessions[day] : project_day_time(built) ]
         elsif day < today then [ how, built.zero? ? "0" : project_day_time(built) ]
         elsif day == deadline then [ "due", "Due", (sessions[day] unless index == days.size - 1) ]
         elsif index == days.size - 1 then [ "goal", sessions[day], "Goal" ]
-        elsif day == Program::PLAY_PARTY_ON then [ "party", sessions[day], "Party" ]
         else [ nil, sessions[day] ]
         end
       { date: label, state:, value:, note:, built: (how if day == today && !built.zero?),
@@ -398,7 +397,7 @@ module ProjectsHelper
     [ places, note ]
   end
 
-  # The sidebar's cards once you're set up, as the rows they fold into: your streak, your buddy, the play party and
+  # The sidebar's cards once you're set up, as the rows they fold into: your streak, your buddy, the deadline and
   # where you are on the leaderboard. Your streak's open, unless your buddy needs you (a pomodoro to join).
   def project_side_sections(project)
     buddy = project.buddy
@@ -411,7 +410,7 @@ module ProjectsHelper
       buddy: { icon: "group", label: buddy ? "You + #{buddy_name(buddy)}" : "Buddy",
                value: buddy ? "#{pair_hours(project)[:together]} hrs" : project.buddy_invited? ? "Pending" : "Invite",
                tone: buddy ? nil : project.buddy_invited? ? "pending" : "link", dot: buddy_waiting },
-      events: { icon: "event", label: "Play party", value: project_date(Program::PLAY_PARTY_ON), tone: "party" },
+      events: { icon: "event", label: "Deadline", value: project_date(project.deadline) },
       leaderboard: { icon: "leaderboard", label: "Leaderboard", value: mine[:hidden] ? "—" : "##{mine[:rank]}" }
     }
     sections[buddy_waiting ? :buddy : :streak][:open] = true

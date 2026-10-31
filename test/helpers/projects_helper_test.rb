@@ -63,7 +63,7 @@ class ProjectsHelperTest < ActionView::TestCase
     assert_equal "Earned", project_prize_pace(project, prize)
   end
 
-  test "the schedule fills in the days gone by how they went, then today, the goal day and the party" do
+  test "the schedule fills in the days gone by how they went, then today and the goal day" do
     with_hours_needed(10.0) { schedule_fills_in } # a pick that takes 10 hours
   end
 
@@ -124,15 +124,13 @@ class ProjectsHelperTest < ActionView::TestCase
     project.define_singleton_method(:hours_to_go) { 4.2 } # 17 hrs, 12.8 logged
     project.user.streak_activities.create!(activity_date: Date.new(2026, 10, 29), coded_seconds: 132 * 60)
 
-    with_play_party_on(Date.new(2026, 10, 30)) do
-      days = project_schedule(project, today: Date.new(2026, 10, 29))
-      assert_equal [ "today", "party", nil, "goal", "due" ], days.last(5).map { _1[:state] }
-      assert_equal [ "2.2h", "2h", "2h", "12m", "Due" ], days.last(5).map { _1[:value] }
-      assert_equal "2.2h of 2h today", days[-5][:title]
-      assert_equal "Nov 1", project_done_by(project)[:value]
-      assert_equal "3 sessions of 2 hrs gets you there by Nov 1. Ship any time up to Nov 2.", project_schedule_note(project)
-      assert_equal "Today: done", project_today(project)
-    end
+    days = project_schedule(project, today: Date.new(2026, 10, 29))
+    assert_equal [ "today", nil, nil, "goal", "due" ], days.last(5).map { _1[:state] }
+    assert_equal [ "2.2h", "2h", "2h", "12m", "Due" ], days.last(5).map { _1[:value] }
+    assert_equal "2.2h of 2h today", days[-5][:title]
+    assert_equal "Nov 1", project_done_by(project)[:value]
+    assert_equal "3 sessions of 2 hrs gets you there by Nov 1. Ship any time up to Nov 2.", project_schedule_note(project)
+    assert_equal "Today: done", project_today(project)
   end
 
   test "a partly built today shows what's left of its pace" do
@@ -157,15 +155,6 @@ class ProjectsHelperTest < ActionView::TestCase
       assert_equal [ "today", nil, nil, nil, "goal", nil, "due" ], days.map { _1[:state] }
       assert days[-2][:gap], "days skipped between the goal and the deadline"
       assert_equal({ date: "2", state: "due", value: "Due" }, days.last)
-    end
-  end
-
-  test "the play party shows on its day, when it falls in your days" do
-    project = projects(:orpheus)
-    with_play_party_on(Date.new(2026, 10, 25)) do
-      with_hours_needed(10.0) do
-        assert_equal "party", project_schedule(project, today: Date.new(2026, 10, 23))[2][:state]
-      end
     end
   end
 

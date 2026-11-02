@@ -35,7 +35,7 @@ class SlackGifsTest < ActiveSupport::TestCase
         assert gif["alt"].present?, key
       end
     end
-    (Nudge::Copy::ARMS.keys + Nudge::Copy::FIXED.keys - %w[hackatime_project last_day comeback comeback_stickers]).each { |arm| assert SlackGifs::GIFS.key?("nudge.#{arm}"), arm }
+    (Nudge::Copy::ARMS.keys + Nudge::Copy::FIXED.keys - %w[hackatime_project last_day comeback comeback_stickers rejected banned]).each { |arm| assert SlackGifs::GIFS.key?("nudge.#{arm}"), arm }
     %w[reward.gold_star reward.streak_shoutout extension.approved extension.denied order.ordered].each do |key|
       assert SlackGifs::GIFS.key?(key), key
     end
@@ -114,9 +114,9 @@ class SlackGifsTest < ActiveSupport::TestCase
     with_image, without = messages.partition { |message| image_blocks(message.blocks).any? }
 
     assert_operator with_image.size, :>=, 50
-    assert_equal [ "order · admin DM", "extension · admin DM", "auto-link DM", "streak shoutout channel post", "nudge · hackatime_project", "nudge · last_day",
+    assert_equal [ "order · admin DM", "extension · admin DM", "auto-link DM", "streak shoutout channel post", "nudge · rejected", "nudge · banned", "nudge · hackatime_project", "nudge · last_day",
                    *[ "nudge · comeback_stickers" ] * 3, *[ "nudge · comeback" ] * 3 ],
-                 without.map { |message| message.label[/(order · admin DM|extension · admin DM|auto-link DM|streak shoutout channel post|nudge · hackatime_project|nudge · last_day|nudge · comeback_stickers|nudge · comeback)/] }
+                 without.map { |message| message.label[/(order · admin DM|extension · admin DM|auto-link DM|streak shoutout channel post|nudge · rejected|nudge · banned|nudge · hackatime_project|nudge · last_day|nudge · comeback_stickers|nudge · comeback)/] }
   end
 
   test "in the demo each variant of an arm shows a different gif" do

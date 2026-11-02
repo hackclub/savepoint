@@ -11,15 +11,21 @@ class Nudge::Message
     @pick = pick
   end
 
+  # D-137: the ban DM is plain text, with no buttons: a banned account has nothing to open, and nothing to stop.
   def blocks
+    link = Nudge::Copy.link_for(nudge.arm)
     [
       { type: "section", text: { type: "mrkdwn", text: nudge.text } },
       SlackGifs.block("nudge.#{nudge.arm}", force: @gifs, pick: @pick),
-      { type: "actions", elements: [
-        { type: "button", text: { type: "plain_text", text: Nudge::Copy.link_for(nudge.arm).first }, style: "primary",
-          url: nudge.link_url, action_id: "nudge_open" },
-        { type: "button", text: { type: "plain_text", text: Nudge::Copy::SLACK_MUTE }, url: nudge.stop_url, action_id: "nudge_stop" }
-      ] }
+      (actions(link) if link)
     ].compact
   end
+
+  def actions(link)
+    { type: "actions", elements: [
+      { type: "button", text: { type: "plain_text", text: link.first }, style: "primary", url: nudge.link_url, action_id: "nudge_open" },
+      { type: "button", text: { type: "plain_text", text: Nudge::Copy::SLACK_MUTE }, url: nudge.stop_url, action_id: "nudge_stop" }
+    ] }
+  end
+  private :actions
 end

@@ -67,9 +67,10 @@ class Nudge::Context
   end
 
   # The bot can reach them: not banned (D-113), on Slack, not stopped, and no DM failed in the last Nudge::DM_RETRY_AFTER.
-  def reachable?
+  # `allow_banned` is for the ban's own DM (D-137, Nudge::Banned), which is the one thing a banned account is told.
+  def reachable?(allow_banned: false)
     failed_at = user.slack_dm_failed_at
-    !user.banned? && user.slack_id.present? && user.slack_muted_at.nil? && (failed_at.nil? || failed_at < now - Nudge::DM_RETRY_AFTER)
+    (allow_banned || !user.banned?) && user.slack_id.present? && user.slack_muted_at.nil? && (failed_at.nil? || failed_at < now - Nudge::DM_RETRY_AFTER)
   end
 
   # The bot DMed them something (anything: a nudge, a cheer, a reward, their project linking itself) within the last
@@ -84,7 +85,7 @@ class Nudge::Context
   def may_nudge?
     return false unless project.program_dates.cover?(today) && reachable?
     return false if quiet? || just_messaged? || sent_today.exists?
-    return false if user.nudges.delivered.where.not(kind: %w[cheer approved]).where(sent_at: now - 7.days..).count >= Nudge::WEEKLY_CAP
+    return false if user.nudges.delivered.where.not(kind: %w[cheer approved rejected banned]).where(sent_at: now - 7.days..).count >= Nudge::WEEKLY_CAP
     minutes_today < Nudge::REWARD_MINUTES
   end
 
@@ -127,7 +128,7 @@ class Nudge::Context
   end
 
   def sent_today
-    user.nudges.delivered.where.not(kind: "approved").where(sent_at: local_now.beginning_of_day..)
+    user.nudges.delivered.where.not(kind: %w[approved rejected banned]).where(sent_at: local_now.beginning_of_day..)
   end
 
   # Only bandit nudges use buckets.

@@ -27,6 +27,45 @@ class AdminReviewTest < ApplicationSystemTestCase
 
   teardown { Rails.configuration.x.admin_slack_ids = @admins }
 
+  test "typed review text survives Set Lapse coding and the hours start, which reload the page (D-135)" do
+    @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
+    visit admin_ship_path(@ship)
+    pick "approved"
+    fill_in "technical_features", with: "A second ball with its own physics."
+    fill_in "review_judgement", with: "Looks fine."
+    fill_in "lapse_coding_hours", with: "0.5"
+    click_button "Set Lapse coding"
+    assert_text "Lapse coding set to"
+    assert_equal "A second ball with its own physics.", find("textarea[name=technical_features]").value
+    assert_equal "Looks fine.", find("textarea[name=review_judgement]").value
+
+    fill_in "technical_features", with: "A second ball, now with spin."
+    page.execute_script("document.querySelectorAll('details').forEach((d) => { d.open = true })")
+    fill_in "hours_start_override", with: (Program::STARTS_AT + 1.hour).utc.strftime("%Y-%m-%dT%H:%M")
+    click_button "Set start"
+    assert_equal "A second ball, now with spin.", find("textarea[name=technical_features]").value
+
+    # Set AI coding reloads the page too, with the draft's other fields typed since the last save.
+    page.execute_script("document.querySelectorAll('details').forEach((d) => { d.open = true })")
+    fill_in "review_feedback", with: "Nice work on the physics."
+    fill_in "reviewer_ai_coding_hours", with: "2"
+    fill_in "reviewer_ai_reason", with: "One pasted dump."
+    click_button "Set AI coding"
+    assert_text "AI coding set to"
+    assert_equal "Nice work on the physics.", find("textarea[name=review_feedback]").value
+    assert_equal "A second ball, now with spin.", find("textarea[name=technical_features]").value
+    assert_equal "One pasted dump.", find("textarea[name=reviewer_ai_reason]").value
+
+    # So does saving the snapshot.
+    page.execute_script("document.querySelectorAll('details').forEach((d) => { d.open = true })")
+    fill_in "review_judgement", with: "Solid, if small."
+    fill_in "snapshot_title", with: "Pong 2"
+    click_button "Save"
+    assert_equal "Solid, if small.", find("textarea[name=review_judgement]").value
+    assert_equal "A second ball, now with spin.", find("textarea[name=technical_features]").value
+    assert_equal "Nice work on the physics.", find("textarea[name=review_feedback]").value
+  end
+
   test "a coding preset fills the field with a share of the claimed coding, and the art limit and total follow" do
     visit admin_ship_path(@ship)
     pick "approved"

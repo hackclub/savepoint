@@ -30,10 +30,10 @@ export default class extends Controller {
     this.onClick = (event) => { if (event.target.closest("[data-verdict]")) this.#mark("decision") }
     this.onHide = () => { if (document.visibilityState === "hidden") this.#beacon() }
     this.onPageHide = () => this.#beacon()
-    this.onSubmit = (event) => { if (event.target === this.element) this.#stop() }
+    this.onSubmit = (event) => this.#submitted(event)
     document.addEventListener("input", this.onInput)
     this.element.addEventListener("click", this.onClick)
-    this.element.addEventListener("submit", this.onSubmit)
+    document.addEventListener("submit", this.onSubmit, true)
     document.addEventListener("visibilitychange", this.onHide)
     window.addEventListener("pagehide", this.onPageHide)
   }
@@ -41,10 +41,25 @@ export default class extends Controller {
   disconnect() {
     document.removeEventListener("input", this.onInput)
     this.element.removeEventListener("click", this.onClick)
-    this.element.removeEventListener("submit", this.onSubmit)
+    document.removeEventListener("submit", this.onSubmit, true)
     document.removeEventListener("visibilitychange", this.onHide)
     window.removeEventListener("pagehide", this.onPageHide)
     clearTimeout(this.timer)
+  }
+
+  // The verdict submit drops what waits: the verdict uses the draft up. Any other form (Set Lapse coding, Set AI coding, hours start)
+  // reloads the page, so the draft is saved first and the form is sent once the save has landed. The page then fills from the draft.
+  #submitted(event) {
+    const form = event.target
+    if (form === this.element) return this.#stop()
+    if (this.resubmitting === form || !this.dirty.size || this.submitted) return
+    event.preventDefault()
+    clearTimeout(this.timer)
+    const submitter = event.submitter
+    this.#save().finally(() => {
+      this.resubmitting = form
+      form.requestSubmit(submitter)
+    })
   }
 
   #touch(target) {
@@ -78,11 +93,11 @@ export default class extends Controller {
   }
 
   #save() {
-    if (!this.dirty.size || this.submitted) return
+    if (!this.dirty.size || this.submitted) return Promise.resolve()
     const body = this.#body()
     this.dirty.clear()
     const token = document.querySelector("meta[name=csrf-token]")?.content
-    fetch(this.urlValue, { method: "POST", body, headers: { "X-CSRF-Token": token, Accept: "application/json" }, keepalive: true })
+    return fetch(this.urlValue, { method: "POST", body, headers: { "X-CSRF-Token": token, Accept: "application/json" }, keepalive: true })
       .then((response) => (response.ok ? response.json() : null))
       .then((saved) => { if (saved && this.hasStatusTarget) this.statusTarget.textContent = `Draft saved just now by ${saved.by}.` })
       .catch(() => {})

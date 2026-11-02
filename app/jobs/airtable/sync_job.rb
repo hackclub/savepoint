@@ -8,8 +8,7 @@
 # A table that fails does not stop the others. When a batch request fails, each
 # row goes alone. A row that still fails waits an hour (airtable_failed_at) and is
 # not stamped synced. A row that changed while the batch was in flight is not
-# stamped either. A ship row ticks "Automation - Submit to Unified YSWS" unless its repo is shipped on Stardance or Stardance
-# can't be read (D-141). The log holds a row id and Airtable's error type, never a value.
+# stamped either. A ship row always ticks "Automation - Submit to Unified YSWS" (D-141; Armand dropped the Stardance check). The log holds a row id and Airtable's error type, never a value.
 module Airtable
   class SyncJob < ApplicationJob
     queue_as :default
@@ -69,24 +68,8 @@ module Airtable
       end
       taken, fresh = ships.partition { existing.dig("ship-#{it.id}", "fields", AirtableSchema::UNIFIED_FIELD).present? }
       Ship.where(id: taken.map(&:id)).update_all(in_unified: true)
-      # D-141, as playground does: the Unified box is ticked unless the repo is shipped on Stardance. One read for the batch.
-      stardance = stardance_repos
       # D-111: the row Airtable has already is read, so a deflation sentence the ship no longer has is cleared rather than left (AirtableFields.clearing_stale_deflation).
-      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) { AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: submit_to_unified?(it, stardance)), existing["ship-#{it.id}"]) }
-    end
-
-    # The normalized repo URLs shipped on Stardance (Stardance.index), or nil when they can't be read, which leaves every ship in
-    # the batch unchecked, and so unticked: a person decides.
-    def stardance_repos
-      Stardance.index
-    rescue StandardError => e
-      Rails.logger.error("airtable sync: Stardance shipped repos not read (#{e.class}); no ship is ticked for the Unified YSWS DB")
-      nil
-    end
-
-    def submit_to_unified?(ship, stardance)
-      key = Ship::EarlierShip.normalize(ship.repo_url)
-      !stardance.nil? && key.present? && !stardance.key?(key)
+      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) { AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: true), existing["ship-#{it.id}"]) }
     end
 
     # Upserts the rows. Returns [rows done, rows failed]. A failed batch is tried one row at a time.

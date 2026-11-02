@@ -146,7 +146,7 @@ class Nudge < ApplicationRecord
     return sent_at..sent_at + (worked_quickly? ? WORKED_WINDOW : REWARD_WINDOW) unless cheer?
 
     next_day = built_on + 1
-    from = ActiveSupport::TimeZone[user.timezone.presence || "UTC"].local(next_day.year, next_day.month, next_day.day, 2)
+    from = UserTimezone.zone(user.timezone).local(next_day.year, next_day.month, next_day.day, 2)
     from..from + 1.day
   end
 

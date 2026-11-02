@@ -170,6 +170,17 @@ class ProjectsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.parsed_body["errors"], "Prize key is not included in the list"
   end
 
+  test "your project page renders for a user whose stored timezone is not a real zone" do
+    user = users(:orpheus)
+    user.update_column(:timezone, "Not/AZone")
+    sign_in_as(mock_hack_club_auth(uid: user.hca_id, slack_id: "U0ORPHEUS"))
+    travel_to Program::STARTS_AT + 2.days
+
+    get project_path
+
+    assert_response :success
+  end
+
   test "your project shows your pledge and what's left to set up" do
     sign_in_as(mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS"))
     travel_to Program::STARTS_AT + 2.days

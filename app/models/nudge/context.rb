@@ -17,7 +17,7 @@ class Nudge::Context
     @user = user
     @project = user.project
     @now = now
-    @local_now = now.in_time_zone(user.timezone.presence || "UTC")
+    @local_now = now.in_time_zone(UserTimezone.zone(user.timezone))
     @built_on = built_on
   end
 

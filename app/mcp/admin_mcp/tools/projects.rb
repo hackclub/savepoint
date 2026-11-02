@@ -36,7 +36,7 @@ module AdminMcp::Tools::Projects
       seconds = StreakActivity.where(user_id: user.id, activity_date: Program::FIRST_STREAK_DATE..).sum(:coded_seconds)
       AdminMcp::Present.project(project, seconds:).merge(
         hours_logged: project.hours_logged.to_f, hours_approved: project.hours_approved, hours_to_spend: project.hours_to_spend,
-        day_number: project.day_number, finish_on: project.finish_on, deadline: project.deadline, timezone: user.timezone.presence || "UTC",
+        day_number: project.day_number, finish_on: project.finish_on, deadline: project.deadline, timezone: UserTimezone.name(user.timezone),
         hackatime_seen_count: project.hackatime_seen_count, hackatime_seen_hours: project.hackatime_seen_seconds&.then { (it / 3600.0).round(1) },
         hackatime_seen_at: project.hackatime_seen_at, hours_synced_at: user.streak_synced_at, repo_later: project.repo_later, has_screenshot: project.screenshot.attached?,
         slack_stopped_at: user.slack_muted_at, slack_dm_failed_at: user.slack_dm_failed_at,

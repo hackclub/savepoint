@@ -84,7 +84,7 @@ class StreakActivity < ApplicationRecord
     end
 
     def streak_date_for(time, timezone)
-      (time.in_time_zone(timezone.presence || "UTC") - 2.hours).to_date
+      (time.in_time_zone(UserTimezone.zone(timezone)) - 2.hours).to_date
     end
 
     private
@@ -114,7 +114,7 @@ class StreakActivity < ApplicationRecord
 
       # A streak day runs 2am to 2am in the person's timezone.
       def streak_day_window(date, timezone)
-        zone = ActiveSupport::TimeZone[timezone.presence || "UTC"]
+        zone = UserTimezone.zone(timezone)
         [ zone.local(date.year, date.month, date.day, 2), zone.local((date + 1).year, (date + 1).month, (date + 1).day, 2) ]
       end
 
@@ -170,7 +170,7 @@ class StreakActivity < ApplicationRecord
 
       # Seconds per streak day. A span across 2am is split between the two days.
       def bucket_spans_by_streak_day(spans, timezone)
-        tz = timezone.presence || "UTC"
+        tz = UserTimezone.zone(timezone)
         buckets = Hash.new(0)
 
         spans.each do |span|
@@ -189,7 +189,7 @@ class StreakActivity < ApplicationRecord
             while remaining > 0
               day = (cursor - 2.hours).to_date
               next_day = day + 1.day
-              next_boundary = ActiveSupport::TimeZone[tz].local(next_day.year, next_day.month, next_day.day, 2, 0, 0)
+              next_boundary = tz.local(next_day.year, next_day.month, next_day.day, 2, 0, 0)
               secs = [ next_boundary - cursor, remaining ].min
               buckets[day] += secs.round
               remaining -= secs

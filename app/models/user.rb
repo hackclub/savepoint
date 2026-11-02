@@ -88,7 +88,7 @@ class User < ApplicationRecord
   # Your timezone (IANA, like "America/New_York"), from your browser whenever it says something different, so it
   # follows you when you travel. Anything that isn't a real timezone is ignored.
   def remember_timezone(name)
-    name = TZInfo::Timezone.get(name.to_s).identifier
+    name = TZInfo::Timezone.get(UserTimezone::LEGACY.fetch(name.to_s, name.to_s)).identifier
     update!(timezone: name) unless timezone == name
   rescue TZInfo::InvalidTimezoneIdentifier
     nil
@@ -107,7 +107,7 @@ class User < ApplicationRecord
   # Where you are, for anything that goes by your calendar day (the deadline): your browser's timezone, or UTC until
   # it's said.
   def time_zone
-    ActiveSupport::TimeZone[timezone.presence || "UTC"]
+    UserTimezone.zone(timezone)
   end
 
   def local_date(now = Time.current)

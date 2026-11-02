@@ -32,10 +32,10 @@ module Nudge::ChangesNeeded
   end
 
   # The title, and the end of this ship's window in their time zone, like "Tue Nov 3, 11:42 pm". The window is the project's own
-  # (Project#changes_needed_until), which a later verdict on another ship can end: then this ship's own 24 hours or the cutoff.
+  # (Project#changes_needed_until), which a later verdict on another ship can end: then this ship's own 24 hours or the public end (D-140), never the cutoff.
   def self.vars(ship)
     project = ship.project
-    until_time = [ ship.reviewed_at + Project::CHANGES_NEEDED_WINDOW, project.ship_cutoff ].max
+    until_time = [ ship.reviewed_at + Project::CHANGES_NEEDED_WINDOW, Program::ENDS_AT ].max
     { title: "*#{SlackText.escape(project.title)}*", deadline: until_time.in_time_zone(project.user.time_zone).strftime("%a %b %-d, %-l:%M %P") }
   end
 

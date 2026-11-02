@@ -1,6 +1,6 @@
 require "test_helper"
 
-# D-139: Changes needed gives the participant a window to ship again, and a DM that says until when.
+# D-139, D-140: Changes needed gives the participant a window to ship again, and a DM that says until when.
 class NudgeChangesNeededTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
@@ -47,19 +47,42 @@ class NudgeChangesNeededTest < ActiveSupport::TestCase
     text = texts.sole
     assert_includes text, "needs a few changes before it can be approved"
     assert_includes text, "*#{@project.title}*"
-    # The cutoff (the deadline plus grace, end of day in New York) runs later than 24 hours, so it is the deadline.
-    assert_includes text, "you have until Wed Nov 4, 11:59 pm to fix it and ship again."
+    # 24 hours after the verdict (Tue Nov 3, 5:59 pm in New York) is later than the public end.
+    assert_includes text, "you have until Tue Nov 3, 5:59 pm to fix it and ship again."
+    assert_not_includes text, "Nov 4"
     assert_includes text, "your reviewer left you a note:\n> Add a screenshot of the game."
     assert_equal [ "changes_needed" ], @user.nudges.delivered.pluck(:kind)
     assert_equal "open your project", @sent.first.third.find { it[:type] == "actions" }[:elements].first[:text][:text]
   end
 
-  test "past the cutoff the DM names 24 hours after the verdict" do
-    verdict = @project.reload.ship_cutoff - 6.hours
+  test "a verdict at 21:00 UTC the night before the end gets 24 hours, never the grace days" do
+    verdict = Time.utc(2026, 11, 2, 21)
     travel_to(verdict) { @ship.decide!("changes_needed", by: @reviewer, feedback: "Fix the build.") }
     travel_to(verdict + 5.minutes) { perform_enqueued_jobs }
 
-    assert_includes texts.sole, "you have until Thu Nov 5, 5:59 pm to"
+    assert_equal Time.utc(2026, 11, 3, 21), @project.reload.changes_needed_until
+    assert_includes texts.sole, "you have until Tue Nov 3, 4:00 pm to"
+    assert_not_includes texts.sole, "Nov 4"
+  end
+
+  test "an early verdict gets the public end, not the cutoff" do
+    travel_to(Time.utc(2026, 11, 1)) { @ship.decide!("changes_needed", by: @reviewer, feedback: "Fix the build.") }
+    travel_to(Time.utc(2026, 11, 1, 0, 5)) { perform_enqueued_jobs }
+
+    assert_equal Program::ENDS_AT, @project.reload.changes_needed_until
+    assert_includes texts.sole, "you have until Mon Nov 2, 11:59 pm to"
+    assert_not_includes texts.sole, "Nov 4"
+  end
+
+  test "the gate stays open through the grace days for a changes needed project" do
+    cutoff = @project.ship_cutoff
+    @ship.update_columns(status: "changes_needed", reviewed_at: Time.utc(2026, 11, 1))
+    @project.reload
+    assert_equal Program::ENDS_AT, @project.changes_needed_until
+    assert_equal cutoff, @project.ship_closes_at
+    assert @project.may_ship?(now: Program::ENDS_AT + 1.day)
+    assert @project.may_ship?(now: cutoff)
+    assert_not @project.may_ship?(now: cutoff + 1.second)
   end
 
   test "no DM for someone who stopped the bot" do
@@ -88,13 +111,14 @@ class NudgeChangesNeededTest < ActiveSupport::TestCase
     end
   end
 
-  test "the window: 24 hours after the verdict or the normal cutoff, whichever is later" do
+  test "the window: 24 hours after the verdict or the public end, whichever is later" do
     cutoff = @project.ship_cutoff
     assert_nil @project.changes_needed_until
 
     travel_to(Program::ENDS_AT - 1.hour) { @ship.decide!("changes_needed", by: @reviewer, feedback: "Fix it.") }
     @project.reload
-    assert_equal cutoff.to_i, @project.changes_needed_until.to_i, "the cutoff is later than 24 hours from the verdict"
+    assert_equal (Program::ENDS_AT + 23.hours).to_i, @project.changes_needed_until.to_i
+    assert_equal cutoff.to_i, @project.ship_closes_at.to_i, "the grace days still accept a ship"
     assert @project.may_ship?(now: cutoff - 1.minute)
 
     @ship.update_columns(reviewed_at: cutoff - 1.hour)

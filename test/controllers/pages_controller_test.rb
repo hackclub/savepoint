@@ -52,7 +52,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
   test "states the end in UTC for the browser to put in your time zone, and counts down to it" do
     get root_path
 
-    assert_select "[data-controller=local-time][data-local-time-at-value='#{Program::ENDS_AT.iso8601}']", "Mon Nov 2, 2026, 9:00 pm (UTC)"
+    assert_select "[data-controller=local-time][data-local-time-at-value='#{Program::ENDS_AT.iso8601}']", "Tue Nov 3, 2026, 4:59 am (UTC)"
     assert_select ".cd[data-countdown-ends-at-value='#{Program::ENDS_AT.iso8601}']", 1
   end
 

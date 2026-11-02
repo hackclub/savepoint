@@ -312,9 +312,9 @@ end
 class ProjectDeadlineTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
-  test "Save Point runs 10 days, from Oct 23 21:00 UTC to Nov 2 21:00 UTC (D-017)" do
+  test "Save Point runs 10 days, from Oct 23 21:00 UTC to Nov 3 04:59 UTC, 11:59pm Eastern on Nov 2 (D-017, D-134)" do
     assert_equal Time.utc(2026, 10, 23, 21), Program::STARTS_AT
-    assert_equal Time.utc(2026, 11, 2, 21), Program::ENDS_AT
+    assert_equal Time.utc(2026, 11, 3, 4, 59), Program::ENDS_AT
     assert_equal Date.new(2026, 10, 23)..Date.new(2026, 11, 2), Program::DATES
     assert_equal Date.new(2026, 10, 23), Program::HACKATIME_START
     assert_equal Date.new(2026, 10, 23), Program::FIRST_STREAK_DATE, "21:00 UTC is 07:00 the next morning at UTC-12 and then 2am has passed"
@@ -323,7 +323,7 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
 
   test "the deadline is Save Point's last day, extension or not" do
     project = projects(:orpheus)
-    assert_equal Program::ENDS_AT.to_date, project.deadline
+    assert_equal Date.new(2026, 11, 2), project.deadline, "the last day is Nov 2 in New York, though the end is Nov 3 UTC"
 
     extension = project.create_extension!(reason: "exams")
     assert_equal Date.new(2026, 11, 2), project.reload.deadline

@@ -141,7 +141,6 @@ class JameGamTest < ActiveSupport::TestCase
   test "a matching submission is stored, with its status, and the days rebuild" do
     submitted = Time.utc(2026, 10, 25, 10)
     answer({ records: [ record("recA", "2026-10-25T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Rejected"),
-                        record("recOld", "2026-10-24T10:00:00.000Z", hackatime_names: "rhythm-game"),
                         record("recOther", "2026-10-25T20:00:00.000Z", code_url: "https://github.com/x/another", hackatime_names: "another") ] })
     @user.update_column(:streak_synced_at, Time.current)
 
@@ -152,6 +151,15 @@ class JameGamTest < ActiveSupport::TestCase
 
     clear_enqueued_jobs
     assert_no_enqueued_jobs { @project.refresh_jame_gam! }
+  end
+
+  test "with several matching submissions the earliest is stored (D-132)" do
+    answer({ records: [ record("recNew", "2026-11-01T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Rejected"),
+                        record("recOld", "2026-10-24T10:00:00.000Z", hackatime_names: "rhythm-game", review_status: "Approved") ] })
+    @project.refresh_jame_gam!
+    @project.reload
+
+    assert_equal [ Time.utc(2026, 10, 24, 10), "recOld", "Approved" ], [ @project.jame_gam_submitted_at, @project.jame_gam_submission_id, @project.jame_gam_review_status ]
   end
 
   test "a failed lookup leaves the stored submission alone" do
@@ -202,7 +210,7 @@ class JameGamTest < ActiveSupport::TestCase
     assert_no_match(/me@x\.com|U1|secret|another"/, @project.jame_gam_submissions.to_json.sub('"another"', ""))
     assert_equal [ 2, 1 ], [ @project.jame_gam_match_count, @project.jame_gam_flagged_match_count ], "the other game's rejection does not count"
     assert_not_nil @project.jame_gam_checked_at
-    assert_equal "recA", @project.jame_gam_submission_id
+    assert_equal "recOld", @project.jame_gam_submission_id
   end
 
   test "a failed lookup keeps the stored submissions and counts" do

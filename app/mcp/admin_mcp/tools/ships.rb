@@ -134,6 +134,51 @@ module AdminMcp::Tools::Ships
     end
   end
 
+  # D-139: the verdict DM for a ship decided before the bot sent them (Nudge::ChangesNeeded, Nudge::Rejected), once.
+  class SendVerdictDm < AdminMcp::Tool
+    writes "send_verdict_dm", "Send a ship's verdict DM",
+           "Sends the participant the bot's Slack DM for a ship's verdict, once: for a changes_needed ship the changes-needed DM with the reviewer's note and the deadline to ship again, in their time zone " \
+           "(D-139), for a rejected ship the rejection DM (D-137). For ships decided before those DMs existed; newer verdicts send theirs on their own. The usual rules hold: quiet hours and the gap after another DM " \
+           "queue it for later rather than drop it. Refuses other statuses, an admin's own ship, a banned or stopped participant, and a ship whose DM was sent already. " \
+           "include_note: false leaves the reviewer's note out. Answers { sent, queued_for, text, deadline, sent_at, kind }: text is the exact message, deadline is the local deadline (changes_needed only), and queued_for is the time it will go when it is waiting.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             include_note: { type: "boolean", description: "Default true. False leaves out the reviewer's note and its lead-in, so the DM carries the deadline only." } },
+           required: %w[ship_id]
+
+    def self.run(args, _caller)
+      ship = Ship.includes(project: :user).find(args[:ship_id])
+      user = ship.project.user
+      include_note = args[:include_note] != false
+      mod = case ship.status
+      when "changes_needed" then Nudge::ChangesNeeded
+      when "rejected" then Nudge::Rejected
+      else raise AdminMcp::Refused, "Only a changes_needed or rejected ship has a verdict DM (this one is #{ship.status})."
+      end
+      raise AdminMcp::Refused, "That is an admin's own ship." if user.listed_admin?
+      raise AdminMcp::Refused, "That account is banned, and gets no DMs." if user.banned?
+      raise AdminMcp::Refused, "The #{mod::KIND} DM for this ship was sent already." if user.nudges.delivered.where(kind: mod::KIND, ship_id: ship.id).exists?
+
+      result = mod.send_for(ship.id, include_note:)
+      if result.respond_to?(:acts_like_time?) && result.acts_like_time?
+        NudgeJobFor.call(mod, ship.id, result, include_note)
+        return { sent: false, queued_for: result.iso8601, kind: mod::KIND, text: nil, deadline: deadline_for(mod, ship), sent_at: nil }
+      end
+      raise AdminMcp::Refused, "Not sent: the participant can't be DMed (they stopped the bot, or aren't on Slack)." if result.nil?
+
+      { sent: result.delivered, queued_for: nil, kind: mod::KIND, text: result.text, deadline: deadline_for(mod, ship), sent_at: result.sent_at&.iso8601 }
+    end
+
+    def self.deadline_for(mod, ship) = (mod.vars(ship)[:deadline] if mod.respond_to?(:vars))
+
+    # The job that sends it once the wait is over, as the ship's own verdict would have queued.
+    module NudgeJobFor
+      def self.call(mod, ship_id, at, include_note)
+        job = mod == Nudge::ChangesNeeded ? NudgeChangesNeededJob : NudgeRejectedJob
+        job.set(wait_until: at).perform_later(ship_id, include_note)
+      end
+    end
+  end
+
   # D-135: the review page's draft, written without a verdict.
   class SaveReviewDraft < AdminMcp::Tool
     writes "save_review_draft", "Save a review draft",

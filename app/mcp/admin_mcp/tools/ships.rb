@@ -140,12 +140,14 @@ module AdminMcp::Tools::Ships
            "Sends the participant the bot's Slack DM for a ship's verdict, once: for a changes_needed ship the changes-needed DM with the reviewer's note and the deadline to ship again, in their time zone " \
            "(D-139), for a rejected ship the rejection DM (D-137). For ships decided before those DMs existed; newer verdicts send theirs on their own. The usual rules hold: quiet hours and the gap after another DM " \
            "queue it for later rather than drop it. Refuses other statuses, an admin's own ship, a banned or stopped participant, and a ship whose DM was sent already. " \
-           "include_note: false leaves the reviewer's note out. Answers { sent, queued_for, text, deadline, sent_at, kind }: text is the exact message, deadline is the local deadline (changes_needed only), and queued_for is the time it will go when it is waiting.",
+           "include_note: false leaves the reviewer's note out. restart_window: true (changes_needed only, and only on the project's latest decided ship) first sets the ship's reviewed_at to now, so the deadline becomes 24 hours from the send (D-140); " \
+           "it is refused when the DM was sent already, and is logged under the project too. Answers { sent, queued_for, text, deadline, sent_at, kind }: text is the exact message, deadline is the local deadline (changes_needed only), and queued_for is the time it will go when it is waiting.",
            { ship_id: { type: "integer", description: "The ship ID." },
-             include_note: { type: "boolean", description: "Default true. False leaves out the reviewer's note and its lead-in, so the DM carries the deadline only." } },
+             include_note: { type: "boolean", description: "Default true. False leaves out the reviewer's note and its lead-in, so the DM carries the deadline only." },
+             restart_window: { type: "boolean", description: "Default false. True restarts the Changes needed window: reviewed_at becomes now, so the deadline is 24 hours from the send. Only for the project's latest decided ship." } },
            required: %w[ship_id]
 
-    def self.run(args, _caller)
+    def self.run(args, caller)
       ship = Ship.includes(project: :user).find(args[:ship_id])
       user = ship.project.user
       include_note = args[:include_note] != false
@@ -157,6 +159,15 @@ module AdminMcp::Tools::Ships
       raise AdminMcp::Refused, "That is an admin's own ship." if user.listed_admin?
       raise AdminMcp::Refused, "That account is banned, and gets no DMs." if user.banned?
       raise AdminMcp::Refused, "The #{mod::KIND} DM for this ship was sent already." if user.nudges.delivered.where(kind: mod::KIND, ship_id: ship.id).exists?
+
+      if args[:restart_window] == true
+        raise AdminMcp::Refused, "restart_window only applies to a changes_needed ship (this one is #{ship.status})." unless ship.status == "changes_needed"
+        decided = ship.project.ships.select { it.reviewed_at && %w[changes_needed awaiting_fraud approved rejected].include?(it.status) }
+        raise AdminMcp::Refused, "restart_window only applies to the project's latest decided ship." unless decided.max_by(&:reviewed_at)&.id == ship.id
+
+        AdminAuditEvent.create!(user: caller.user, admin_token: caller.token, tool: "send_verdict_dm", ids: { "ship_id" => ship.id, "project_id" => ship.project_id })
+        ship.update_columns(reviewed_at: Time.current)
+      end
 
       result = mod.send_for(ship.id, include_note:)
       if result.respond_to?(:acts_like_time?) && result.acts_like_time?

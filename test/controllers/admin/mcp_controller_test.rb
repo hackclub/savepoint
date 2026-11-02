@@ -457,6 +457,69 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     SlackBot.define_singleton_method(:dm, dm)
   end
 
+  test "send_verdict_dm restart_window makes the deadline 24 hours from now (D-140)" do
+    sent = []
+    dm = SlackBot.method(:dm)
+    SlackBot.define_singleton_method(:dm) { |slack_id, text:, blocks:, on_error: nil, allow_banned: false| sent << text; Struct.new(:channel, :ts).new("D0ANA", "1.0") }
+    ship = make_ship
+    ship.project.user.update!(timezone: "America/New_York", slack_id: "U0ANA")
+    travel_to(Program::ENDS_AT - 6.hours) do
+      ship.update_columns(status: "changes_needed", reviewed_at: Time.current - 20.hours, decided_at: Time.current - 20.hours, review_feedback: "Fix it.")
+      done = mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id, restart_window: true })
+      assert_equal true, done["sent"]
+      assert_in_delta Time.current, ship.reload.reviewed_at, 1.second
+      assert_equal (Time.current + 24.hours).in_time_zone("America/New_York").strftime("%a %b %-d, %-l:%M %P"), done["deadline"]
+      assert_includes AdminAuditEvent.where(tool: "send_verdict_dm").map(&:ids), { "ship_id" => ship.id, "project_id" => ship.project_id }
+    end
+  ensure
+    SlackBot.define_singleton_method(:dm, dm)
+  end
+
+  test "send_verdict_dm restart_window refuses an approved ship" do
+    ship = make_ship
+    ship.update_columns(status: "approved", approved_hours: 7.5, review_hours: 7.5, reviewed_at: Time.current - 2.hours, decided_at: Time.current - 2.hours)
+    before = ship.reload.reviewed_at
+    mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id, restart_window: true })
+    assert mcp_error?
+    assert_equal before, ship.reload.reviewed_at
+  end
+
+  test "send_verdict_dm restart_window leaves reviewed_at alone when the DM was already sent" do
+    sent = []
+    dm = SlackBot.method(:dm)
+    SlackBot.define_singleton_method(:dm) { |slack_id, text:, blocks:, on_error: nil, allow_banned: false| sent << text; Struct.new(:channel, :ts).new("D0ANA", "1.0") }
+    ship = make_ship
+    ship.project.user.update!(timezone: "America/New_York", slack_id: "U0ANA")
+    travel_to(Program::ENDS_AT - 6.hours) do
+      ship.update_columns(status: "changes_needed", reviewed_at: Time.current, decided_at: Time.current, review_feedback: "Fix it.")
+      mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id })
+      reviewed_at = ship.reload.reviewed_at
+      travel 5.hours
+      mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id, restart_window: true })
+      assert mcp_error?
+      assert_equal reviewed_at, ship.reload.reviewed_at
+      assert_equal 1, sent.size
+    end
+  ensure
+    SlackBot.define_singleton_method(:dm, dm)
+  end
+
+  test "send_verdict_dm without restart_window keeps reviewed_at" do
+    sent = []
+    dm = SlackBot.method(:dm)
+    SlackBot.define_singleton_method(:dm) { |slack_id, text:, blocks:, on_error: nil, allow_banned: false| sent << text; Struct.new(:channel, :ts).new("D0ANA", "1.0") }
+    ship = make_ship
+    ship.project.user.update!(timezone: "America/New_York", slack_id: "U0ANA")
+    travel_to(Program::ENDS_AT - 6.hours) do
+      at = Time.current - 3.hours
+      ship.update_columns(status: "changes_needed", reviewed_at: at, decided_at: at, review_feedback: "Fix it.")
+      assert_equal true, mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id })["sent"]
+      assert_in_delta at, ship.reload.reviewed_at, 1.second
+    end
+  ensure
+    SlackBot.define_singleton_method(:dm, dm)
+  end
+
   test "edit_snapshot saves a subset through Ship::Snapshot, stamps the edit and refuses a bad field (D-136)" do
     ship = make_ship
     assert_no_enqueued_jobs only: SlackMessageJob do

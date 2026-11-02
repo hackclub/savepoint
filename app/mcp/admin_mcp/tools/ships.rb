@@ -165,6 +165,147 @@ module AdminMcp::Tools::Ships
     end
   end
 
+  # D-136: the review page's other saves, each one the same model path the page's button takes, with no verdict and no notification.
+  # They need a ship in review that is not the admin's own and not open by another admin, like save_review_draft.
+  module ReviewAction
+    CHECKLIST_KEYS = %w[runs readme screenshot hours_fit art_cap not_double].freeze
+
+    def self.answer(saved, message, ship) = { saved:, message:, ship: AdminMcp::Present.ship(ship.reload) }
+
+    def self.open_ship(args, caller)
+      ship = Ship.includes(:decided_by, project: :user).find(args[:ship_id])
+      Guard.check!(ship, "review", caller)
+      raise AdminMcp::Refused, "Only a ship in review takes this." unless ship.in_review?
+
+      # Asked once, as opening the review page does, so the limits are known.
+      ship.fetch_hackatime_categories!
+      ship
+    end
+
+    def self.problem(ship, *attributes)
+      attributes.filter_map { ship.errors.messages_for(it).first }.first || ship.errors.full_messages.to_sentence
+    end
+  end
+
+  # D-136: the Set Lapse coding button (Ship#set_lapse_coding!). The limits read it at once.
+  class SetLapseCoding < AdminMcp::Tool
+    writes "set_lapse_coding", "Set the Lapse coding split",
+           "The review page's Set Lapse coding button: how many of the ship's Lapse hours were coding (Ship#set_lapse_coding!). The limits in get_ship read it at once, so the art cap and coding maximum move. " \
+           "Between 0 and the Lapse hours Hackatime counted. Also fills the draft's Lapse box with the saved figure. Decides nothing and tells nobody. The ship must be in review. " \
+           "You can't set it on your own ship, or one another admin has open. Answers { saved, message, ship }.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             lapse_coding_hours: { type: "number", minimum: 0, description: "The Lapse hours that were coding." } },
+           required: %w[ship_id lapse_coding_hours]
+
+    def self.run(args, caller)
+      ship = ReviewAction.open_ship(args, caller)
+      return ReviewAction.answer(false, "Not set: #{ReviewAction.problem(ship, :lapse_coding_hours)}.", ship) unless ship.set_lapse_coding!(args[:lapse_coding_hours].to_s)
+
+      ship.save_review_draft!({ lapse_coding_hours: ship.lapse_coding_hours.to_s("F") }, by: caller.user)
+      ReviewAction.answer(true, nil, ship)
+    end
+  end
+
+  # D-136: the Set AI coding button (Ship#set_reviewer_ai!). The limits read it at once.
+  class SetReviewerAi < AdminMcp::Tool
+    writes "set_reviewer_ai", "Set the reviewer's AI coding hours",
+           "The review page's Set AI coding button: the AI coding hours you set above Hackatime's figure, with why (Ship#set_reviewer_ai!). The limits in get_ship read it at once, so the coding maximum moves. " \
+           "Above Hackatime's figure (or the earlier approval's) and never above the coding claimed, and a reason is required when it is above. A figure at or below Hackatime's, or none, clears it. " \
+           "Also fills the draft's AI boxes with what is saved. Decides nothing and tells nobody. The ship must be in review. You can't set it on your own ship, or one another admin has open. Answers { saved, message, ship }.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             ai_coding_hours: { type: "number", minimum: 0, description: "The AI coding hours. Leave out to go back to Hackatime's figure." },
+             ai_reason: { type: "string", description: "What looked AI-generated. Required when the hours are above Hackatime's." } },
+           required: %w[ship_id]
+
+    def self.run(args, caller)
+      ship = ReviewAction.open_ship(args, caller)
+      unless ship.set_reviewer_ai!(args[:ai_coding_hours].to_s, args[:ai_reason])
+        return ReviewAction.answer(false, "Not set: #{ReviewAction.problem(ship, :reviewer_ai_coding_hours, :reviewer_ai_reason)}.", ship)
+      end
+
+      ship.save_review_draft!({ ai_coding_hours: ship.reviewer_ai_coding_hours&.to_s("F").to_s, ai_reason: ship.reviewer_ai_reason.to_s }, by: caller.user)
+      ReviewAction.answer(true, nil, ship)
+    end
+  end
+
+  # D-136: a tick of the checklist (Admin::ShipsController#checklist).
+  class SetChecklistItem < AdminMcp::Tool
+    writes "set_checklist_item", "Tick or untick a review checklist item",
+           "A tick of the review page's checklist (it saves on every tick there). It never blocks a verdict. Your tick replaces the app's own default for that item (get_ship's checklist_defaults). " \
+           "Decides nothing and tells nobody. The ship must be in review. You can't tick on your own ship, or one another admin has open. Answers { saved, message, ship }.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             key: { type: "string", enum: ReviewAction::CHECKLIST_KEYS, description: "runs, readme, screenshot, hours_fit, art_cap or not_double." },
+             checked: { type: "boolean", description: "True to tick, false to untick." } },
+           required: %w[ship_id key checked]
+
+    def self.run(args, caller)
+      ship = ReviewAction.open_ship(args, caller)
+      raise AdminMcp::Refused, "key is one of #{ReviewAction::CHECKLIST_KEYS.join(", ")}." unless ReviewAction::CHECKLIST_KEYS.include?(args[:key].to_s)
+
+      ship.update!(review_checklist: ship.review_checklist.merge(args[:key].to_s => args[:checked] == true))
+      ReviewAction.answer(true, nil, ship)
+    end
+  end
+
+  # D-136: the Hours start panel (Admin::ShipsController#hours_start, D-065).
+  class SetHoursStart < AdminMcp::Tool
+    writes "set_hours_start", "Set when the project's hours start counting",
+           "The review page's Hours start panel: moves the moment the project's Hackatime time starts counting, or clears the reviewer's override (the later of Save Point's start and the sign-up counts again). Saving rebuilds the participant's days. " \
+           "hours_start is a UTC time, like 2026-10-12T14:30. Not before Save Point began, not in the future. Send clear: true instead to remove the override. Decides nothing and tells nobody. The ship must be in review. " \
+           "You can't move the start of your own ship, or one another admin has open. Answers { saved, message, ship }.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             hours_start: { type: "string", description: "The new start, a UTC date and time." },
+             clear: { type: "boolean", description: "True to clear the override." } },
+           required: %w[ship_id]
+
+    def self.run(args, caller)
+      ship = ReviewAction.open_ship(args, caller)
+      project = ship.project
+      value = args[:clear] == true ? nil : parse_start(args[:hours_start])
+      raise AdminMcp::Refused, "Send hours_start as a UTC date and time, or clear: true." if value == :invalid
+      return ReviewAction.answer(true, "Nothing changed.", ship) if project.hours_start_override == value
+
+      # The page logs this under the project too, so the log shows which project moved.
+      AdminAuditEvent.create!(user: caller.user, admin_token: caller.token, tool: "set_hours_start", ids: { "ship_id" => ship.id, "project_id" => project.id })
+      return ReviewAction.answer(false, "Not set: #{project.errors.full_messages_for(:hours_start_override).first}.", ship) unless project.update(hours_start_override: value)
+
+      ReviewAction.answer(true, nil, ship)
+    end
+
+    # nil for none, :invalid for what isn't a time.
+    def self.parse_start(text)
+      return :invalid if text.blank?
+
+      Time.find_zone!("UTC").parse(text.to_s) || :invalid
+    rescue ArgumentError
+      :invalid
+    end
+  end
+
+  # D-136: the Edit the snapshot panel's fields (Admin::ShipsController#snapshot, Ship::Snapshot#update). The screenshots are not here.
+  class EditSnapshot < AdminMcp::Tool
+    writes "edit_snapshot", "Edit a ship's snapshot",
+           "The review page's Edit the snapshot panel: the title, description, what they changed and the two links of this ship (Ship::Snapshot#update, so the same checks). Send any subset: a field you leave out is kept. " \
+           "Only this ship changes, it is marked edited by you and sent to Airtable again. Screenshots can't be edited here. Decides nothing and tells nobody. The ship must be in review. " \
+           "You can't edit your own ship, or one another admin has open. Answers { saved, message, errors, ship }: saved is false when a changed field is invalid, and errors says which.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             title: { type: "string" }, description: { type: "string" }, changes_made: { type: "string", description: "What they changed." },
+             repo_url: { type: "string" }, demo_url: { type: "string", description: "The playable link." } },
+           required: %w[ship_id]
+
+    def self.run(args, caller)
+      ship = ReviewAction.open_ship(args, caller)
+      snapshot = Ship::Snapshot.new(ship)
+      result = snapshot.update(args.slice(*Ship::Snapshot::FIELDS.map(&:to_sym)), by: caller.user)
+      message = case result
+      when true then nil
+      when nil then "Nothing changed."
+      else "Not saved: #{snapshot.errors.full_messages.to_sentence}."
+      end
+      ReviewAction.answer(result != false, message, ship).merge(errors: snapshot.errors.to_hash)
+    end
+  end
+
   class FraudShip < AdminMcp::Tool
     writes "fraud_ship", "Fraud-check a ship",
            "The fraud stage of a ship that review approved (the fraud page's buttons). pass makes it approved: the hours are the participant's to spend and it goes to Airtable. " \

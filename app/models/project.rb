@@ -602,7 +602,8 @@ class Project < ApplicationRecord
     end
   end
 
-  # D-066: looks the game up in the jame gam's Submission Form and stores the latest matching submission. An error or a
+  # D-066: looks the game up in the jame gam's Submission Form and stores the earliest matching submission (D-132: a
+  # resubmission of the same game must not push the start later). An error or a
   # missing token changes nothing: a stored time is never cleared because Airtable was out of reach. A moved time rebuilds
   # the person's days, the same as a reviewer's override does.
   def refresh_jame_gam!(result = JameGam::Submissions.for(user))
@@ -611,14 +612,14 @@ class Project < ApplicationRecord
       return result
     end
 
-    latest = result.submissions.select { it.matches?(self) }.max_by(&:submitted_at)
-    moved = latest&.submitted_at&.to_f&.round(3) != jame_gam_submitted_at&.to_f&.round(3)
+    earliest = result.submissions.select { it.matches?(self) }.min_by(&:submitted_at)
+    moved = earliest&.submitted_at&.to_f&.round(3) != jame_gam_submitted_at&.to_f&.round(3)
     # D-121: every submission by this person, newest first, with nothing personal in it, and the counts the admin list sorts by.
     everything = result.submissions.sort_by(&:submitted_at).reverse.map do
       { "id" => it.id, "jam" => it.jam, "game_title" => it.game_title, "review_status" => it.review_status, "submitted_at" => it.submitted_at.utc.iso8601,
         "matches" => it.matches?(self), "reason" => it.reason }
     end
-    update_columns(jame_gam_submitted_at: latest&.submitted_at, jame_gam_submission_id: latest&.id, jame_gam_review_status: latest&.review_status,
+    update_columns(jame_gam_submitted_at: earliest&.submitted_at, jame_gam_submission_id: earliest&.id, jame_gam_review_status: earliest&.review_status,
                    jame_gam_checked_at: Time.current, jame_gam_submissions: everything,
                    jame_gam_match_count: everything.count { it["matches"] },
                    jame_gam_flagged_match_count: everything.count { it["matches"] && JameGam.flagged?(it["review_status"]) })

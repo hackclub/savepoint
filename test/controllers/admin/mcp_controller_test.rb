@@ -62,9 +62,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(@token, "tools/list")
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
-    assert_equal %w[admin_summary audit_log decide_extension describe_schema find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft], tools.keys.sort
-    writes = %w[review_ship save_review_draft fraud_ship mark_order_ordered decide_extension]
+    assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_snapshot find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
+    writes = %w[review_ship save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot fraud_ship mark_order_ordered decide_extension]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -332,6 +332,123 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_match(/judges your own ship/, mcp_tool(ana_token, "save_review_draft", { ship_id: ship.id, judgement: "x" }))
     assert mcp_error?
     assert_empty ship.reload.review_draft
+  end
+
+  test "set_lapse_coding and set_reviewer_ai set what the limits read at once, keep the draft in step, log and tell nobody (D-136)" do
+    ship = make_ship
+    ship.update_columns(art_seconds: 7200, lapse_seconds: 7200, ai_coding_seconds: 0)
+
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      refused = mcp_tool(@token, "set_lapse_coding", { ship_id: ship.id, lapse_coding_hours: 5 })
+      assert_equal false, refused["saved"]
+      assert_match(/Lapse time is/, refused["message"])
+
+      set = mcp_tool(@token, "set_lapse_coding", { ship_id: ship.id, lapse_coding_hours: 1.25 })
+      assert_equal true, set["saved"], set["message"]
+      assert_equal BigDecimal("1.25"), ship.reload.lapse_coding_hours
+      assert_equal "1.25", ship.review_draft["lapse_coding_hours"]
+      assert_equal BigDecimal("1.25"), Ship.find(ship.id).limits.lapse_coding
+
+      needs_reason = mcp_tool(@token, "set_reviewer_ai", { ship_id: ship.id, ai_coding_hours: 1.5 })
+      assert_equal false, needs_reason["saved"]
+      assert_match(/Say what looked AI-generated/, needs_reason["message"])
+      assert_nil ship.reload.reviewer_ai_coding_hours
+
+      ai = mcp_tool(@token, "set_reviewer_ai", { ship_id: ship.id, ai_coding_hours: 1.5, ai_reason: "Pasted dump" })
+      assert_equal true, ai["saved"], ai["message"]
+      ship.reload
+      assert_equal [ BigDecimal("1.5"), "Pasted dump" ], [ ship.reviewer_ai_coding_hours, ship.reviewer_ai_reason ]
+      assert_equal [ "1.5", "Pasted dump" ], ship.review_draft.values_at("ai_coding_hours", "ai_reason")
+      assert_equal BigDecimal("1.5"), Ship.find(ship.id).limits.reviewer_ai
+
+      cleared = mcp_tool(@token, "set_reviewer_ai", { ship_id: ship.id })
+      assert_equal true, cleared["saved"]
+      assert_nil ship.reload.reviewer_ai_coding_hours
+    end
+
+    assert_equal "in_review", ship.status
+    assert_nil ship.reviewer_id
+    assert_equal 3, AdminAuditEvent.where(tool: "set_reviewer_ai").count
+    assert_equal({ "ship_id" => ship.id }, AdminAuditEvent.where(tool: "set_lapse_coding").last.ids)
+  end
+
+  test "set_checklist_item ticks and unticks, and refuses a key the page does not have (D-136)" do
+    ship = make_ship
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      assert_equal true, mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "runs", checked: true })["saved"]
+      assert_equal true, ship.reload.review_checklist["runs"]
+      mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "runs", checked: false })
+      assert_equal false, ship.reload.review_checklist["runs"]
+      mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "bogus", checked: true })
+      assert mcp_error?
+    end
+    assert_not ship.reload.review_checklist.key?("bogus")
+    assert_equal "in_review", ship.status
+    assert_equal 2, AdminAuditEvent.where(tool: "set_checklist_item").count # the bogus key never passes the schema
+  end
+
+  test "set_hours_start moves and clears the override through the model, and logs the project (D-136)" do
+    ship = make_ship
+    project = ship.project
+    start = (Program::STARTS_AT + 1.day).utc.strftime("%Y-%m-%dT%H:%M")
+    travel_to(Program::STARTS_AT + 3.days) do
+      assert_no_enqueued_jobs only: SlackMessageJob do
+        too_early = mcp_tool(@token, "set_hours_start", { ship_id: ship.id, hours_start: "2000-01-01T00:00" })
+        assert_equal false, too_early["saved"]
+        assert_match(/before Save Point began/, too_early["message"])
+
+        assert_equal true, mcp_tool(@token, "set_hours_start", { ship_id: ship.id, hours_start: start })["saved"]
+        assert_equal Time.find_zone!("UTC").parse(start), project.reload.hours_start_override
+
+        mcp_tool(@token, "set_hours_start", { ship_id: ship.id, hours_start: "nonsense" })
+        assert mcp_error?
+
+        assert_equal true, mcp_tool(@token, "set_hours_start", { ship_id: ship.id, clear: true })["saved"]
+        assert_nil project.reload.hours_start_override
+      end
+    end
+    assert_includes AdminAuditEvent.where(tool: "set_hours_start").map(&:ids), { "ship_id" => ship.id, "project_id" => project.id }
+  end
+
+  test "edit_snapshot saves a subset through Ship::Snapshot, stamps the edit and refuses a bad field (D-136)" do
+    ship = make_ship
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      done = mcp_tool(@token, "edit_snapshot", { ship_id: ship.id, title: "Pong 2", demo_url: "https://example.com/pong2" })
+      assert_equal true, done["saved"]
+      ship.reload
+      assert_equal [ "Pong 2", "https://example.com/pong2", "Added a second ball." ], [ ship.title, ship.demo_url, ship.changes_made ]
+      assert_equal users(:orpheus), ship.snapshot_edited_by
+
+      bad = mcp_tool(@token, "edit_snapshot", { ship_id: ship.id, repo_url: "javascript:alert(1)" })
+      assert_equal false, bad["saved"]
+      assert bad["errors"].key?("repo_url")
+      assert_equal "https://github.com/ana/pong", ship.reload.repo_url
+
+      assert_equal "Nothing changed.", mcp_tool(@token, "edit_snapshot", { ship_id: ship.id, title: "Pong 2" })["message"]
+    end
+    assert_equal 1, AdminAuditEvent.where(tool: "edit_ship").count
+    assert_equal 3, AdminAuditEvent.where(tool: "edit_snapshot").count
+  end
+
+  test "the D-136 tools refuse a ship that is not in review, or the admin's own, and change nothing" do
+    calls = { "set_lapse_coding" => { lapse_coding_hours: 1 }, "set_reviewer_ai" => { ai_coding_hours: 1, ai_reason: "x" },
+              "set_checklist_item" => { key: "runs", checked: true }, "set_hours_start" => { clear: true }, "edit_snapshot" => { title: "Changed title" } }
+    ship = make_ship
+    ship.update_columns(status: "rejected")
+    calls.each do |name, args|
+      assert_match(/Only a ship in review/, mcp_tool(@token, name, { ship_id: ship.id, **args }), name)
+      assert mcp_error?, name
+    end
+    assert_equal [ 0.0, nil, {}, "Pong" ], [ ship.reload.lapse_coding_hours, ship.reviewer_ai_coding_hours, ship.review_checklist, ship.title ]
+
+    ship.update_columns(status: "in_review")
+    Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS", "U0ANA" ]
+    ana_token, = mcp_token_for(users(:ana))
+    calls.each do |name, args|
+      assert_match(/judges your own ship/, mcp_tool(ana_token, name, { ship_id: ship.id, **args }), name)
+      assert mcp_error?, name
+    end
+    assert_equal [ 0.0, nil, {}, "Pong" ], [ ship.reload.lapse_coding_hours, ship.reviewer_ai_coding_hours, ship.review_checklist, ship.title ]
   end
 
   test "a verdict through review_ship clears the draft (D-135)" do

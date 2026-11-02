@@ -6,7 +6,7 @@
 # |---|---|---|
 # | Read | admin_summary, find_people, get_person, find_projects, get_project, find_ships, get_ship, list_orders, list_extensions, metrics, nudges, public_stats | Tools::Overview, People, Projects, Ships, Orders, Extensions, Numbers |
 # | Analytics | describe_schema, query_sql, funnel, audit_log | Tools::Analytics, Tools::Audit |
-# | Write | review_ship, fraud_ship, mark_order_ordered, decide_extension | The same model methods the admin pages call (Ship#decide!, Ship#pass_fraud!, Order#ordered!, Extension#decide!) |
+# | Write | review_ship, save_review_draft, fraud_ship, mark_order_ordered, decide_extension | The same model methods the admin pages call (Ship#decide!, Ship#pass_fraud!, Order#ordered!, Extension#decide!) |
 #
 # Before a tool runs, AdminMcp::Tool writes an AdminAuditEvent. A tool whose audit row fails does not run.
 module AdminMcp
@@ -14,7 +14,7 @@ module AdminMcp
     Save Point admin tools. Most people in this data are teenagers: share only what the task needs.
     Start with describe_schema, or a typed finder (find_people, find_projects, find_ships) before query_sql.
     Every call is written to the admin log, with the tool and the IDs it names.
-    Write tools (review_ship, fraud_ship, mark_order_ordered, decide_extension) change real data, and ordering or deciding an extension
+    Write tools (review_ship, save_review_draft, fraud_ship, mark_order_ordered, decide_extension) change real data, and ordering or deciding an extension
     sends the participant a Slack DM: confirm each with the human first.
   TEXT
 
@@ -28,7 +28,7 @@ module AdminMcp
   def self.tools
     [ Tools::Overview::AdminSummary, Tools::People::FindPeople, Tools::People::GetPerson,
       Tools::Projects::FindProjects, Tools::Projects::GetProject,
-      Tools::Ships::FindShips, Tools::Ships::GetShip, Tools::Ships::ReviewShip, Tools::Ships::FraudShip,
+      Tools::Ships::FindShips, Tools::Ships::GetShip, Tools::Ships::ReviewShip, Tools::Ships::SaveReviewDraft, Tools::Ships::FraudShip,
       Tools::Orders::ListOrders, Tools::Orders::MarkOrderOrdered,
       Tools::Extensions::ListExtensions, Tools::Extensions::DecideExtension,
       Tools::Numbers::Metrics, Tools::Numbers::Nudges, Tools::Numbers::PublicStats,

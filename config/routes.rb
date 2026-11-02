@@ -82,6 +82,7 @@ Rails.application.routes.draw do
         patch :lapse_split
         patch :reviewer_ai
         post :review
+        post :draft
         post :fraud
         post :send_back
       end

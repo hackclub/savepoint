@@ -23,6 +23,10 @@ class Ship < ApplicationRecord
   STATUSES = %w[in_review awaiting_fraud approved changes_needed rejected superseded].freeze
   # The verdicts of a review (decide!): approved moves the ship to its fraud check, banned is fraud found at review.
   DECISIONS = %w[approved changes_needed rejected banned].freeze
+  # D-135: what the review form's draft holds, and the longest text it keeps for a field.
+  REVIEW_DRAFT_KEYS = %w[decision coding_hours art_hours lapse_coding_hours ai_coding_hours ai_reason technical_features deflation_reason
+                         feedback judgement evidence].freeze
+  REVIEW_DRAFT_MAX = 10_000
   # The verdicts of a fraud check (Admin::ShipsController#fraud): pass, pass with a deduction, or ban.
   FRAUD_VERDICTS = %w[pass deduct ban].freeze
   # Where a ship stands, for the admin tabs: the stored status, in the words an admin reads.
@@ -58,6 +62,7 @@ class Ship < ApplicationRecord
   # these follow it, and Ship::Snapshot#screenshots is the whole list in order.
   has_many_attached :extra_screenshots
   belongs_to :snapshot_edited_by, class_name: "User", optional: true
+  belongs_to :review_draft_updated_by, class_name: "User", optional: true
 
   # The checkbox under the screenshot: it shows the game running inside the tool, not a mockup.
   attribute :screenshot_shows_game, :boolean, default: false
@@ -246,6 +251,25 @@ class Ship < ApplicationRecord
 
   # D-085: the hours of the Lapse time the reviewer calls coding, from the review page. Held between 0 and the Lapse hours
   # Hackatime counted. False, with an error on the ship, when it isn't a number in that range or the ship isn't in review.
+  # D-135: merges these fields into the review draft, for a ship in review, and returns the merged draft (nil when the ship is not in
+  # review). Only the keys in REVIEW_DRAFT_KEYS are kept, a nil is skipped and "" clears a field. It never decides the ship, never
+  # changes the hours the limits read and never tells the participant.
+  def save_review_draft!(fields, by:)
+    return unless in_review?
+
+    fields = fields.to_h.stringify_keys.slice(*REVIEW_DRAFT_KEYS).compact.transform_values { it.to_s[0, REVIEW_DRAFT_MAX] }
+    fields.delete("decision") unless fields["decision"].nil? || fields["decision"].in?(DECISIONS + [ "" ])
+    with_lock do
+      merged = review_draft.to_h.merge(fields)
+      update_columns(review_draft: merged, review_draft_updated_at: Time.current, review_draft_updated_by_id: by.id) if fields.any?
+      merged
+    end
+  end
+
+  # D-135: the draft the review form fills from. Empty once the ship is out of review, and while the form shows errors, so what was
+  # typed before the error wins.
+  def form_draft = in_review? && errors.none? ? review_draft.to_h : {}
+
   def set_lapse_coding!(value)
     errors.clear
     hours = (BigDecimal(value.to_s.strip) if value.to_s.strip.match?(/\A\d+(\.\d+)?\z/))
@@ -347,8 +371,11 @@ class Ship < ApplicationRecord
         errors.add(:base, WAITING_ON_EARLIER_MESSAGE)
         next false
       end
-      decide_in_review(decision, by:, coding_hours:, art_hours:, technical_features:, deflation_reason:, feedback:, judgement:,
-                       evidence:, checklist_defaults:)
+      decided = decide_in_review(decision, by:, coding_hours:, art_hours:, technical_features:, deflation_reason:, feedback:, judgement:,
+                                 evidence:, checklist_defaults:)
+      # D-135: the verdict used the draft up. A ship sent back to review starts from the earlier review, not a stale draft.
+      update_columns(review_draft: {}, review_draft_updated_at: nil, review_draft_updated_by_id: nil) if decided
+      decided
     end
   end
 

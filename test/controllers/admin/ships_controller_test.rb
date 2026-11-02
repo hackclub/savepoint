@@ -346,6 +346,75 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_nil @ship.reload.reviewer_ai_coding_hours
   end
 
+  test "the review draft saves as an admin types, merges, and fills the form for another admin (D-135)" do
+    @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-draft", /Your changes save as a draft/
+    assert_select "form#verdict[data-controller~=draft][data-draft-url-value=?]", draft_admin_ship_path(@ship)
+
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      post draft_admin_ship_path(@ship), params: { draft: { coding_hours: "5", judgement: "Mostly a template.", lapse_coding_hours: "0.75", ai_coding_hours: "1", ai_reason: "A pasted dump", decision: "approved", bogus: "x" } }
+      assert_response :success
+      assert_equal "Orpheus", response.parsed_body["by"]
+      post draft_admin_ship_path(@ship), params: { draft: { technical_features: "A second ball.", coding_hours: "4.5" } }
+    end
+    @ship.reload
+    assert_equal({ "coding_hours" => "4.5", "judgement" => "Mostly a template.", "lapse_coding_hours" => "0.75", "ai_coding_hours" => "1",
+                   "ai_reason" => "A pasted dump", "decision" => "approved", "technical_features" => "A second ball." }, @ship.review_draft)
+    assert_equal [ "in_review", 0 ], [ @ship.status, @ship.lapse_coding_hours ], "a draft decides nothing and applies no limit"
+    assert_nil @ship.reviewer_id
+
+    sign_in_as(@heidi)
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-draft", /Draft saved .* ago by Orpheus/
+    assert_select "input[name=coding_hours][value='4.5']"
+    assert_select "textarea[name=review_judgement]", /Mostly a template\./
+    assert_select "textarea[name=technical_features]", /A second ball\./
+    assert_select "#lapse-split input[name=lapse_coding_hours][value='0.75']"
+    assert_select "#reviewer-ai input[name=reviewer_ai_coding_hours][value='1']"
+    assert_select "#reviewer-ai textarea", /A pasted dump/
+    assert_select "button#verdict-submit[value=approved]:not([hidden])"
+  end
+
+  test "a blank draft field beats the default, and a verdict uses the draft up (D-135)" do
+    sign_in_as(users(:orpheus))
+    post draft_admin_ship_path(@ship), params: { draft: { feedback: "", judgement: "Rejecting." } }
+    get admin_ship_path(@ship)
+    assert_select "textarea[name=review_feedback]", text: ""
+    assert_select "textarea[name=review_judgement]", /Rejecting\./
+
+    post review_admin_ship_path(@ship), params: { decision: "rejected", review_judgement: "Rejecting." }
+    assert_equal "rejected", @ship.reload.status
+    assert_empty @ship.review_draft
+    assert_nil @ship.review_draft_updated_at
+    post draft_admin_ship_path(@ship), params: { draft: { judgement: "Late." } }
+    assert_response :unprocessable_entity
+    assert_empty @ship.reload.review_draft
+  end
+
+  test "typed values beat the draft when the form comes back with an error" do
+    sign_in_as(users(:orpheus))
+    post draft_admin_ship_path(@ship), params: { draft: { judgement: "Old draft text.", decision: "rejected" } }
+    post review_admin_ship_path(@ship), params: { decision: "changes_needed", review_judgement: "Typed after." }
+    assert_response :unprocessable_entity
+    assert_select "textarea[name=review_judgement]", /Typed after\./
+    assert_select "button#verdict-submit[value=changes_needed]"
+  end
+
+  test "only an admin saves a draft, and not on their own ship" do
+    Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS" ]
+    sign_in_as(users(:ana))
+    post draft_admin_ship_path(@ship), params: { draft: { judgement: "x" } }
+    assert_response :not_found
+    assert_empty @ship.reload.review_draft
+
+    Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS", "U0ANA" ] # Ana is an admin now, but this ship is hers
+    post draft_admin_ship_path(@ship), params: { draft: { judgement: "x" } }
+    assert_response :forbidden
+    assert_empty @ship.reload.review_draft
+  end
+
   test "a reviewer can't set the Lapse split on their own ship" do
     @ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
     sign_in_as(@ship.project.user)

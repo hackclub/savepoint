@@ -13,7 +13,7 @@
 class Nudge < ApplicationRecord
   # Bandit nudges and cheers are learned from. The rest always send when they apply, bar test ones
   # (bin/rails nudges:test), which are never scored or counted.
-  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt approved test].freeze
+  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt approved rejected banned test].freeze
   LEARNED = %w[bandit cheer].freeze
 
   # What keeps a streak going. Milestone, program and streak saver nudges count as working when they built this long
@@ -219,7 +219,9 @@ class Nudge < ApplicationRecord
     self.variant, self.text = Nudge::Copy.render(self, vars, note:)
     save! # for the token in its links
     error = nil
-    message = SlackBot.dm(user.slack_id, text:, blocks: Nudge::Message.new(self).blocks, on_error: ->(code) { error = code })
+    # D-137: the ban DM is the one DM a banned account gets, so it alone passes the ban check (D-113).
+    ban_exception = kind == "banned" ? { allow_banned: true } : {}
+    message = SlackBot.dm(user.slack_id, text:, blocks: Nudge::Message.new(self).blocks, on_error: ->(code) { error = code }, **ban_exception)
     if message.nil? && Rails.configuration.x.slack_configured
       user.update!(slack_dm_failed_at: Time.current, slack_dm_error: error.to_s.truncate(100))
     elsif message.present? && (user.slack_dm_failed_at || user.slack_dm_error)
@@ -235,7 +237,7 @@ class Nudge < ApplicationRecord
 
   # Where the button goes, past the tracked link.
   def destination_url
-    case Nudge::Copy.link_for(arm).last
+    case Nudge::Copy.link_for(arm)&.last
     when :leaderboard then "#{Rails.configuration.x.app_url}/leaderboard"
     when :hackatime_site then ApplicationController.helpers.hackatime_url
     when :onboarding then "#{Rails.configuration.x.app_url}/start"

@@ -78,7 +78,8 @@ class SlackMessageJobTest < ActiveJob::TestCase
     end
     users(:ana).ban!("Fraud.", by: users(:orpheus))
 
-    perform_enqueued_jobs
+    # The ban's own DM (D-137, Nudge::Banned) is the one exception, and NudgeRejectedTest covers it.
+    perform_enqueued_jobs(only: SlackMessageJob)
     SlackMessageJob.perform_now("U0ANA", "sent after", link: [ "Open Save Point", "https://savepoint.example/project" ])
 
     assert_empty @posts

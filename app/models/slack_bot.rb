@@ -9,8 +9,9 @@ module SlackBot
     slack_id.present? && User.banned.exists?(slack_id:)
   end
 
-  def self.dm(slack_id, text:, blocks:, on_error: nil)
-    if banned_recipient?(slack_id)
+  # `allow_banned` is for the one DM a banned account gets, the ban's own (D-137, Nudge::Banned). Nothing else passes it.
+  def self.dm(slack_id, text:, blocks:, on_error: nil, allow_banned: false)
+    if !allow_banned && banned_recipient?(slack_id)
       Rails.logger.info("Slack DM to #{slack_id} skipped: the account is banned")
       return
     end

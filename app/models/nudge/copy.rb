@@ -111,6 +111,10 @@ module Nudge::Copy
       "psst, %{unshipped} unshipped hours on %{title}! a small ship now is easier than one big one later :cat-lock-in:",
       "you've built %{unshipped} hours of %{title} %{since}. time to ship it! :yay:"
     ],
+    # D-137: a ship was rejected for good (Nudge::Rejected), and an account was banned (Nudge::Banned). A reviewer's note to the
+    # participant goes after the rejection (with_reviewer_note). %{title} is the ship's project, already escaped for Slack.
+    "rejected" => [ "your ship of %{title} was rejected, so that project can't be shipped again. if you have any questions, DM Armand." ],
+    "banned" => [ "your account was banned from Save Point after review. if you think that's a mistake, DM Armand." ],
     # Setup, one missing step at a time.
     "hackatime" => [ "your hours start counting once hackatime is linked, it only takes about 2 minutes :)" ],
     "plugin" => [ "nothing from you has reached hackatime yet! turn the hackatime plugin on in your editor and write a line: %{title} links itself :)" ],
@@ -167,6 +171,8 @@ module Nudge::Copy
     "repo" => [ "add your repo", :project ],
     "pledge_setup" => [ "pledge your game", :onboarding ],
     "ship_prompt" => [ "ship it", :ship ],
+    "rejected" => [ "open your project", :project ],
+    "banned" => nil,
     "approved_short" => [ "see the shop", :shop ],
     "approved_reached" => [ "claim your prize", :shop ],
     "approved_no_goal" => [ "open the shop", :shop ],

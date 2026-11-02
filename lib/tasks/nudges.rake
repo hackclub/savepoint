@@ -19,6 +19,16 @@ namespace :nudges do
     end
   end
 
+  # D-137: the rejection DM for one ship, on purpose (nothing runs it for ships rejected before it shipped). The same rules as
+  # the automatic one: once for each ship, not to a banned account, and it waits out quiet hours (here: it prints the time).
+  #
+  #   bin/rails "nudges:rejected[<ship id>]"
+  desc "DM the participant that one ship was rejected (D-137), for a ship id"
+  task :rejected, [ :ship_id ] => :environment do |_, args|
+    result = Nudge::Rejected.send_for(args.fetch(:ship_id))
+    puts result.respond_to?(:delivered) ? "sent: #{result.delivered}" : "not sent: #{result.inspect}"
+  end
+
   # One time: setup nudges scored before they were scored on their own step (the old rule was building 20 minutes,
   # which someone with Hackatime unlinked couldn't even do). Rescores each on whether the step's done now, which is
   # what scoring does anyway, since nothing records when a step was done. Opt-outs stay opt-outs.

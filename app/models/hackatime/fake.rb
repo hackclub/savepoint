@@ -118,7 +118,7 @@ module Hackatime::Fake
 
     seconds = day_seconds(user, start_date, end_date)
     pinned = pinned_hours(user)
-    zone = Time.find_zone(user.timezone.presence) || Time.find_zone("UTC")
+    zone = UserTimezone.zone(user.timezone)
     days = seconds.filter_map do |date, duration|
       next unless duration.positive?
 

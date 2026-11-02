@@ -114,6 +114,9 @@ module Nudge::Copy
     # D-137: a ship was rejected for good (Nudge::Rejected), and an account was banned (Nudge::Banned). A reviewer's note to the
     # participant goes after the rejection (with_reviewer_note). %{title} is the ship's project, already escaped for Slack.
     "rejected" => [ "your ship of %{title} was rejected, so that project can't be shipped again. if you have any questions, DM Armand." ],
+    # D-139: a ship got Changes needed (Nudge::ChangesNeeded). %{deadline} is when they can ship again until, in their time zone. The
+    # reviewer's note goes after it (with_reviewer_note).
+    "changes_needed" => [ "your ship of %{title} needs a few changes before it can be approved. you have until %{deadline} to fix it and ship again." ],
     "banned" => [ "your account was banned from Save Point after review. if you think that's a mistake, DM Armand." ],
     # Setup, one missing step at a time.
     "hackatime" => [ "your hours start counting once hackatime is linked, it only takes about 2 minutes :)" ],
@@ -172,6 +175,7 @@ module Nudge::Copy
     "pledge_setup" => [ "pledge your game", :onboarding ],
     "ship_prompt" => [ "ship it", :ship ],
     "rejected" => [ "open your project", :project ],
+    "changes_needed" => [ "open your project", :project ],
     "banned" => nil,
     "approved_short" => [ "see the shop", :shop ],
     "approved_reached" => [ "claim your prize", :shop ],

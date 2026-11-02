@@ -22,6 +22,8 @@ class Ship < ApplicationRecord
   after_update_commit -> { Nudge::Approved.queue(self) }, if: -> { saved_change_to_status?(to: "approved") }
   # D-137: the participant gets a DM when a ship is rejected for good, unless the ban that rejected it tells them instead.
   after_update_commit -> { Nudge::Rejected.queue(self) }, if: -> { saved_change_to_status?(to: "rejected") && fraud_status != "banned" }
+  # D-139: the participant gets a DM when a ship gets Changes needed, with the time they have to ship again.
+  after_update_commit -> { Nudge::ChangesNeeded.queue(self) }, if: -> { saved_change_to_status?(to: "changes_needed") }
   STATUSES = %w[in_review awaiting_fraud approved changes_needed rejected superseded].freeze
   # The verdicts of a review (decide!): approved moves the ship to its fraud check, banned is fraud found at review.
   DECISIONS = %w[approved changes_needed rejected banned].freeze

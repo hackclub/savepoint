@@ -156,7 +156,7 @@ class SlackDemo
       pace = 45
       sessions = (left * 60 / pace).ceil
       shown = ApplicationController.helpers.method(:project_hours)
-      { first_name: "Alex", title: TITLE, prize: prize.name, a_prize: prize.with_article, hours: shown.call(hours), hours_word: "hours",
+      { first_name: "Alex", deadline: "Tue Nov 3, 11:42 pm", title: TITLE, prize: prize.name, a_prize: prize.with_article, hours: shown.call(hours), hours_word: "hours",
         hours_needed: shown.call(needed), hours_left: shown.call(left.round(1)), hours_left_word: left.round(1) == 1 ? "hour" : "hours",
         percent: (hours * 100 / needed).round, sessions_left: sessions, sessions_word: sessions == 1 ? "session" : "sessions",
         session_percent: (pace * 100.0 / (needed * 60)).round,

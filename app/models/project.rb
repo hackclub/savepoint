@@ -721,9 +721,28 @@ class Project < ApplicationRecord
     (deadline + Program::SHIP_GRACE_DAYS).in_time_zone(user.time_zone).end_of_day
   end
 
-  # Until the cutoff, unless an admin banned the account or rejected the newest ship for good (D-063).
+  # D-139: how long a participant whose latest verdict is Changes needed has to fix it and ship again, at least.
+  CHANGES_NEEDED_WINDOW = 24.hours
+
+  # D-139: until when this person may ship, when their latest verdict (the newest ship a reviewer decided) is Changes needed: the
+  # later of 24 hours after it and their normal cutoff. nil when there is no such verdict. A newer approval or rejection ends it, and a
+  # newer Changes needed sets a new window.
+  def changes_needed_until
+    verdicts = ships.select { it.reviewed_at && %w[changes_needed awaiting_fraud approved rejected].include?(it.status) }
+    latest = verdicts.max_by(&:reviewed_at)
+    return unless latest&.changes_needed?
+
+    [ latest.reviewed_at + CHANGES_NEEDED_WINDOW, ship_cutoff ].max
+  end
+
+  # The last moment this person may ship: the normal cutoff, or their Changes needed window (D-139) when it runs later.
+  def ship_closes_at
+    [ ship_cutoff, changes_needed_until ].compact.max
+  end
+
+  # Until then, unless an admin banned the account or rejected the newest ship for good (D-063).
   def may_ship?(now: Time.current)
-    now <= ship_cutoff && !user.banned? && ship_rejected.nil?
+    now <= ship_closes_at && !user.banned? && ship_rejected.nil?
   end
 
   # Nobody can ask for more time: there are no extensions in Save Point.

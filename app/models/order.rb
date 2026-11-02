@@ -84,6 +84,8 @@ class Order < ApplicationRecord
     return false unless waiting?
     return (ordered!(by:) && :ordered) unless stickers?
 
+    check_sticker_eligibility!
+
     letter_id = begin
       TheseusClient.new.send_stickers(self)
     rescue TheseusClient::AlreadySent
@@ -94,7 +96,26 @@ class Order < ApplicationRecord
     letter_id ? :sent : :already_sent
   end
 
+  # Raised by #place! when a sticker order must not go to Theseus. The message is for the admin; the order stays waiting.
+  class NotSent < StandardError; end
+
   private
+    # Eligibility is rechecked right before a sticker order goes out (D-051, D-067): Hackatime's ban status is asked afresh,
+    # as the award does. YSWS eligibility is the value stored at their last sign-in, since the app has no way to read
+    # their Hack Club Auth claims without them signing in. If Hackatime can't say, the order waits.
+    def check_sticker_eligibility!
+      user = project.user
+      begin
+        Hackatime.refresh_trust_level!(user)
+      rescue Hackatime::NotLinked
+        # Nothing to ask; the stored level stands.
+      rescue Hackatime::Expired, Hackatime::Unavailable
+        raise NotSent, "Not sent: couldn't reach Hackatime to check this account"
+      end
+      raise NotSent, "Not sent: Hackatime has banned this account" if user.hackatime_banned?
+      raise NotSent, "Not sent: this account isn't YSWS-eligible" unless user.ysws_eligible?
+    end
+
     # A prize's hours, and where it goes, as they are now.
     def price_and_route
       return unless project && prize_item

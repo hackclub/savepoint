@@ -11,7 +11,7 @@ The site is [savepoint.hackclub.com](https://savepoint.hackclub.com). The code i
 | `app/models/prize.rb`, `app/models/program.rb` | The prizes and their hours, and the program's start and end (`Program::STARTS_AT`, `Program::ENDS_AT`). |
 | `design/` | The style sheet. `build/make.py` writes `system/`, and `bin/rails style_sheet:sync` copies it into `app/assets`. |
 
-Run it (Ruby 3.4.3 from `.ruby-version`, and Postgres):
+Run it (Ruby 3.4.12 from `.ruby-version`, and Postgres):
 
 ```
 bundle install

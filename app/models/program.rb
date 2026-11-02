@@ -17,14 +17,17 @@ module Program
   end
 
   STARTS_AT = starts_at_from(ENV["PROGRAM_STARTS_AT"])
-  ENDS_AT = Time.utc(2026, 11, 2, 21)
+  # D-134: Armand extended the end from 4pm to 11:59pm US Eastern on Nov 2 (04:59 UTC on Nov 3).
+  ENDS_AT = Time.utc(2026, 11, 3, 4, 59)
 
   # D-078: the last third of Save Point, from about Oct 30, when effort rises as a goal gets near (Kivetz 2006). From
   # then the project page leads with the minutes left to your goal prize.
   GOAL_SALIENCE_STARTS_AT = ENDS_AT - (ENDS_AT - STARTS_AT) / 3
 
-  # The calendar dates of the program, UTC: the start's date to the end's date. Hours are kept per date (StreakActivity).
-  DATES = STARTS_AT.to_date..ENDS_AT.to_date
+  # The calendar dates of the program: the start's UTC date to the end's date in US Eastern, the program's time zone
+  # (D-134: the end is 04:59 UTC on Nov 3, but it is still Nov 2 in New York, so the last day, the deadline and the
+  # stats table stay Nov 2). Hours are kept per date (StreakActivity).
+  DATES = STARTS_AT.to_date..ENDS_AT.in_time_zone("America/New_York").to_date
   # What an extension (Extension) was: this many days past the old last day. Save Point itself runs that long now, so
   # one moves nothing, and nobody can ask (Project#extension_requestable?).
   EXTENSION_DAYS = 7

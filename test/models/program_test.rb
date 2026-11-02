@@ -55,7 +55,7 @@ class ProgramTest < ActiveSupport::TestCase
              Program.today(Time.utc(2026, 11, 2, 20, 59)), Prize.pace_minutes(11, from: Time.utc(2026, 10, 23, 1, 30)) ]
     RUBY
     assert_equal [ "2026-10-23T01:30:00Z", "2026-10-23..2026-11-02", "2026-10-23", "nil", "Day 1 of 11", "Day 1 of 11",
-                   "Day 2 of 11", "Day 11 of 11", "Day 11 of 11", "2026-10-23", "2026-10-24", "2026-11-02", "65" ], out.lines.map(&:strip)
+                   "Day 2 of 11", "Day 11 of 11", "Day 11 of 11", "2026-10-23", "2026-10-24", "2026-11-02", "60" ], out.lines.map(&:strip)
   end
 
   test "a start already in the past makes the program run at once" do
@@ -72,9 +72,9 @@ class ProgramTest < ActiveSupport::TestCase
   end
 
   test "the last third starts a third of the program back from the end, on Oct 30" do
-    assert_equal Time.utc(2026, 10, 30, 13), Program::GOAL_SALIENCE_STARTS_AT
-    assert_not Program.goal_salient?(Time.utc(2026, 10, 30, 12, 59))
-    assert Program.goal_salient?(Time.utc(2026, 10, 30, 13))
+    assert_equal Time.utc(2026, 10, 30, 18, 19, 20), Program::GOAL_SALIENCE_STARTS_AT
+    assert_not Program.goal_salient?(Time.utc(2026, 10, 30, 18, 19, 19))
+    assert Program.goal_salient?(Time.utc(2026, 10, 30, 18, 19, 20))
     assert Program.goal_salient?(Program::ENDS_AT + 1.hour)
   end
 

@@ -61,7 +61,7 @@ class PrizeTest < ActiveSupport::TestCase
     before_start = Program::STARTS_AT - 3.days
     assert_equal 7.5, Prize.find("u2c").hours
     assert_equal 45, Prize.find("u2c").pace_minutes(from: before_start) # 7.5 hours over all 10 days
-    assert_equal 105, Prize.find("steam100").pace_minutes(from: before_start) # 17 hours: 102 minutes, up to 105
+    assert_equal 100, Prize.find("steam100").pace_minutes(from: before_start) # 17 hours over 10.3 days: 99 minutes, up to 100
 
     assert_equal 90, Prize.find("u2c").pace_minutes(from: Program::ENDS_AT - 5.days)
     assert_equal 450, Prize.find("u2c").pace_minutes(from: Program::ENDS_AT - 1.hour), "never under a day left"

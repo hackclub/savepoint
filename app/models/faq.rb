@@ -25,8 +25,8 @@ class Faq
         [ "hours", "Hours", [
           [ "What counts as an hour?", "Time Hackatime records on your game between #{start} and #{finish}. A reviewer checks the hours when you ship." ],
           [ "Do I need Hackatime?", view.safe_join([ "Yes. It's how we count your hours. ", link.("Set it up", "https://hackatime.hackclub.com/"), " before you start, because time it didn't record can't count." ]) ],
-          [ "Does art time count?", view.safe_join([ "Yes. Track your art with ", link.("Lapse", "https://lapse.hackclub.com"), ". Art counts for up to 30% of your approved hours. So 7 hours of code allows 3 hours of art. If you log 7 hours of code and 5 hours of art, only 3 hours of art count." ]) ],
-          [ "What if Hackatime can't track my editor?", view.safe_join([ "For an editor like GameMaker Studio, track your time with ", link.("Lapse", "https://lapse.hackclub.com"), " instead. The reviewer decides how much of that time was coding. Only the art part counts toward the 30% art limit. You don't need to flag anything when you ship." ]) ],
+          [ "Does art time count?", view.safe_join([ "Yes. Track your art with ", link.("Lapse", "https://lapse.hackclub.com"), ". Art counts for up to 30% of your approved hours. So 7 hours of code allows 3 hours of art. If you log 7 hours of code and 5 hours of art, only 3 hours of art count. Art can't be more than 30% of your approved hours, so you need coding time too. Art on its own earns nothing. Time spent watching tutorials or learning doesn't count." ]) ],
+          [ "What if Hackatime can't track my editor?", view.safe_join([ "For an editor like GameMaker Studio, track your time with ", link.("Lapse", "https://lapse.hackclub.com"), " instead. The reviewer decides how much of that time was coding. Only the art part counts toward the 30% art limit. You don't need to flag anything when you ship. Record yourself coding, not only drawing or watching tutorials." ]) ],
           [ "I worked on this game before Save Point. Does that count?", "No. Only new time counts, from #{start} on." ],
           [ "I shipped this game to another Hack Club program. Can I bring it?", "Yes. Hours another program already counted can't count again, but new time can." ]
         ] ],
@@ -40,7 +40,7 @@ class Faq
           [ "What does the playable link need?", "It has to load for someone who isn't signed in, and the game has to run from it. The reviewer opens it and plays." ],
           [ "What does my screenshot need?", "A new still image (PNG, JPEG or WebP, under 5 MB, not a GIF) that shows your game running. You can't reuse one from an earlier ship." ],
           [ "Does my game have to change during Save Point?", "Yes. Make commits from #{start} on and say in your note what you changed. The reviewer compares them, and your screenshot, with the game's last ship. A game with no new work doesn't pass." ],
-          [ "Can I use AI?", "Your game can't be made by AI, and AI art isn't allowed, so make your own assets. If AI helped write some of the code, that time counts for a third of its length. Art counts up to 30% of your approved hours, as above." ],
+          [ "Can I use AI?", "Your game has to be made by you. Games that are mostly AI-generated (code, art, sound or writing) get rejected. If AI helped with small bits of code, that time counts for a third, and the reviewer can count more of your time as AI if the code looks generated." ],
           [ "What else does the reviewer check?", "That the game runs, that the README says how to run it, that your hours fit the size of what you changed, and that those hours weren't already approved in another Hack Club program." ],
           [ "What's the difference between changes needed and rejected?", "Changes needed means the ship falls short. You get a note, you fix it, and you ship again with your hours kept. Rejected is final for that ship, and the reviewer writes why." ]
         ] ],

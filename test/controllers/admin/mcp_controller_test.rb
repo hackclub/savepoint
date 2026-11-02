@@ -63,8 +63,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
     assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_snapshot find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
-    writes = %w[review_ship save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot fraud_ship mark_order_ordered decide_extension]
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
+    writes = %w[review_ship save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot fraud_ship send_verdict_dm mark_order_ordered decide_extension]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -408,6 +408,53 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
       end
     end
     assert_includes AdminAuditEvent.where(tool: "set_hours_start").map(&:ids), { "ship_id" => ship.id, "project_id" => project.id }
+  end
+
+  test "send_verdict_dm sends the verdict DM once, returns its text, and can leave the note out (D-139)" do
+    sent = []
+    dm = SlackBot.method(:dm)
+    SlackBot.define_singleton_method(:dm) { |slack_id, text:, blocks:, on_error: nil, allow_banned: false| sent << text; Struct.new(:channel, :ts).new("D0ANA", "1.0") }
+    ship = make_ship
+    user = ship.project.user
+    user.update!(timezone: "America/New_York", slack_id: "U0ANA")
+    travel_to(Program::ENDS_AT - 6.hours) do
+      ship.update_columns(status: "changes_needed", reviewed_at: Time.current, decided_at: Time.current, review_feedback: "The art cap ruling.")
+
+      done = mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id })
+      assert_equal true, done["sent"]
+      assert_equal sent.sole, done["text"]
+      assert_includes done["text"], "> The art cap ruling."
+      assert_equal "Wed Nov 4, 11:59 pm", done["deadline"]
+      assert done["sent_at"]
+      assert_includes AdminAuditEvent.where(tool: "send_verdict_dm").map(&:ids), { "ship_id" => ship.id }
+
+      mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id })
+      assert mcp_error?, "once only"
+      assert_equal 1, sent.size
+    end
+  ensure
+    SlackBot.define_singleton_method(:dm, dm)
+  end
+
+  test "send_verdict_dm with include_note false carries the deadline only, and refuses other statuses" do
+    sent = []
+    dm = SlackBot.method(:dm)
+    SlackBot.define_singleton_method(:dm) { |slack_id, text:, blocks:, on_error: nil, allow_banned: false| sent << text; Struct.new(:channel, :ts).new("D0ANA", "1.0") }
+    ship = make_ship
+    ship.project.user.update!(timezone: "America/New_York", slack_id: "U0ANA")
+    travel_to(Program::ENDS_AT - 6.hours) do
+      mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id })
+      assert mcp_error?, "an in-review ship has no verdict DM"
+
+      ship.update_columns(status: "changes_needed", reviewed_at: Time.current, decided_at: Time.current, review_feedback: "The art cap ruling.")
+      done = mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id, include_note: false })
+      assert_equal true, done["sent"]
+      assert_includes done["text"], "you have until Wed Nov 4, 11:59 pm"
+      assert_not_includes done["text"], "art cap"
+      assert_not_includes done["text"], "your reviewer left you a note"
+    end
+  ensure
+    SlackBot.define_singleton_method(:dm, dm)
   end
 
   test "edit_snapshot saves a subset through Ship::Snapshot, stamps the edit and refuses a bad field (D-136)" do

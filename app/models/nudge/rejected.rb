@@ -15,7 +15,7 @@ module Nudge::Rejected
 
   # Their DM for the ship. Returns the nudge once sent, a time when it has to wait until then, or nil when none is owed.
   # Under a lock on them, so two jobs can't both send it.
-  def self.deliver(ship, now = Time.current)
+  def self.deliver(ship, now = Time.current, include_note: true)
     user = ship.project.user
     user.with_lock do
       return unless ship.reload.status == "rejected" && due?(ship, user, now)
@@ -24,7 +24,7 @@ module Nudge::Rejected
       return later if later
 
       nudge = user.nudges.new(kind: KIND, arm: KIND, ship_id: ship.id, propensity: 1.0)
-      nudge.deliver!({ title: "*#{SlackText.escape(ship.project.title)}*" }, note: ship.review_feedback)
+      nudge.deliver!({ title: "*#{SlackText.escape(ship.project.title)}*" }, note: (ship.review_feedback if include_note))
       nudge
     end
   end
@@ -36,7 +36,7 @@ module Nudge::Rejected
   end
 
   # Sends the DM for one ship now, whenever it was rejected (the backfill D-137 leaves for Armand to run). Returns what deliver does.
-  def self.send_for(ship_id)
-    deliver(Ship.find(ship_id))
+  def self.send_for(ship_id, include_note: true)
+    deliver(Ship.find(ship_id), include_note:)
   end
 end

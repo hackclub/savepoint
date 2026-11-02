@@ -11,7 +11,7 @@ module Nudge::ChangesNeeded
 
   # Their DM for the ship. Returns the nudge once sent, a time when it has to wait until then, or nil when none is owed.
   # Under a lock on them, so two jobs can't both send it.
-  def self.deliver(ship, now = Time.current)
+  def self.deliver(ship, now = Time.current, include_note: true)
     user = ship.project.user
     user.with_lock do
       return unless ship.reload.changes_needed? && due?(ship, user, now)
@@ -20,7 +20,7 @@ module Nudge::ChangesNeeded
       return later if later
 
       nudge = user.nudges.new(kind: KIND, arm: KIND, ship_id: ship.id, propensity: 1.0)
-      nudge.deliver!(vars(ship), note: ship.review_feedback)
+      nudge.deliver!(vars(ship), note: (ship.review_feedback if include_note))
       nudge
     end
   end
@@ -37,5 +37,11 @@ module Nudge::ChangesNeeded
     project = ship.project
     until_time = [ ship.reviewed_at + Project::CHANGES_NEEDED_WINDOW, project.ship_cutoff ].max
     { title: "*#{SlackText.escape(project.title)}*", deadline: until_time.in_time_zone(project.user.time_zone).strftime("%a %b %-d, %-l:%M %P") }
+  end
+
+  # Sends the DM for one ship now, whenever it got Changes needed (what the admin MCP's send_verdict_dm calls, for ships decided before this
+  # shipped). Returns what deliver does.
+  def self.send_for(ship_id, include_note: true)
+    deliver(Ship.find(ship_id), include_note:)
   end
 end

@@ -14,7 +14,7 @@ module ShopHelper
   def shop_state(project, prize, order)
     if project.nil? then "public"
     elsif order then "claimed"
-    elsif project.hours_to_spend >= prize.hours then "ready"
+    elsif project.hours_to_spend >= prize.hours then (Program.shop_open? ? "ready" : "public")
     else "locked"
     end
   end
@@ -32,7 +32,18 @@ module ShopHelper
   # Whether to show the free stickers' claim card (D-051): a pack is earned (the first-hour one, or one for coming back,
   # D-078) and not yet claimed. They are not one of the shelf's prizes.
   def shop_sticker_claim?(project, user = current_user)
-    project.present? && user&.sticker_eligible? && user.sticker_packs_unclaimed.positive?
+    Program.shop_open? && project.present? && user&.sticker_eligible? && user.sticker_packs_unclaimed.positive?
+  end
+
+  # D-138: after the end, the shop page says when it closes, in the reader's own time zone (the same local-time control as
+  # the landing page's end). The UTC text shows until the script runs. Nothing before the end.
+  def shop_closing_note(now = Time.current)
+    return if now < Program::ENDS_AT
+
+    closes = tag.b(Program::SHOP_CLOSES_AT.strftime("%a %b %-d, %Y, %-l:%M %P (UTC)"), data: { controller: "local-time", local_time_at_value: Program::SHOP_CLOSES_AT.iso8601 })
+    return safe_join([ "The shop closed ", closes, "." ]) unless Program.shop_open?(now)
+
+    safe_join([ "The shop is open until ", closes, "." ])
   end
 
   # Why the claim card says they have the stickers: the first-hour ones if that is what they have not claimed yet.

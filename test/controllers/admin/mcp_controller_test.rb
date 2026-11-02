@@ -424,7 +424,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
       assert_equal true, done["sent"]
       assert_equal sent.sole, done["text"]
       assert_includes done["text"], "> The art cap ruling."
-      assert_equal "Wed Nov 4, 11:59 pm", done["deadline"]
+      assert_equal "Tue Nov 3, 5:59 pm", done["deadline"]
       assert done["sent_at"]
       assert_includes AdminAuditEvent.where(tool: "send_verdict_dm").map(&:ids), { "ship_id" => ship.id }
 
@@ -449,7 +449,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
       ship.update_columns(status: "changes_needed", reviewed_at: Time.current, decided_at: Time.current, review_feedback: "The art cap ruling.")
       done = mcp_tool(@token, "send_verdict_dm", { ship_id: ship.id, include_note: false })
       assert_equal true, done["sent"]
-      assert_includes done["text"], "you have until Wed Nov 4, 11:59 pm"
+      assert_includes done["text"], "you have until Tue Nov 3, 5:59 pm"
       assert_not_includes done["text"], "art cap"
       assert_not_includes done["text"], "your reviewer left you a note"
     end

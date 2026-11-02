@@ -721,21 +721,21 @@ class Project < ApplicationRecord
     (deadline + Program::SHIP_GRACE_DAYS).in_time_zone(user.time_zone).end_of_day
   end
 
-  # D-139: how long a participant whose latest verdict is Changes needed has to fix it and ship again, at least.
+  # D-139, D-140: how long a participant whose latest verdict is Changes needed has to fix it and ship again, at least.
   CHANGES_NEEDED_WINDOW = 24.hours
 
   # D-139: until when this person may ship, when their latest verdict (the newest ship a reviewer decided) is Changes needed: the
-  # later of 24 hours after it and their normal cutoff. nil when there is no such verdict. A newer approval or rejection ends it, and a
+  # later of 24 hours after it and the public end (Program::ENDS_AT), never the cutoff, whose grace days they are not told about. nil when there is no such verdict. A newer approval or rejection ends it, and a
   # newer Changes needed sets a new window.
   def changes_needed_until
     verdicts = ships.select { it.reviewed_at && %w[changes_needed awaiting_fraud approved rejected].include?(it.status) }
     latest = verdicts.max_by(&:reviewed_at)
     return unless latest&.changes_needed?
 
-    [ latest.reviewed_at + CHANGES_NEEDED_WINDOW, ship_cutoff ].max
+    [ latest.reviewed_at + CHANGES_NEEDED_WINDOW, Program::ENDS_AT ].max
   end
 
-  # The last moment this person may ship: the normal cutoff, or their Changes needed window (D-139) when it runs later.
+  # The last moment this person may ship: the normal cutoff (grace days included), or their Changes needed deadline (D-140) when it runs later.
   def ship_closes_at
     [ ship_cutoff, changes_needed_until ].compact.max
   end

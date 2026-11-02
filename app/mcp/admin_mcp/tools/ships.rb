@@ -67,6 +67,7 @@ module AdminMcp::Tools::Ships
         earlier_ship: { status: earlier.status, message: earlier.message, entries: earlier.entries.map(&:to_h),
                         overlap_program: overlap&.program },
         review_feedback: ship.review_feedback, review_judgement: ship.review_judgement, review_checklist: ship.review_checklist,
+        review_draft: ship.review_draft, review_draft_updated_at: ship.review_draft_updated_at, review_draft_updated_by: ship.review_draft_updated_by&.first_name,
         review: { reviewer: ship.reviewer&.first_name, reviewed_at: ship.reviewed_at, coding_hours: ship.review_coding_hours&.to_f,
                   art_hours: ship.review_art_hours&.to_f, hours: ship.review_hours&.to_f },
         fraud: { status: ship.fraud_status, reviewer: ship.fraud_reviewer&.first_name, reviewed_at: ship.fraud_reviewed_at,
@@ -130,6 +131,37 @@ module AdminMcp::Tools::Ships
       else "Not decided: #{ship.errors.full_messages.to_sentence}."
       end
       { decided:, message:, errors: ship.errors.to_hash, ship: AdminMcp::Present.ship(ship.reload) }
+    end
+  end
+
+  # D-135: the review page's draft, written without a verdict.
+  class SaveReviewDraft < AdminMcp::Tool
+    writes "save_review_draft", "Save a review draft",
+           "Writes fields into a ship's review draft without deciding it: the same draft the review page autosaves, so the reviewer opens the ship, sees these filled in, and picks the verdict. " \
+           "Send any subset of the fields. They merge into what the draft already holds (a field you leave out is kept, an empty string clears one), and nothing is validated against the limits until a verdict is pressed. " \
+           "It never decides the ship, never changes the Lapse split or AI coding the limits read (a drafted figure only fills its box), and tells nobody. The ship must be in review. " \
+           "You can't draft on your own ship, or one another admin has open. Answers { saved, message, draft, ship }: draft is the whole merged draft.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             decision: { type: "string", enum: Ship::DECISIONS + [ "" ], description: "The verdict to have picked when the page opens. Only picks it: nothing is decided." },
+             coding_hours: { type: "number", minimum: 0, description: "The coding hours to approve (on a later ship, the new ones since the earlier approval)." },
+             art_hours: { type: "number", minimum: 0, description: "The art hours to approve (on a later ship, the new ones)." },
+             lapse_coding_hours: { type: "number", minimum: 0, description: "The Lapse hours that were coding. Fills the Lapse box only: the limits read it once the reviewer presses Set Lapse coding on the page." },
+             ai_coding_hours: { type: "number", minimum: 0, description: "The AI coding hours, above Hackatime's figure. Fills the AI box only: the limits read it once the reviewer presses Set AI coding on the page." },
+             ai_reason: { type: "string", description: "With ai_coding_hours: what looked AI-generated." },
+             technical_features: { type: "string", description: "The specific technical features that explain the hours." },
+             deflation_reason: { type: "string", description: "Why the hours are below what the rules allow (D-111: due before an approval below the most)." },
+             feedback: { type: "string", description: "The note to the participant." },
+             judgement: { type: "string", description: "Your internal judgement." },
+             evidence: { type: "string", description: "For a ban: what shows the fraud." } },
+           required: %w[ship_id]
+
+    def self.run(args, caller)
+      ship = Ship.includes(:review_draft_updated_by, project: :user).find(args[:ship_id])
+      Guard.check!(ship, "review", caller)
+      merged = ship.save_review_draft!(args.slice(*Ship::REVIEW_DRAFT_KEYS.map(&:to_sym)), by: caller.user)
+      return { saved: false, message: "Not saved: only a ship in review takes a draft.", draft: ship.review_draft, ship: AdminMcp::Present.ship(ship) } unless merged
+
+      { saved: true, message: nil, draft: merged, ship: AdminMcp::Present.ship(ship.reload) }
     end
   end
 

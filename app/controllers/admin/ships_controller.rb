@@ -138,6 +138,17 @@ class Admin::ShipsController < Admin::BaseController
     end
   end
 
+  # D-135: the review form's draft, saved as the reviewer types and when the page hides (draft_controller.js, a fetch or a beacon).
+  # It merges the fields it is sent, so two admins on one ship keep each other's. It decides nothing and tells no one.
+  def draft
+    return head(:forbidden) if @ship.by?(current_user)
+
+    merged = @ship.save_review_draft!(params.fetch(:draft, {}).permit(*Ship::REVIEW_DRAFT_KEYS), by: current_user)
+    return head(:unprocessable_entity) unless merged
+
+    render json: { by: current_user.first_name, at: @ship.review_draft_updated_at }
+  end
+
   # The checklist saves on every tick, while the ship is in review (D-049).
   def checklist
     return head(:unprocessable_entity) unless @ship.in_review?

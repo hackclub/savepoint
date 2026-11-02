@@ -137,7 +137,7 @@
           <div class="sp-field">
             <%= form.label :lapse_coding_hours, "Lapse hours that were coding", class: "sp-label" %>
             <span class="ash__hours-box">
-              <%= form.number_field :lapse_coding_hours, value: ship.lapse_coding_hours.to_f, min: 0, max: limits.lapse.floor(2).to_f, step: 0.01,
+              <%= form.number_field :lapse_coding_hours, value: ship.form_draft.fetch("lapse_coding_hours", ship.lapse_coding_hours.to_f), min: 0, max: limits.lapse.floor(2).to_f, step: 0.01,
                     class: "sp-input admin__hours ash__hours", aria: { describedby: "admin-ship-lapse-help" } %>
               <span class="ash__hours-unit" aria-hidden="true">hrs</span>
             </span>

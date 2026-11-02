@@ -63,8 +63,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
     assert_equal %w[admin_summary audit_log decide_extension describe_schema find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship], tools.keys.sort
-    writes = %w[review_ship fraud_ship mark_order_ordered decide_extension]
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft], tools.keys.sort
+    writes = %w[review_ship save_review_draft fraud_ship mark_order_ordered decide_extension]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -288,6 +288,59 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", technical_features: "A second ball." })
     assert_equal true, done["decided"]
     assert_equal [ BigDecimal("5.3"), nil ], [ ship.reload.review_hours, ship.deflation_reason ]
+  end
+
+  test "save_review_draft merges any subset into the draft, decides nothing, tells nobody and is logged (D-135)" do
+    ship = make_ship
+    ship.update_columns(art_seconds: 3600, lapse_seconds: 3600)
+    stats = [ ship.status, ship.review_hours, ship.reviewer_id, ship.lapse_coding_hours ]
+
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      first = mcp_tool(@token, "save_review_draft", { ship_id: ship.id, lapse_coding_hours: 4.15, coding_hours: 5, technical_features: "A second ball." })
+      assert_equal true, first["saved"]
+      assert_equal({ "lapse_coding_hours" => "4.15", "coding_hours" => "5", "technical_features" => "A second ball." }, first["draft"])
+
+      second = mcp_tool(@token, "save_review_draft", { ship_id: ship.id, ai_coding_hours: 1.5, ai_reason: "Pasted dump", judgement: "Fine.", coding_hours: 4.5, decision: "approved", bogus: "x" })
+      assert_equal %w[ai_coding_hours ai_reason coding_hours decision judgement lapse_coding_hours technical_features], second["draft"].keys.sort
+      assert_equal "4.5", second["draft"]["coding_hours"]
+      assert_equal "A second ball.", second["draft"]["technical_features"]
+      shown = mcp_tool(@token, "get_ship", { ship_id: ship.id })
+      assert_equal second["draft"], shown["review_draft"]
+      assert_equal "Orpheus", shown["review_draft_updated_by"]
+
+      cleared = mcp_tool(@token, "save_review_draft", { ship_id: ship.id, judgement: "" })
+      assert_equal "", cleared["draft"]["judgement"]
+    end
+
+    ship.reload
+    assert_equal stats, [ ship.status, ship.review_hours, ship.reviewer_id, ship.lapse_coding_hours ], "a draft decides nothing and sets no limit"
+    assert_equal users(:orpheus), ship.review_draft_updated_by
+    assert_equal 3, AdminAuditEvent.where(tool: "save_review_draft").count # get_ship is logged under its own name
+    assert_equal({ "ship_id" => ship.id }, AdminAuditEvent.where(tool: "save_review_draft").last.ids)
+  end
+
+  test "save_review_draft refuses a ship that is decided, or the admin's own" do
+    ship = make_ship
+    ship.update_columns(status: "rejected")
+    refused = mcp_tool(@token, "save_review_draft", { ship_id: ship.id, judgement: "x" })
+    assert_equal false, refused["saved"]
+    assert_empty ship.reload.review_draft
+
+    ship.update_columns(status: "in_review")
+    Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS", "U0ANA" ] # Ana is an admin now, but this ship is hers
+    ana_token, = mcp_token_for(users(:ana))
+    assert_match(/judges your own ship/, mcp_tool(ana_token, "save_review_draft", { ship_id: ship.id, judgement: "x" }))
+    assert mcp_error?
+    assert_empty ship.reload.review_draft
+  end
+
+  test "a verdict through review_ship clears the draft (D-135)" do
+    ship = make_ship
+    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
+    mcp_tool(@token, "save_review_draft", { ship_id: ship.id, judgement: "Looks thin." })
+    mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "rejected", judgement: "Looks thin." })
+    assert_equal "rejected", ship.reload.status
+    assert_empty ship.review_draft
   end
 
   test "list_orders shows the address only for the ones to order" do

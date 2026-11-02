@@ -307,6 +307,28 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".ship__error", /Confirm the screenshot shows your game/
   end
 
+  test "D-139: changes needed keeps the form open past the cutoff until 24 hours after the verdict" do
+    link_hackatime(users(:orpheus))
+    projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
+    users(:orpheus).update!(timezone: "America/New_York")
+    sign_in_as_orpheus
+    ship = projects(:orpheus).ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
+                                            changes_made: "Added a combo meter.", repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat",
+                                            hours: 1, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+    verdict = Time.utc(2026, 11, 5, 3) # inside the cutoff, so the window runs to 03:00 on Nov 6
+    ship.update_columns(status: "changes_needed", reviewed_at: verdict, decided_at: verdict)
+
+    travel_to Time.utc(2026, 11, 6, 2) do # past the Nov 5 04:59 cutoff, inside the window
+      get project_ship_path
+      assert_select "form.ship__form"
+    end
+
+    travel_to Time.utc(2026, 11, 6, 4) do
+      get project_ship_path
+      assert_select ".ship__done[data-state=closed]"
+    end
+  end
+
   test "shipping closes after the deadline where you are, with two quiet days nobody's told about" do
     link_hackatime(users(:orpheus))
     projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)

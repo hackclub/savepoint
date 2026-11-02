@@ -13,7 +13,7 @@
 class Nudge < ApplicationRecord
   # Bandit nudges and cheers are learned from. The rest always send when they apply, bar test ones
   # (bin/rails nudges:test), which are never scored or counted.
-  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt approved rejected banned test].freeze
+  KINDS = %w[bandit cheer setup milestone program streak_saver comeback ship_prompt approved changes_needed rejected banned test].freeze
   LEARNED = %w[bandit cheer].freeze
 
   # What keeps a streak going. Milestone, program and streak saver nudges count as working when they built this long

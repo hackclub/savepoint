@@ -35,9 +35,18 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     # The Unified YSWS DB has no earlier record of any game here, unless a test says otherwise.
     Ship::EarlierShip.token = "pat-test"
     Web.adapter = ->(*) { Web::Response.new(status: 200, headers: {}, body: { records: [] }.to_json) }
+    # D-141: Stardance was read and has no shipped repo, unless a test says otherwise.
+    stardance_has({})
+  end
+
+  # Stardance.index answers { normalized repo => [ project ids ] }, or raises when `repos` is an error class.
+  def stardance_has(repos)
+    Stardance.singleton_class.alias_method(:__index, :index) unless Stardance.singleton_class.method_defined?(:__index)
+    Stardance.define_singleton_method(:index) { repos.is_a?(Class) ? raise(repos, "no read") : repos }
   end
 
   teardown do
+    Stardance.singleton_class.alias_method(:index, :__index) if Stardance.singleton_class.method_defined?(:__index)
     Rails.application.singleton_class.remove_method(:config_for)
     AirtableClient.singleton_class.remove_method(:new)
     Web.adapter = nil
@@ -96,8 +105,55 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_equal "1001", row["Justification - Submitter Hackatime ID"]
     assert_match "rhythm-game", row["Justification - Hackatime Project Name(s) + Date Range(s)"]
     assert_nil review.reload.airtable_record_id
-    assert_not row.key?("Automation - Submit to Unified YSWS")
+    assert_equal true, row["Automation - Submit to Unified YSWS"], "ticked, as playground's sync does (D-141)"
     assert_not row.key?("Optional - Override Hours Spent Justification")
+  end
+
+  test "the Unified box is false, not left out, for a repo already shipped on Stardance (D-141)" do
+    approved_ship
+    stardance_has({ "github.com/orpheus/beat-sheet" => [ 74 ] })
+    Airtable::SyncJob.perform_now
+    row = @fake.rows(SUBMISSIONS).first
+    assert row.key?("Automation - Submit to Unified YSWS")
+    assert_equal false, row["Automation - Submit to Unified YSWS"]
+  end
+
+  test "the Unified box is false when Stardance can't be read, and the row still goes (D-141)" do
+    ship = approved_ship
+    stardance_has(Stardance::Error)
+    Airtable::SyncJob.perform_now
+    row = @fake.rows(SUBMISSIONS).first
+    assert_equal "ship-#{ship.id}", row["save_point_id"]
+    assert_equal false, row["Automation - Submit to Unified YSWS"]
+    assert_not_nil ship.reload.synced_at
+  end
+
+  test "the Unified box is false for a ship with no code URL to check (D-141)" do
+    ship = approved_ship
+    ship.update_columns(repo_url: "")
+    Airtable::SyncJob.perform_now
+    assert_equal false, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
+  end
+
+  test "the resync migration sends approved ships again, but not one the Unified YSWS DB has taken (D-141)" do
+    sent = approved_ship
+    Airtable::SyncJob.perform_now
+    assert_not_nil sent.reload.synced_at
+    taken = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.",
+                                         repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", hours: 3,
+                                         screenshot: upload, screenshot_shows_game: true)
+    taken.update_columns(approved_columns(3, in_unified: true, synced_at: Time.current))
+    migration = Rails.root.join("db/migrate/20261102230000_resync_approved_ships_for_unified_checkbox.rb")
+    require migration.to_s
+    ResyncApprovedShipsForUnifiedCheckbox.new.suppress_messages { ResyncApprovedShipsForUnifiedCheckbox.new.up }
+    assert_nil sent.reload.synced_at
+    assert_not_nil sent.airtable_failed_at, "the old pods of a rolling deploy get ten minutes to stop"
+    assert_not_nil taken.reload.synced_at
+    @fake.upserts.clear
+    travel 11.minutes do
+      Airtable::SyncJob.perform_now
+      assert_equal true, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
+    end
   end
 
   test "a ship waiting for its fraud check does not go to Airtable until it passes (D-063)" do

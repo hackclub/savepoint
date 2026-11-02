@@ -47,7 +47,9 @@ module AirtableSchema
     [ "Justification - Deflation Justification", "multilineText" ],
     [ "Justification - Additional Justification", "multilineText" ],
     [ "Justification - Alternate Tracking Method", "multilineText" ],
-    [ "Optional - Override Duplicate Justification", "multilineText" ]
+    [ "Optional - Override Duplicate Justification", "multilineText" ],
+    # D-141: the checkbox the Unified YSWS automation reads (the base already has it).
+    [ "Automation - Submit to Unified YSWS", "checkbox", CHECKBOX ]
   ].freeze
 
   # config key => fields

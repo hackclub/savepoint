@@ -66,10 +66,15 @@ module AirtableFields
   # row doesn't build and waits its hour too, until the reason is there. The message names the part.
   class UnexplainedDeflation < StandardError; end
 
+  # D-141, as playground does: the checkbox the Unified YSWS automation reads. Only approved ships are copied, so each is ready,
+  # unless Airtable::SyncJob finds its repo shipped on Stardance (or can't read Stardance). False, not left out, so a row not yet
+  # taken is unchecked again. It goes after compact_blank, which would drop a false.
+  SUBMIT_TO_UNIFIED_FIELD = "Automation - Submit to Unified YSWS"
+
   # An approved ship, in the YSWS template's field names. The screenshot goes only when the row is made, so a
   # reviewer's edits in Airtable stay. The phone number is never sent. `earlier` is the ship's Ship::EarlierShip
   # result, when the caller has it already.
-  def ship(s, earlier: nil)
+  def ship(s, earlier: nil, submit_to_unified: false)
     earlier ||= unified(s)
     window = claim_window(s, earlier)
     user = s.project.user
@@ -94,7 +99,7 @@ module AirtableFields
       "Birthday" => user.birthdate.presence,
       "Optional - Override Hours Spent" => new_hours(s, window),
       **justifications(s, earlier:, window:)
-    }.compact_blank
+    }.compact_blank.merge(SUBMIT_TO_UNIFIED_FIELD => submit_to_unified)
   end
 
   # The handbook's separate justification fields (D-030). "Optional - Override Hours Spent Justification" stays empty:

@@ -26,6 +26,7 @@ class Order < ApplicationRecord
   validates :prize_key, inclusion: { in: Prize::CLAIMABLE.map(&:key) }
   # The free stickers can be claimed up to Reward::STICKER_PACKS_MAX times, once for each pack earned (stickers_earned).
   validates :prize_key, uniqueness: { scope: :project_id, message: "is one you've bought already" }, allow_nil: true, unless: :stickers?
+  validate :shop_open, on: :create
   validate :stickers_earned, :covered_by_approved_hours, :addressed, on: :create
 
   scope :waiting, -> { where(status: "waiting") }
@@ -95,6 +96,11 @@ class Order < ApplicationRecord
   end
 
   private
+    # D-138: claiming ends when the shop closes (Program::SHOP_CLOSES_AT), a week after hours and shipping.
+    def shop_open
+      errors.add(:base, "The shop is closed.") unless Program.shop_open?
+    end
+
     # A prize's hours, and where it goes, as they are now.
     def price_and_route
       return unless project && prize_item

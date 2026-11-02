@@ -20,6 +20,12 @@ module Program
   # D-134: Armand extended the end from 4pm to 11:59pm US Eastern on Nov 2 (04:59 UTC on Nov 3).
   ENDS_AT = Time.utc(2026, 11, 3, 4, 59)
 
+  # D-138: hours and shipping still end at ENDS_AT, but the prize shop (claiming and ordering with approved hours, the free
+  # stickers too) stays open until 4pm US Eastern on Mon Nov 9 (21:00 UTC), so ships approved after the end can still claim.
+  SHOP_CLOSES_AT = Time.utc(2026, 11, 9, 21)
+
+  def self.shop_open?(now = Time.current) = now < SHOP_CLOSES_AT
+
   # D-078: the last third of Save Point, from about Oct 30, when effort rises as a goal gets near (Kivetz 2006). From
   # then the project page leads with the minutes left to your goal prize.
   GOAL_SALIENCE_STARTS_AT = ENDS_AT - (ENDS_AT - STARTS_AT) / 3

@@ -339,6 +339,7 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
     users(:orpheus).update!(timezone: "America/New_York")
     assert project.reload.may_ship?(now: Time.utc(2026, 11, 5, 3))
     assert_not project.may_ship?(now: Time.utc(2026, 11, 5, 6))
+    assert_not project.may_ship?(now: Program::SHOP_CLOSES_AT - 1.minute), "D-138: the open shop does not reopen shipping"
   end
 
   test "nobody can ask for more time any more" do

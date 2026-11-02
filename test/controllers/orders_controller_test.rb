@@ -29,6 +29,30 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "That's 5 hours, and you've 0.5 approved to spend.", flash[:shop_error]
   end
 
+  test "D-138: a claim works after the end, until the shop closes, and is refused after" do
+    approve(@project, hours: 7)
+    sign_in_orpheus
+
+    travel_to(Program::ENDS_AT + 2.days) do
+      assert_difference -> { @project.orders.count }, 1 do
+        post shop_order_path, params: { order: { prize_key: "micro" } }
+      end
+      assert_equal "micro", flash[:shop_claimed]
+      get shop_path
+      assert_select ".shop__note", /The shop is open until/
+    end
+
+    travel_to(Program::SHOP_CLOSES_AT + 1.minute) do
+      assert_no_difference -> { @project.orders.count } do
+        post shop_order_path, params: { order: { prize_key: "aseprite" } }
+      end
+      assert_equal "The shop is closed.", flash[:shop_error]
+      get shop_path
+      assert_select ".shop-tag__action", 0
+      assert_select ".shop__note", /The shop closed/
+    end
+  end
+
   test "hours waiting for their fraud check can't be spent, and a banned account can't claim (D-063, D-113)" do
     ship = approve(@project, hours: 7)
     ship.update_columns(status: "awaiting_fraud", fraud_status: "pending", approved_hours: nil, review_hours: 7)

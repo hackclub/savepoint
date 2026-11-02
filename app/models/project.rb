@@ -285,7 +285,7 @@ class Project < ApplicationRecord
 
   # Your approved hours to spend cover your goal, and you haven't claimed it: it's yours to claim.
   def goal_reached?
-    chosen_prize.present? && !goal_claimed? && hours_to_spend >= hours_needed
+    Program.shop_open? && chosen_prize.present? && !goal_claimed? && hours_to_spend >= hours_needed
   end
 
   # The "you've earned it" popup shows once per goal: when goal_reached? and it wasn't shown for this goal yet.

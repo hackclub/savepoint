@@ -246,7 +246,7 @@ class ShipTest < ActiveSupport::TestCase
     limits = ->(art) { Ship::Limits.new(claimed: 10, ai_coding_seconds: 0, art_seconds: art) }
 
     defaults = ship.checklist_defaults(earlier: unchecked, limits: limits.(nil))
-    assert_equal %w[screenshot], defaults.keys, "no art_cap or not_double when unknown"
+    assert_equal %w[screenshot real_name], defaults.keys, "no art_cap or not_double when unknown; real_name is always there, unticked (D-143)"
     assert_equal true, defaults["screenshot"].first
     assert_empty defaults.keys & %w[runs readme hours_fit]
 

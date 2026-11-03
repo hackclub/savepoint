@@ -311,7 +311,23 @@ class Ship < ApplicationRecord
         [ true, "No approval after this project's hours began counting in the Unified YSWS DB." ]
       end
     end
+    defaults["real_name"] = [ false, RealName.new(self).concern || "Nothing in the name looks wrong, but the app never ticks this. Read it and tick it." ]
     defaults
+  end
+
+  CHECKLIST_KEYS = %w[runs readme screenshot hours_fit art_cap not_double real_name].freeze
+
+  # D-143: the Real name item, ticked by a reviewer or an agent, never by the app. Gates the Unified YSWS box.
+  def real_name_checked? = review_checklist["real_name"] == true && AirtableFields.names(project.user).all?(&:present?)
+
+  # D-143: Real name is the one tick that can still change after the verdict, because ships approved before it exists wait for it.
+  def checklist_open_for?(key) = in_review? || (approved? && key.to_s == "real_name")
+
+  # Saves a tick. Ticking Real name on an approved ship sends its row again, with the Unified YSWS box set from the new value.
+  def tick_checklist!(key, value)
+    key = key.to_s
+    update!(review_checklist: review_checklist.merge(key => value == true))
+    update_columns(synced_at: nil, airtable_failed_at: nil) if approved? && key == "real_name" && !in_unified?
   end
 
   # D-050: a tick as the reviewer sees it. Their saved tick wins, either way. Otherwise the app's default, otherwise unticked.

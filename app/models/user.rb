@@ -5,9 +5,9 @@ class User < ApplicationRecord
   include AirtableSynced
 
   # The columns the Airtable copy (AirtableFields.user) reads.
-  AIRTABLE_COLUMNS = %w[email name first_name slack_id hca_id hackatime_uid verification_status ysws_eligible].freeze
+  AIRTABLE_COLUMNS = %w[email name first_name last_name slack_id hca_id hackatime_uid verification_status ysws_eligible].freeze
   # A submission row carries these too, and approved ships are copied only when marked, so they mark the user's ships.
-  AIRTABLE_SHIP_COLUMNS = %w[email name first_name hackatime_uid address birthdate].freeze
+  AIRTABLE_SHIP_COLUMNS = %w[email name first_name last_name slack_display_name slack_username hackatime_uid address birthdate].freeze
   after_update -> { Ship.approved.where(project_id: Project.where(user_id: id)).update_all(synced_at: nil, updated_at: Time.current) },
                if: -> { (saved_changes.keys & AIRTABLE_SHIP_COLUMNS).any? }
 
@@ -177,6 +177,8 @@ class User < ApplicationRecord
         email: auth.info.email,
         name: auth.info.name,
         first_name: auth.info.first_name,
+        # D-143: Hack Club Auth's family_name (profile scope), kept at every sign-in. Kept if one doesn't share it.
+        last_name: auth.info.last_name.presence || user.last_name,
         slack_id: claims[:slack_id],
         verification_status: claims[:verification_status],
         ysws_eligible: claims[:ysws_eligible] || false,

@@ -47,7 +47,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
   def upload = Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png")
 
   def approved_ship(approved_hours: 10)
-    @orpheus.user.update!(name: "Orpheus the Dino", first_name: "Orpheus", hackatime_uid: "1001", birthdate: "2010-04-01")
+    @orpheus.user.update!(name: "Orpheus the Dino", first_name: "Orpheus", last_name: "the Dino", hackatime_uid: "1001", birthdate: "2010-04-01")
     ship = @orpheus.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                                   repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/play",
                                   hackatime_projects: [ "rhythm-game" ], hours: 12.5, screenshot: upload, screenshot_shows_game: true)
@@ -89,20 +89,20 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_equal "https://example.com/play", row["Playable URL"]
     assert_equal 10.0, row["Optional - Override Hours Spent"]
     assert_equal "orpheus", row["GitHub Username"]
-    assert_equal "the Dino", row["Last Name"], "what is left of the name after the first name"
+    assert_equal "the Dino", row["Last Name"], "Hack Club Auth's last name"
     assert_equal [ "15 Falls Rd", "Shelburne", "VT", "05482", "US" ],
                  row.values_at("Address (Line 1)", "City", "State / Province", "ZIP / Postal Code", "Country")
     assert_equal "2010-04-01", row["Birthday"]
     assert_equal "1001", row["Justification - Submitter Hackatime ID"]
     assert_match "rhythm-game", row["Justification - Hackatime Project Name(s) + Date Range(s)"]
     assert_nil review.reload.airtable_record_id
-    assert_equal true, row["Automation - Submit to Unified YSWS"], "ticked (D-141)"
+    assert_equal false, row["Automation - Submit to Unified YSWS"], "not ticked until the Real name item is (D-143)"
     assert_not row.key?("Optional - Override Hours Spent Justification")
   end
 
-  test "the Unified box is true for every approved ship, whatever Stardance has or its URL (D-141)" do
+  test "the Unified box is true for an approved ship whose Real name is ticked, whatever Stardance has or its URL (D-141, D-143)" do
     ship = approved_ship
-    ship.update_columns(repo_url: "")
+    ship.update_columns(repo_url: "", review_checklist: { "real_name" => true })
     Airtable::SyncJob.perform_now
     assert_equal true, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
   end
@@ -124,8 +124,39 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     @fake.upserts.clear
     travel 11.minutes do
       Airtable::SyncJob.perform_now
-      assert_equal true, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
+      assert_equal false, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"], "no Real name tick yet (D-143)"
     end
+  end
+
+  test "ticking Real name on an approved ship sends its row again with the box true, and unticking sets it false (D-143)" do
+    ship = approved_ship
+    Airtable::SyncJob.perform_now
+    assert_equal false, @fake.rows(SUBMISSIONS).last["Automation - Submit to Unified YSWS"]
+    assert_not_nil ship.reload.synced_at
+
+    ship.tick_checklist!("real_name", true)
+    assert_nil ship.reload.synced_at
+    Airtable::SyncJob.perform_now
+    assert_equal true, @fake.rows(SUBMISSIONS).last["Automation - Submit to Unified YSWS"]
+
+    ship.tick_checklist!("real_name", false)
+    Airtable::SyncJob.perform_now
+    assert_equal false, @fake.rows(SUBMISSIONS).last["Automation - Submit to Unified YSWS"]
+  end
+
+  test "a ship approved before the check has no Real name tick, so its box is false (D-143)" do
+    ship = approved_ship
+    ship.update_columns(review_checklist: { "runs" => true, "screenshot" => true })
+    Airtable::SyncJob.perform_now
+    assert_equal false, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
+  end
+
+  test "the row carries Hack Club Auth's first and last name when it has them (D-143)" do
+    ship = approved_ship
+    ship.project.user.update!(name: "Orpheus the Dino", first_name: "Orpheus", last_name: "Dinosaur")
+    Airtable::SyncJob.perform_now
+    row = @fake.rows(SUBMISSIONS).first
+    assert_equal [ "Orpheus", "Dinosaur" ], row.values_at("First Name", "Last Name")
   end
 
   test "a ship waiting for its fraud check does not go to Airtable until it passes (D-063)" do

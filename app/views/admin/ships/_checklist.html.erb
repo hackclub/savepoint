@@ -7,7 +7,7 @@
     <% checklist.each do |key, label| %>
       <label class="ash__tick">
         <input type="checkbox" class="sp-check" name="<%= key %>" <%= "checked" if ship.checklist_tick(key, defaults) %>
-               <%= "disabled" if !ship.in_review? || own %> data-action="checklist#save">
+               <%= "disabled" if !ship.checklist_open_for?(key) || own %> data-action="checklist#save">
         <span><%= label %></span>
         <%# D-050: "auto" while the app's value stands. The reviewer's tick replaces it. %>
         <% if defaults.key?(key) && !ship.review_checklist.key?(key) %>

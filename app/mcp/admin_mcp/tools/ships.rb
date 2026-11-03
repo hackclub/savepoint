@@ -74,12 +74,20 @@ module AdminMcp::Tools::Ships
                  deduction_hours: ship.fraud_deduction_hours.to_f, notes: ship.fraud_notes },
         send_backs: ship.send_backs.includes(:user).map { { by: it.user.first_name, reason: it.reason, at: it.created_at, earlier_review: it.earlier_review } },
         held_by: Claim.live.where(ship:).includes(:user).map { { stage: it.stage, user: it.user.first_name } },
+        real_name: AdminMcp::Tools::Ships.real_name(ship),
         checklist_defaults: (ship.checklist_defaults(earlier:, limits: review.limits).transform_values { |(ticked, reason)| { ticked:, reason: } } if ship.in_review?),
         justifications: (AirtableFields.justifications(ship, earlier:, strict: false) if ship.approved? && earlier.checked?),
         deflation_problem: (AirtableFields.deflation_problem(ship) if ship.approved?),
         other_ships: review.others.map { { id: it.id, status: it.status, hours: it.hours.to_f, shipped_at: it.created_at } }
       )
     end
+  end
+
+  # What the Real name item (D-143) asks about: the first and last name exactly as the Unified YSWS row carries them, with the app's own doubt if any.
+  def self.real_name(ship)
+    check = Ship::RealName.new(ship)
+    first, last = check.names
+    { first_name: first, last_name: last, concern: check.concern, ticked: ship.real_name_checked? }
   end
 
   # What the review and fraud tools check before they change a ship: not your own (D-063), and not one another admin has open.
@@ -224,14 +232,15 @@ module AdminMcp::Tools::Ships
   # D-136: the review page's other saves, each one the same model path the page's button takes, with no verdict and no notification.
   # They need a ship in review that is not the admin's own and not open by another admin, like save_review_draft.
   module ReviewAction
-    CHECKLIST_KEYS = %w[runs readme screenshot hours_fit art_cap not_double].freeze
+    CHECKLIST_KEYS = Ship::CHECKLIST_KEYS
 
     def self.answer(saved, message, ship) = { saved:, message:, ship: AdminMcp::Present.ship(ship.reload) }
 
-    def self.open_ship(args, caller)
+    # `key` is the checklist item being saved: Real name also takes an approved ship (D-143).
+    def self.open_ship(args, caller, key: nil)
       ship = Ship.includes(:decided_by, project: :user).find(args[:ship_id])
       Guard.check!(ship, "review", caller)
-      raise AdminMcp::Refused, "Only a ship in review takes this." unless ship.in_review?
+      raise AdminMcp::Refused, "Only a ship in review takes this." unless ship.in_review? || (key && ship.checklist_open_for?(key))
 
       # Asked once, as opening the review page does, so the limits are known.
       ship.fetch_hackatime_categories!
@@ -287,18 +296,18 @@ module AdminMcp::Tools::Ships
   # D-136: a tick of the checklist (Admin::ShipsController#checklist).
   class SetChecklistItem < AdminMcp::Tool
     writes "set_checklist_item", "Tick or untick a review checklist item",
-           "A tick of the review page's checklist (it saves on every tick there). It never blocks a verdict. Your tick replaces the app's own default for that item (get_ship's checklist_defaults). " \
-           "Decides nothing and tells nobody. The ship must be in review. You can't tick on your own ship, or one another admin has open. Answers { saved, message, ship }.",
+           "A tick of the review page's checklist (it saves on every tick there). It never blocks a verdict, but real_name gates the Unified YSWS submit (D-143): the Airtable sync ticks the box only on a ship whose real_name is true. The app never ticks it itself: read first_name and last_name (get_ship's real_name) and tick it only when they are a real person's name. real_name also works on an approved ship that has not reached the Unified YSWS DB, to let it through. Your tick replaces the app's own default for that item (get_ship's checklist_defaults). " \
+           "Decides nothing and tells nobody. The ship must be in review (real_name: or approved). You can't tick on your own ship, or one another admin has open. Answers { saved, message, ship }.",
            { ship_id: { type: "integer", description: "The ship ID." },
-             key: { type: "string", enum: ReviewAction::CHECKLIST_KEYS, description: "runs, readme, screenshot, hours_fit, art_cap or not_double." },
+             key: { type: "string", enum: ReviewAction::CHECKLIST_KEYS, description: "runs, readme, screenshot, hours_fit, art_cap, not_double or real_name (the first and last name as get_ship shows them are a real person's name, not a handle, mash or one word)." },
              checked: { type: "boolean", description: "True to tick, false to untick." } },
            required: %w[ship_id key checked]
 
     def self.run(args, caller)
-      ship = ReviewAction.open_ship(args, caller)
       raise AdminMcp::Refused, "key is one of #{ReviewAction::CHECKLIST_KEYS.join(", ")}." unless ReviewAction::CHECKLIST_KEYS.include?(args[:key].to_s)
 
-      ship.update!(review_checklist: ship.review_checklist.merge(args[:key].to_s => args[:checked] == true))
+      ship = ReviewAction.open_ship(args, caller, key: args[:key])
+      ship.tick_checklist!(args[:key], args[:checked] == true)
       ReviewAction.answer(true, nil, ship)
     end
   end

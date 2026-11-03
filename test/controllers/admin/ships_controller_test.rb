@@ -732,21 +732,33 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-airtable", { text: /Deflation Justification/, count: 0 }, "nothing was deflated"
   end
 
-  test "a reason is due once a figure goes below the most, even by a hundredth (D-111)" do
+  test "a reason is due once a figure goes ROUNDING_GAP or more below the most (D-111)" do
     users(:ana).streak_activities.update_all(coded_seconds: 19_080)
     @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
     sign_in_as(users(:orpheus))
-    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.75", art_hours: "1.54", technical_features: "Two-ball physics." }
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.5", art_hours: "1.54", technical_features: "Two-ball physics." }
     assert_response :unprocessable_entity
     assert_select ".ash__error", "Say why you approve fewer hours than the rules allow"
     assert_select "[data-deflate-target=why]:not([hidden])", 1, "the box for it is open"
     assert @ship.reload.in_review?
 
-    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.75", art_hours: "1.54", technical_features: "Two-ball physics.",
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.5", art_hours: "1.54", technical_features: "Two-ball physics.",
                                                   deflation_reason: "A menu was cut." }
     assert_redirected_to admin_ship_path(@ship)
-    assert_equal [ BigDecimal("3.75"), BigDecimal("1.53"), "A menu was cut." ], [ @ship.reload.review_coding_hours, @ship.review_art_hours, @ship.deflation_reason ],
+    assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), "A menu was cut." ], [ @ship.reload.review_coding_hours, @ship.review_art_hours, @ship.deflation_reason ],
                  "the art is held to its share of the coding, rounded down"
+  end
+
+  test "the review page passes the rounding gap to the deflate controller, and a gap under it needs no reason (ship 49)" do
+    users(:ana).streak_activities.update_all(coded_seconds: 19_080)
+    @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "form[data-deflate-rounding-gap-value=?]", Ship::Limits::ROUNDING_GAP.to_f.to_s
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.74", art_hours: "1.53", technical_features: "Two-ball physics." }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal [ BigDecimal("5.3"), nil ], [ @ship.reload.review_hours, @ship.deflation_reason ]
   end
 
   test "an approved ship with a cut that has no reason is not sent, and the page says so (D-111)" do

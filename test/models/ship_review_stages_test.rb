@@ -103,16 +103,35 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_operator uncut, :>, 20
   end
 
-  test "a figure a hundredth below the most needs a reason, and then the ship stores that figure (D-111)" do
+  test "a figure well below the most needs a reason, and then the ship stores that figure (D-111)" do
     @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
-    assert_not @ship.decide!("approved", by: @reviewer, coding_hours: "3.75", technical_features: "A rhythm grid.")
+    assert_not @ship.decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], @ship.errors[:deflation_reason]
     assert @ship.reload.in_review?
 
-    assert @ship.decide!("approved", by: @reviewer, coding_hours: "3.75", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut.")
+    assert @ship.decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut.")
     @ship.reload
-    assert_equal [ BigDecimal("3.75"), BigDecimal("1.53"), BigDecimal("5.28") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
+    assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), BigDecimal("5") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
     assert_equal "A menu was cut.", @ship.deflation_reason, "the limits cut nothing, so only the reviewer's words"
+  end
+
+  test "a gap under Ship::Limits::ROUNDING_GAP is rounding: it needs no reason and stores the most (ship 49)" do
+    # Coding 17.3 and the Lapse art 1.2733 shown as 1.27, against a most of 18.6.
+    @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: (8.6 * 3600).to_i)
+    @ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
+    limits = @ship.limits(@ship.counted_hours)
+    assert_equal BigDecimal("18.6"), limits.most
+    assert @ship.decide!("approved", by: @reviewer, coding_hours: "17.3", art_hours: "1.27", technical_features: "A rhythm grid.")
+    @ship.reload
+    assert_equal BigDecimal("18.6"), @ship.review_hours
+    assert_nil @ship.deflation_reason
+  end
+
+  test "a gap of 0.1 hours still needs a reason" do
+    @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: (8.6 * 3600).to_i)
+    @ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
+    assert_not @ship.decide!("approved", by: @reviewer, coding_hours: "17.3", art_hours: "1.17", technical_features: "A rhythm grid.")
+    assert_equal [ "Say why you approve fewer hours than the rules allow" ], @ship.errors[:deflation_reason]
   end
 
   test "hours that went down with no words to say why can't be approved, even when no figure was typed below the limits (D-111)" do

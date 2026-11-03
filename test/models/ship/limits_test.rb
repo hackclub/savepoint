@@ -135,10 +135,12 @@ class Ship::LimitsTest < ActiveSupport::TestCase
 
   test "below the top coding the art top is the art hold on that coding, rounded down" do
     l = limits(BigDecimal("5.3"), art: 5542.0 / 3600)
-    assert_equal [ BigDecimal("3.74"), BigDecimal("1.53"), true ], l.approve(BigDecimal("3.74"), nil), "the art claimed is 1.5394, rounded down"
-    assert_equal [ BigDecimal("3.76"), BigDecimal("1.5"), true ], l.approve(nil, BigDecimal("1.5"))
+    assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), true ], l.approve(BigDecimal("3.5"), nil), "the art claimed is 1.5394, held to 1.5 beside 3.5 coding"
+    assert_equal [ BigDecimal("3.76"), BigDecimal("1.4"), true ], l.approve(nil, BigDecimal("1.4"))
     assert_equal [ BigDecimal("3.76"), BigDecimal("1.54"), false ], l.approve(BigDecimal("3.755"), BigDecimal("1.535")), "within a rounding of the top is the top"
-    assert_equal [ BigDecimal("3.74"), BigDecimal("1.53"), true ], l.approve(BigDecimal("3.74"), 9), "art typed above its top is held to it"
+    assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), true ], l.approve(BigDecimal("3.5"), 9), "art typed above its top is held to it"
+    assert_equal [ BigDecimal("3.76"), BigDecimal("1.54"), false ], l.approve(BigDecimal("3.74"), nil), "0.02 under is a rounding, so the top (ROUNDING_GAP)"
+    assert_equal [ BigDecimal("3.76"), BigDecimal("1.44"), true ], l.approve(nil, BigDecimal("1.44")), "0.1 under needs a reason"
   end
 
   test "typed figures are kept to the hundredth" do

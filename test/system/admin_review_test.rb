@@ -101,7 +101,7 @@ class AdminReviewTest < ApplicationSystemTestCase
 
   # D-111: 5.3 counted hours, no AI coding and 5542 s of art. Coding 3.76 and art 1.54 add up to the 5.3 claimed, and the form sends
   # them as they stand. A hundredth under either is a deflation, and the box for its reason opens.
-  test "the form's own figures add up to the hours claimed with no reason, and a hundredth below asks for one (D-111)" do
+  test "the form's own figures add up to the hours claimed with no reason, and 0.05 or more below asks for one (D-111)" do
     users(:ana).streak_activities.update_all(coded_seconds: 19_080)
     @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
     visit admin_ship_path(@ship)
@@ -110,15 +110,18 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_selector "[data-deflate-target=total]", text: "5.3"
     assert_no_field "Why deflated", visible: :visible
 
-    fill_in "coding_hours", with: "3.75"
+    fill_in "coding_hours", with: "3.5"
     assert_field "Why deflated", visible: :visible
     fill_in "art_hours", with: "1.54"
-    assert_equal "1.53", find("input[name=art_hours]").value, "art held at 30% of the lower coding, rounded down"
-    assert_selector "[data-deflate-target=total]", text: "5.28"
+    assert_equal "1.5", find("input[name=art_hours]").value, "art held at 30% of the lower coding, rounded down"
+    assert_selector "[data-deflate-target=total]", text: "5"
 
     fill_in "coding_hours", with: "3.76"
-    fill_in "art_hours", with: "1.53"
+    fill_in "art_hours", with: "1.4"
     assert_field "Why deflated", visible: :visible
+
+    fill_in "art_hours", with: "1.53"
+    assert_no_field "Why deflated", visible: :visible, wait: 1 # a rounding, under Ship::Limits::ROUNDING_GAP
 
     fill_in "art_hours", with: "1.54"
     assert_no_field "Why deflated", visible: :visible
@@ -195,6 +198,9 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_no_selector "#admin-ship-deflation-says", visible: :all
 
     fill_in "coding_hours", with: "7.49"
+    assert_no_field "Why deflated", visible: :visible, wait: 1 # under Ship::Limits::ROUNDING_GAP is rounding
+
+    fill_in "coding_hours", with: "7.4"
     assert_field "Why deflated", visible: :visible
     assert_selector "[data-deflate-target=whyRequired]", text: /Required/
     assert_no_selector "#admin-ship-deflation-says", visible: :all

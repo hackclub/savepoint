@@ -11,6 +11,10 @@ class Ship::Limits
   ART_CAP_PERCENT = 30
   # Under this many hours apart is form rounding, not a cut.
   TOLERANCE = BigDecimal("0.01")
+  # A figure the reviewer types within this many hours of its top is the top, and needs no deflation reason. Lapse shows art to the
+  # hundredth, so adding two rounded figures can land a few hundredths under the most (ship 49: 17.3 + 1.27 against 18.6). The review
+  # page reads this too (deflate_controller.js, through data-deflate-rounding-gap-value), so the two never disagree.
+  ROUNDING_GAP = BigDecimal("0.05")
 
   attr_reader :claimed, :ai_coding, :hackatime_ai, :reviewer_ai, :art, :lapse, :lapse_coding
 
@@ -71,7 +75,7 @@ class Ship::Limits
   def art_top(coding) = coding >= coding_top ? [ most - coding, 0 ].max : art_allowed_for(coding).floor(2)
 
   # The coding and art hours the reviewer asked for, held to the limits as playground's approve_review! does: coding
-  # to the AI cap, art to the art hold on that coding. nil asks for the most; a figure within a rounding of the most is
+  # to the AI cap, art to the art hold on that coding. nil asks for the most; a figure within ROUNDING_GAP of the most is
   # the most. Returns [coding, art, below], where below says the reviewer went under what the rules allow, so "why
   # deflated" is due. The AI cut and the art hold need no reason. Both figures are in hundredths.
   def approve(coding_hours, art_hours) = approve_new(0, 0, coding_hours, art_hours)
@@ -91,7 +95,7 @@ class Ship::Limits
     coding = typed(coding_hours, top_coding)
     top_art = new_art_top(earlier_coding, earlier_art, coding)
     art = typed(art_hours, top_art)
-    [ coding, art, top_coding - coding >= TOLERANCE || top_art - art >= TOLERANCE ]
+    [ coding, art, top_coding - coding >= ROUNDING_GAP || top_art - art >= ROUNDING_GAP ]
   end
 
   def ai_cut = coding - coding_cap
@@ -121,7 +125,7 @@ class Ship::Limits
     # within a rounding of it.
     def typed(figure, top)
       value = figure.nil? ? top : figure.to_d.clamp(0, top)
-      top - value < TOLERANCE ? top : value.round(2)
+      top - value < ROUNDING_GAP ? top : value.round(2)
     end
 
     def ai_reason

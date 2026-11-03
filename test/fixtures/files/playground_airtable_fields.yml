@@ -1,0 +1,46 @@
+# A copy of the field names Playground writes to Airtable, so a test can diff Save Point's against them (D-144).
+# Source: Playground's app/services/airtable_fields.rb, user(u) and ship(s). Only the names are copied, not the code.
+# To refresh: git fetch in the Playground repo, read origin/main's file, update the lists and the sha.
+repo: hackclub/desktop-pet-ysws (website/)
+commit: a7d40bbff8a2d93702353e68f0f701c13ef06cbc
+file: app/services/airtable_fields.rb
+user:
+  - playground_id
+  - Email
+  - First Name
+  - Last Name
+  - Slack ID
+  - Hack Club Auth ID
+  - Verification Status
+  - YSWS Eligible
+  - Banned
+  - Loops - playgroundSignupAt
+  - Loops - playgroundFirstShipAt
+  - Loops - playgroundFirstPetCreatedAt
+  - Loops - playgroundNoTimeNudge
+ship:
+  - playground_id
+  - Code URL
+  - Playable URL
+  - Ship Message URL
+  - Automation - Submit to Unified YSWS
+  - First Name
+  - Last Name
+  - Email
+  - Screenshot
+  - Description
+  - GitHub Username
+  - Address (Line 1)
+  - Address (Line 2)
+  - City
+  - State / Province
+  - Country
+  - ZIP / Postal Code
+  - Birthday
+  - Optional - Override Hours Spent
+  - Optional - Override Hours Spent Justification
+  - Justification - Hackatime Project Name(s) + Date Range(s)
+  - Justification - Submitter Hackatime ID
+  - Justification - Specific Technical Features
+  - Justification - Deflation Justification
+  - Justification - Lapse Links, comma-separated

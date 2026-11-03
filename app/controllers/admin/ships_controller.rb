@@ -149,12 +149,13 @@ class Admin::ShipsController < Admin::BaseController
     render json: { by: current_user.first_name, at: @ship.review_draft_updated_at }
   end
 
-  # The checklist saves on every tick, while the ship is in review (D-049).
+  # The checklist saves on every tick, while the ship is in review (D-049). Real name also saves on an approved ship (D-143).
   def checklist
-    return head(:unprocessable_entity) unless @ship.in_review?
+    key = params.require(:key).to_s
+    return head(:unprocessable_entity) unless Ship::CHECKLIST_KEYS.include?(key) && @ship.checklist_open_for?(key)
     return head(:forbidden) if @ship.by?(current_user)
 
-    @ship.update!(review_checklist: @ship.review_checklist.merge(params.require(:key) => params[:value] == "1"))
+    @ship.tick_checklist!(key, params[:value] == "1")
     head :no_content
   end
 

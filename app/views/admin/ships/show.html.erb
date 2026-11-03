@@ -162,6 +162,9 @@
                          "readme" => "The README says how to run it", "screenshot" => "The screenshot shows the game running",
                          "hours_fit" => "The hours fit the scope of the changes", "art_cap" => "The art time is within the #{Ship::Limits::ART_CAP_PERCENT}% cap",
                          "not_double" => "The hours aren't already approved in another program" } %>
+        <%# D-143: the Real name item shows the first and last name exactly as the Unified YSWS row will carry them, and gates the box. %>
+        <% first_name, last_name = AirtableFields.names(@ship.project.user) %>
+        <% checklist["real_name"] = "Real name: first “#{first_name.presence || "(none)"}”, last “#{last_name.presence || "(none)"}” are a real person's name, not a handle, mash or one word" %>
         <% defaults = @ship.checklist_defaults(earlier: @earlier_ship, limits: @limits) %>
         <% ticked = checklist.keys.count { |key| @ship.checklist_tick(key, defaults) } %>
         <section class="sp-panel ash__panel ash__decide ash__decide--<%= tone %>" aria-labelledby="admin-ship-decision">

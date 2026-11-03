@@ -463,7 +463,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
   test "the checklist saves each tick while the ship is in review, and not after" do
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
-    assert_select "[data-controller=checklist][data-checklist-url-value=?] input[type=checkbox]", checklist_admin_ship_path(@ship), 6
+    assert_select "[data-controller=checklist][data-checklist-url-value=?] input[type=checkbox]", checklist_admin_ship_path(@ship), 7
 
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
     assert_response :no_content
@@ -480,6 +480,27 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, @ship.reload.review_checklist["runs"]
     get admin_ship_path(@ship)
     assert_select "input[name=readme][checked][disabled]"
+  end
+
+  test "the checklist shows the name as it goes to Airtable, never auto-ticked, and Real name still saves after approval (D-143)" do
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "label:has(input[name=real_name]) span", /Real name: first “Ana”, last “Lovelace”/
+    assert_select "input[name=real_name][checked]", 0
+    assert_select "label:has(input[name=real_name]) .ash__auto[title]", "auto"
+
+    patch checklist_admin_ship_path(@ship), params: { key: "bogus", value: "1" }
+    assert_response :unprocessable_entity
+
+    @ship.update!(approved_columns(@ship.hours, decided_at: Time.current))
+    patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
+    assert_response :unprocessable_entity
+    patch checklist_admin_ship_path(@ship), params: { key: "real_name", value: "1" }
+    assert_response :no_content
+    assert @ship.reload.real_name_checked?
+    get admin_ship_path(@ship)
+    assert_select "input[name=real_name][checked]:not([disabled])"
+    assert_select "input[name=runs][disabled]"
   end
 
   test "the checklist marks the ticks the app decided as auto, and a saved tick drops the tag (D-050)" do
@@ -499,7 +520,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
     post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
-    assert_equal({ "runs" => true, "screenshot" => true }, @ship.reload.review_checklist)
+    assert_equal({ "runs" => true, "screenshot" => true, "real_name" => false }, @ship.reload.review_checklist)
   end
 
   test "the review shows what they changed beside the commits, and the game before" do

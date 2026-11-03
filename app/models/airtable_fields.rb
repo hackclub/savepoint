@@ -70,6 +70,11 @@ module AirtableFields
   # Stardance check. It goes after compact_blank, which would drop a false.
   SUBMIT_TO_UNIFIED_FIELD = "Automation - Submit to Unified YSWS"
 
+  # D-143: the first and last name the Unified YSWS row gets, and the review page's Real name item shows: Hack Club Auth's
+  # given_name and family_name, stored at each sign-in. Nil for a user who has not signed in since last_name was kept. The full
+  # name is never cut up to make them.
+  def names(user) = [ user.first_name.to_s.strip.presence, user.last_name.to_s.strip.presence ]
+
   # An approved ship, in the YSWS template's field names. The screenshot goes only when the row is made, so a
   # reviewer's edits in Airtable stay. The phone number is never sent. `earlier` is the ship's Ship::EarlierShip
   # result, when the caller has it already.
@@ -78,13 +83,13 @@ module AirtableFields
     window = claim_window(s, earlier)
     user = s.project.user
     address = ShippingAddress.for(user).attributes
-    first = user.first_name.to_s
+    first, last = names(user)
     {
       AirtableSchema::ID_FIELD => "ship-#{s.id}",
       "Code URL" => s.repo_url,
       "Playable URL" => s.demo_url,
-      "First Name" => first.presence,
-      "Last Name" => user.name.to_s.delete_prefix(first).strip.presence,
+      "First Name" => first,
+      "Last Name" => last,
       "Email" => user.email,
       "Screenshot" => (screenshot(s) if s.airtable_record_id.blank?),
       "Description" => s.description,

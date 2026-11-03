@@ -4,6 +4,7 @@ orpheus:
   email: orpheus@hackclub.com
   name: Orpheus the Dino
   first_name: Orpheus
+  last_name: the Dino
   slack_id: U0ORPHEUS
   slack_display_name: orph
   verification_status: verified
@@ -17,6 +18,7 @@ ana:
   email: ana@hackclub.com
   name: Ana Lovelace
   first_name: Ana
+  last_name: Lovelace
   slack_id: U0ANA
   slack_display_name: pixelana
   verification_status: verified

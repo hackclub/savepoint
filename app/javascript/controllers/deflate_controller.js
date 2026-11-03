@@ -11,7 +11,7 @@ import { Controller } from "@hotwired/stimulus"
 // where `claimed` is the coding alone), and a reason is due only below the most the rules allow.
 export default class extends Controller {
   static targets = [ "coding", "art", "artMax", "total", "hold", "why", "whyRequired", "whyOptional" ]
-  static values = { claimed: Number, hoursClaimed: Number, cap: Number, artClaimed: Number, artTop: Number, artPercent: Number, earlierCoding: { type: Number, default: 0 }, earlierArt: { type: Number, default: 0 } }
+  static values = { claimed: Number, hoursClaimed: Number, cap: Number, artClaimed: Number, artTop: Number, artPercent: Number, earlierCoding: { type: Number, default: 0 }, earlierArt: { type: Number, default: 0 }, roundingGap: Number }
 
   setCoding(event) {
     const percent = Number(event.currentTarget.dataset.percent)
@@ -85,8 +85,8 @@ export default class extends Controller {
   // hold and rounded down, so it never passes the hold (Ship::Limits#art_top).
   #artAllowed(coding) { return coding >= this.capValue ? this.artTopValue : this.#floor(Math.min(this.artClaimedValue, this.#artHold(coding))) }
 
-  // A figure a hundredth or more under its top is a deflation, as the server counts it (Ship::Limits#approve).
-  #short(top, value) { return top - value > 0.01 - 1e-9 }
+  // A figure ROUNDING_GAP or more under its top is a deflation, as the server counts it (Ship::Limits#approve).
+  #short(top, value) { return top - value > this.roundingGapValue - 1e-9 }
 
   #round(hours) { return Math.round(hours * 100) / 100 }
 

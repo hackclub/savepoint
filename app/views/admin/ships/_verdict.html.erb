@@ -83,7 +83,7 @@
       data: { turbo: false, controller: "deflate verdict draft", draft_url_value: draft_admin_ship_path(ship), verdict_picked_value: picked.to_s,
               deflate_claimed_value: coding_claimed.to_f, deflate_hours_claimed_value: limits.claimed.to_f, deflate_cap_value: coding_top.to_f,
               deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_top_value: (art ? art_top_at_cap.to_f : 0),
-              deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT,
+              deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT, deflate_rounding_gap_value: Ship::Limits::ROUNDING_GAP.to_f,
               deflate_earlier_coding_value: prior_coding.to_f, deflate_earlier_art_value: prior_art.to_f } do |form| %>
   <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
 

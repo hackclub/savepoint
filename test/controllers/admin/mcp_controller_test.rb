@@ -275,19 +275,41 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     Ship::EarlierShip.token = nil
   end
 
-  test "review_ship stores exactly the most the rules allow, and asks for words at any hundredth below it (D-111)" do
+  test "review_ship stores exactly the most the rules allow, and asks for words at ROUNDING_GAP or more below it (D-111)" do
     ship = make_ship
     users(:ana).streak_activities.update_all(coded_seconds: 19_080)
     ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
     Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
 
-    below = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 3.75, art_hours: 1.54, technical_features: "A second ball." })
+    below = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 3.5, art_hours: 1.54, technical_features: "A second ball." })
     assert_equal false, below["decided"]
     assert_match(/Say why you approve fewer hours/, below["message"])
 
     done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", technical_features: "A second ball." })
     assert_equal true, done["decided"]
     assert_equal [ BigDecimal("5.3"), nil ], [ ship.reload.review_hours, ship.deflation_reason ]
+  end
+
+  test "review_ship takes a rounding gap under 0.05 hours as the most, with no reason (ship 49)" do
+    ship = make_ship
+    users(:ana).streak_activities.update_all(coded_seconds: 19.0 * 3600)
+    ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
+    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
+
+    done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 17.3, art_hours: 1.27, technical_features: "A second ball." })
+    assert_equal true, done["decided"], done["message"]
+    assert_equal [ BigDecimal("18.6"), nil ], [ ship.reload.review_hours, ship.deflation_reason ]
+  end
+
+  test "review_ship still asks for a reason on a gap of 0.1 hours (ship 49's numbers)" do
+    ship = make_ship
+    users(:ana).streak_activities.update_all(coded_seconds: 19.0 * 3600)
+    ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
+    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
+
+    short = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 17.3, art_hours: 1.17, technical_features: "A second ball." })
+    assert_equal false, short["decided"]
+    assert_match(/Say why you approve fewer hours/, short["message"])
   end
 
   test "save_review_draft merges any subset into the draft, decides nothing, tells nobody and is logged (D-135)" do

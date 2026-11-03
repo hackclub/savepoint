@@ -449,7 +449,7 @@ class AdminReviewTest < ApplicationSystemTestCase
 
   test "the closed sections and the checklist open on a click, one level deep" do
     visit admin_ship_path(@ship)
-    assert_selector "#admin-ship-checklist summary", text: /Checklist\s*\d of 6/
+    assert_selector "#admin-ship-checklist summary", text: /Checklist\s*\d of 7/
     assert_no_selector "#admin-ship-checklist .ash__tick", visible: :visible
     find("#admin-ship-checklist summary").click
     assert_selector "#admin-ship-checklist .ash__tick", count: 6

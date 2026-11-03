@@ -37,8 +37,6 @@ module Program
   # What an extension (Extension) was: this many days past the old last day. Save Point itself runs that long now, so
   # one moves nothing, and nobody can ask (Project#extension_requestable?).
   EXTENSION_DAYS = 7
-  # Ship stays open this many days past the deadline, quietly: nobody's told, and the site keeps saying the deadline.
-  SHIP_GRACE_DAYS = 2
   # The first hours pay more (Shop::FIRST_RATE an hour; Shop::RATE after), and the stats count who's past them.
   HOURS_PER_REWARD = 10
   # The date Hackatime is asked from (its stats take dates), D-003, D-017. Only time after STARTS_AT counts (D-055): the sync

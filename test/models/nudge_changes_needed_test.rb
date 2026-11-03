@@ -55,7 +55,7 @@ class NudgeChangesNeededTest < ActiveSupport::TestCase
     assert_equal "open your project", @sent.first.third.find { it[:type] == "actions" }[:elements].first[:text][:text]
   end
 
-  test "a verdict at 21:00 UTC the night before the end gets 24 hours, never the grace days" do
+  test "a verdict at 21:00 UTC the night before the end gets 24 hours" do
     verdict = Time.utc(2026, 11, 2, 21)
     travel_to(verdict) { @ship.decide!("changes_needed", by: @reviewer, feedback: "Fix the build.") }
     travel_to(verdict + 5.minutes) { perform_enqueued_jobs }
@@ -74,13 +74,13 @@ class NudgeChangesNeededTest < ActiveSupport::TestCase
     assert_not_includes texts.sole, "Nov 4"
   end
 
-  test "the gate stays open through the grace days for a changes needed project" do
+  test "a changes needed project ships up to the public end, and past it only in its window" do
     cutoff = @project.ship_cutoff
     @ship.update_columns(status: "changes_needed", reviewed_at: Time.utc(2026, 11, 1))
     @project.reload
     assert_equal Program::ENDS_AT, @project.changes_needed_until
+    assert_equal Program::ENDS_AT, cutoff
     assert_equal cutoff, @project.ship_closes_at
-    assert @project.may_ship?(now: Program::ENDS_AT + 1.day)
     assert @project.may_ship?(now: cutoff)
     assert_not @project.may_ship?(now: cutoff + 1.second)
   end
@@ -118,7 +118,7 @@ class NudgeChangesNeededTest < ActiveSupport::TestCase
     travel_to(Program::ENDS_AT - 1.hour) { @ship.decide!("changes_needed", by: @reviewer, feedback: "Fix it.") }
     @project.reload
     assert_equal (Program::ENDS_AT + 23.hours).to_i, @project.changes_needed_until.to_i
-    assert_equal cutoff.to_i, @project.ship_closes_at.to_i, "the grace days still accept a ship"
+    assert_equal @project.changes_needed_until.to_i, @project.ship_closes_at.to_i, "the window outlasts the cutoff"
     assert @project.may_ship?(now: cutoff - 1.minute)
 
     @ship.update_columns(reviewed_at: cutoff - 1.hour)
@@ -128,9 +128,17 @@ class NudgeChangesNeededTest < ActiveSupport::TestCase
     assert_not @project.may_ship?(now: cutoff + 23.hours + 1.second)
   end
 
-  test "others are refused after their cutoff" do
-    assert_not @project.may_ship?(now: @project.ship_cutoff + 1.second)
-    assert @project.may_ship?(now: @project.ship_cutoff)
+  test "others are refused after the public end (D-142)" do
+    assert_nil @project.changes_needed_until
+    assert_not @project.may_ship?(now: Program::ENDS_AT + 1.second)
+    assert @project.may_ship?(now: Program::ENDS_AT)
+  end
+
+  test "a changes needed verdict keeps its 24 hours after the end (D-140, D-142)" do
+    @ship.update_columns(status: "changes_needed", reviewed_at: Program::ENDS_AT - 1.hour)
+    @project.reload
+    assert_not @project.may_ship?(now: Program::ENDS_AT + 24.hours), "past the window"
+    assert @project.may_ship?(now: Program::ENDS_AT + 22.hours)
   end
 
   test "a later changes needed sets a new window, and a later approval or rejection ends it" do

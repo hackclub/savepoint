@@ -1,5 +1,5 @@
 # Shipping your project: the form, and once it's submitted, that it's in review. Opens once you're set up and your
-# hours come from a Hackatime project, and closes after your deadline, with a couple of quiet days' grace
+# hours come from a Hackatime project, and closes at the end of Save Point
 # (Project#ship_cutoff).
 class ShipsController < ApplicationController
   # Save Point's own layout and style sheet (D-009).

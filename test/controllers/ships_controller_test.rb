@@ -7,8 +7,8 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
   setup { @spans_before = Hackatime.stubbed_spans }
   teardown { Hackatime.stubbed_spans = @spans_before }
 
-  # Shipping closes at the end of the second day after Save Point's last day (Project#ship_cutoff), so on the real clock these
-  # tests fail from 2026-11-05 00:00 UTC: "Shipping's closed." A fixed day inside the program keeps them as they are. The tests
+  # Shipping closes at Program::ENDS_AT (Project#ship_cutoff), so on the real clock these
+  # tests fail from 2026-11-03 04:59 UTC: "Shipping's closed." A fixed day inside the program keeps them as they are. The tests
   # that travel to the cutoff do it in a block, which overrides this.
   setup { travel_to Time.utc(2026, 10, 28, 12) }
 
@@ -329,26 +329,25 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "shipping closes after the deadline where you are, with two quiet days nobody's told about" do
+  test "shipping closes at the public end for everyone, with no grace days" do
     link_hackatime(users(:orpheus))
     projects(:orpheus).update!(hackatime_projects: [ "rhythm-game" ], repo_later: true, buddy_skipped: true)
     users(:orpheus).update!(timezone: "America/New_York")
     sign_in_as_orpheus
 
-    travel_to Time.utc(2026, 11, 5, 3) do # 10pm on Nov 4 in New York: still open
+    travel_to Program::ENDS_AT - 1.minute do # 11:58pm on Nov 2 in New York: still open
       get project_ship_path
       assert_select "form.ship__form"
       get project_path
       assert_select ".project__ship", /Ship/
     end
 
-    travel_to Time.utc(2026, 11, 5, 6) do
+    travel_to Program::ENDS_AT + 1.minute do
       get project_ship_path
       assert_response :success
       assert_select ".ship__done[data-state=closed] .ship__done-title", "Shipping's closed."
       assert_select ".ship__done-text", /was Nov 2\./
       assert_select ".ship__stage", 0, "no screenshot, no empty stand"
-      assert_select ".ship__done-text", { text: /Nov 4/, count: 0 }, "the grace is never mentioned"
       assert_select "form.ship__form", 0
       assert_no_difference -> { Ship.count } do
         post project_ship_path, params: { ship: ship_params }

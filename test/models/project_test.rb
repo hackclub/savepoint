@@ -332,13 +332,15 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
     assert_equal Date.new(2026, 10, 23)..Date.new(2026, 11, 2), project.program_dates
   end
 
-  test "ship closes at the end of the deadline where you are, plus two quiet days" do
+  test "ship closes at the public end for everyone, in every time zone (D-142)" do
     project = projects(:orpheus)
-    assert_equal Time.utc(2026, 11, 4, 23, 59, 59), project.ship_cutoff.change(usec: 0), "UTC until they've said where they are"
-
-    users(:orpheus).update!(timezone: "America/New_York")
-    assert project.reload.may_ship?(now: Time.utc(2026, 11, 5, 3))
-    assert_not project.may_ship?(now: Time.utc(2026, 11, 5, 6))
+    %w[UTC America/New_York America/Los_Angeles Pacific/Auckland Pacific/Kiritimati Pacific/Pago_Pago Asia/Kolkata Australia/Sydney].each do |zone|
+      users(:orpheus).update!(timezone: zone)
+      project.reload
+      assert_equal Program::ENDS_AT, project.ship_cutoff, zone
+      assert project.may_ship?(now: Program::ENDS_AT), zone
+      assert_not project.may_ship?(now: Program::ENDS_AT + 1.second), zone
+    end
     assert_not project.may_ship?(now: Program::SHOP_CLOSES_AT - 1.minute), "D-138: the open shop does not reopen shipping"
   end
 

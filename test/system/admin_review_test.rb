@@ -452,7 +452,7 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_selector "#admin-ship-checklist summary", text: /Checklist\s*\d of 7/
     assert_no_selector "#admin-ship-checklist .ash__tick", visible: :visible
     find("#admin-ship-checklist summary").click
-    assert_selector "#admin-ship-checklist .ash__tick", count: 6
+    assert_selector "#admin-ship-checklist .ash__tick", count: 7
     assert_selector "details details", count: 0, visible: :all
     assert_selector ".ash__decide #admin-ship-limits", text: /Claimed.*Counted.*AI coding.*Art.*Most to approve/m
     assert_no_selector "details#admin-ship-hours[open]", visible: :all

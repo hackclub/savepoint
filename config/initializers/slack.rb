@@ -1,5 +1,5 @@
 # The "Save Point" Slack app in the Hack Club workspace (app ID A0CBA5E9K7V). Its manifest is slack-manifest.json.
-# Bot scopes: chat:write, channels:manage, groups:write, users:read, emoji:read. See SlackMessageJob.
+# Bot scopes: chat:write, channels:manage, channels:join, users:read. See SlackMessageJob.
 #
 # The bot token comes from ENV["SLACK_BOT_TOKEN"] first (.env locally, an Orchard env var in production),
 # then from Rails credentials (bin/rails credentials:edit):

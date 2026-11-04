@@ -3,7 +3,9 @@ import { Controller } from "@hotwired/stimulus"
 // D-135: saves the review form as a draft while the reviewer types. A change waits 800 ms for the next one, then goes to the server
 // as a fetch. When the page hides it goes at once as a beacon, which survives the page unloading. Only the fields that changed are
 // sent, and the server merges them, so a draft another admin wrote is kept. A verdict submit drops what is waiting: the verdict
-// uses the draft up. The lapse and AI forms sit outside this form, so the listener is on the document.
+// uses the draft up. The lapse and AI forms sit outside this form, so the listener is on the document. Each save says which draft
+// the page was filled from (loaded). When the server holds a newer one it answers 409: the page stops saving and tells the reviewer
+// to reload, so text the browser restored on a reload (autocomplete="off" stops most of it) never lands over a newer save.
 const DELAY_MS = 800
 const FIELDS = {
   coding_hours: "#verdict [name=coding_hours]",
@@ -20,10 +22,13 @@ const FIELDS = {
 
 export default class extends Controller {
   static targets = [ "status" ]
-  static values = { url: String }
+  static values = { url: String, loaded: String }
 
   connect() {
     this.dirty = new Set()
+    this.stale = false
+    this.unchecked = false
+    this.loaded = this.loadedValue
     this.timer = null
     this.submitted = false
     this.onInput = (event) => this.#touch(event.target)
@@ -71,7 +76,7 @@ export default class extends Controller {
   }
 
   #mark(key) {
-    if (this.submitted) return
+    if (this.submitted || this.stale) return
     this.dirty.add(key)
     clearTimeout(this.timer)
     this.timer = setTimeout(() => this.#save(), DELAY_MS)
@@ -85,6 +90,8 @@ export default class extends Controller {
 
   #body() {
     const body = new FormData()
+    // After a beacon the page doesn't know the time the server stored, so the next save goes unchecked and learns it from the answer.
+    if (!this.unchecked) body.append("loaded_at", this.loaded || "")
     this.dirty.forEach((key) => {
       const value = key === "decision" ? document.querySelector("#verdict-submit")?.value : document.querySelector(FIELDS[key])?.value
       if (value !== undefined) body.append(`draft[${key}]`, value)
@@ -92,23 +99,40 @@ export default class extends Controller {
     return body
   }
 
+  // Saves go one at a time, so each carries the time the one before it stored.
   #save() {
-    if (!this.dirty.size || this.submitted) return Promise.resolve()
+    this.pending = (this.pending || Promise.resolve()).then(() => this.#send())
+    return this.pending
+  }
+
+  #send() {
+    if (!this.dirty.size || this.submitted || this.stale) return Promise.resolve()
     const body = this.#body()
     this.dirty.clear()
     const token = document.querySelector("meta[name=csrf-token]")?.content
     return fetch(this.urlValue, { method: "POST", body, headers: { "X-CSRF-Token": token, Accept: "application/json" }, keepalive: true })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((saved) => { if (saved && this.hasStatusTarget) this.statusTarget.textContent = `Draft saved just now by ${saved.by}.` })
+      .then((response) => (response.ok || response.status === 409 ? response.json().then((json) => ({ ok: response.ok, json })) : null))
+      .then((result) => {
+        if (!result) return
+        if (!result.ok) {
+          this.stale = true
+          if (this.hasStatusTarget) this.statusTarget.textContent = result.json.error
+          return
+        }
+        this.loaded = result.json.at || ""
+        this.unchecked = false
+        if (this.hasStatusTarget) this.statusTarget.textContent = `Draft saved just now by ${result.json.by}.`
+      })
       .catch(() => {})
   }
 
   #beacon() {
-    if (!this.dirty.size || this.submitted || !navigator.sendBeacon) return
+    if (!this.dirty.size || this.submitted || this.stale || !navigator.sendBeacon) return
     const body = this.#body()
     body.append("authenticity_token", document.querySelector("meta[name=csrf-token]")?.content || "")
     this.dirty.clear()
     clearTimeout(this.timer)
+    this.unchecked = true
     navigator.sendBeacon(this.urlValue, body)
   }
 }

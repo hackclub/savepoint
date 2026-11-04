@@ -35,6 +35,17 @@ class UserTest < ActiveSupport::TestCase
     assert_operator colors.uniq.size, :>, 6, "the colours are spread out"
   end
 
+  test "only listed admins are admins, in development too unless it is switched on" do
+    user = users(:ana)
+    original = Rails.configuration.x.admin_slack_ids
+    Rails.configuration.x.admin_slack_ids = []
+    assert_not user.admin?
+    Rails.configuration.x.admin_slack_ids = [ user.slack_id ]
+    assert user.admin?
+  ensure
+    Rails.configuration.x.admin_slack_ids = original
+  end
+
   test "your timezone is remembered from your browser, if it's a real one" do
     user = users(:ana)
     user.remember_timezone("America/New_York")

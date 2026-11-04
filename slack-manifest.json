@@ -20,9 +20,7 @@
         "chat:write",
         "channels:manage",
         "channels:join",
-        "groups:write",
-        "users:read",
-        "emoji:read"
+        "users:read"
       ],
       "user": [
         "chat:write"

@@ -55,7 +55,7 @@
 <% ai_low = [ limits.hackatime_ai, ship.earlier_approval&.ship&.reviewer_ai_in_force.to_d ].max.floor(2) %>
 <details class="ash__fold" id="raise-ai" <%= "open" if limits.ai_raised? || draft["ai_coding_hours"].present? || draft["ai_reason"].present? %>>
   <summary class="ash__fold-summary">Raise AI coding <small class="admin__muted">Hackatime <%= format.(limits.hackatime_ai) %> hrs</small></summary>
-  <%= form_with url: reviewer_ai_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "reviewer-ai", data: { turbo: false } do |ai_form| %>
+  <%= form_with url: reviewer_ai_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "reviewer-ai", html: { autocomplete: "off" }, data: { turbo: false } do |ai_form| %>
     <%= ai_form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
     <div class="sp-field">
       <%= ai_form.label :reviewer_ai_coding_hours, "AI coding hours", class: "sp-label" %>
@@ -79,8 +79,8 @@
 
 <%= render "admin/ships/checklist", ship:, checklist:, defaults:, ticked:, own: false %>
 
-<%= form_with url: review_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "verdict", html: { novalidate: true },
-      data: { turbo: false, controller: "deflate verdict draft", draft_url_value: draft_admin_ship_path(ship), verdict_picked_value: picked.to_s,
+<%= form_with url: review_admin_ship_path(ship), method: :post, class: "ash__verdict-form", id: "verdict", html: { novalidate: true, autocomplete: "off" },
+      data: { turbo: false, controller: "deflate verdict draft", draft_url_value: draft_admin_ship_path(ship), draft_loaded_value: ship.review_draft_updated_at&.iso8601(6).to_s, verdict_picked_value: picked.to_s,
               deflate_claimed_value: coding_claimed.to_f, deflate_hours_claimed_value: limits.claimed.to_f, deflate_cap_value: coding_top.to_f,
               deflate_art_claimed_value: (art ? art_claimed.to_f : 0), deflate_art_top_value: (art ? art_top_at_cap.to_f : 0),
               deflate_art_percent_value: Ship::Limits::ART_CAP_PERCENT, deflate_rounding_gap_value: Ship::Limits::ROUNDING_GAP.to_f,

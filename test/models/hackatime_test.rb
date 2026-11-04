@@ -23,6 +23,31 @@ class HackatimeTest < ActiveSupport::TestCase
     Hackatime.stubbed_all_projects = before
   end
 
+  test "the cached API key is sealed, comes back as the key, and a clear entry from before is fetched again" do
+    user = users(:orpheus)
+    link_hackatime(user)
+    calls = 0
+    answer = Net::HTTPSuccess.new("1.1", "200", "OK").tap { |response| response.define_singleton_method(:body) { { token: "secret-hackatime-key" }.to_json } }
+    original_get = Hackatime.method(:get)
+    original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    Hackatime.define_singleton_method(:get) { |*, **| calls += 1; answer }
+
+    assert_equal "secret-hackatime-key", Hackatime.send(:api_key, user)
+    stored = Rails.cache.read([ "hackatime/api_key", user.hackatime_uid ])
+    assert_not_includes stored.to_s, "secret-hackatime-key"
+    assert_equal "secret-hackatime-key", Hackatime.send(:api_key, user)
+    assert_equal 1, calls, "the second read came from the cache"
+
+    Rails.cache.write([ "hackatime/api_key", user.hackatime_uid ], "secret-hackatime-key")
+    assert_equal "secret-hackatime-key", Hackatime.send(:api_key, user)
+    assert_equal 2, calls, "a clear entry is not trusted"
+    assert_not_includes Rails.cache.read([ "hackatime/api_key", user.hackatime_uid ]).to_s, "secret-hackatime-key"
+  ensure
+    Rails.cache = original_cache
+    Hackatime.define_singleton_method(:get, original_get)
+  end
+
   test "pickable projects need Hackatime linked" do
     assert_raises(Hackatime::NotLinked) { Hackatime.pickable_projects(users(:orpheus)) }
   end

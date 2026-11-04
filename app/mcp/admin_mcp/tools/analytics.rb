@@ -49,6 +49,12 @@ module AdminMcp::Tools::Analytics
             max_rows: { type: "integer", minimum: 1, maximum: MAX_ROWS, description: "At most this many rows. Default #{MAX_ROWS}." } },
           required: %w[sql]
 
+    # The audit row holds the query's SHA-256 and length, not its text: a query can carry a participant's email or name.
+    def self.audit_extra(args)
+      sql = args[:sql]
+      sql.is_a?(String) ? { "sql_sha256" => Digest::SHA256.hexdigest(sql), "sql_length" => sql.length } : {}
+    end
+
     def self.run(args, _caller)
       connection = ActiveRecord::Base.connection
       schemas = connection.select_values("select nspname from pg_namespace")

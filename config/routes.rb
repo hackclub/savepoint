@@ -121,7 +121,7 @@ Rails.application.routes.draw do
   # Hack Club Auth. Signing in is a POST to /auth/hackclub (OmniAuth's middleware), which comes back here.
   # Linking Hackatime comes back here; it doesn't sign you in.
   get "auth/hackatime/callback" => "hackatime_links#create", as: :hackatime_link_callback
-  get "auth/:provider/callback" => "sessions#create", as: :auth_callback
+  get "auth/:provider/callback" => "sessions#create", as: :auth_callback, constraints: { provider: "hackclub" }
   get "auth/failure" => "sessions#failure", as: :auth_failure
   # Straight after sign-in, when there's no Hackatime token yet (D-026). It posts itself on to Hackatime's OAuth.
   get "sign-in/hackatime" => "sessions#hackatime_step", as: :sign_in_hackatime

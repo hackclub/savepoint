@@ -261,12 +261,18 @@ class Ship < ApplicationRecord
   # D-135: merges these fields into the review draft, for a ship in review, and returns the merged draft (nil when the ship is not in
   # review). Only the keys in REVIEW_DRAFT_KEYS are kept, a nil is skipped and "" clears a field. It never decides the ship, never
   # changes the hours the limits read and never tells the participant.
-  def save_review_draft!(fields, by:)
+  # `loaded_at` is the review_draft_updated_at the writer's page was filled from (a Time, or nil for a page that loaded no draft).
+  # When the stored draft is newer, nothing is written and the answer is :stale: the page holds older text than the server.
+  # Leave `loaded_at` out (the MCP tools) to write without the check.
+  def save_review_draft!(fields, by:, loaded_at: :unchecked)
     return unless in_review?
 
     fields = fields.to_h.stringify_keys.slice(*REVIEW_DRAFT_KEYS).compact.transform_values { it.to_s[0, REVIEW_DRAFT_MAX] }
     fields.delete("decision") unless fields["decision"].nil? || fields["decision"].in?(DECISIONS + [ "" ])
     with_lock do
+      stored_at = review_draft_updated_at
+      return :stale if loaded_at != :unchecked && stored_at && (loaded_at.nil? || stored_at > loaded_at)
+
       merged = review_draft.to_h.merge(fields)
       update_columns(review_draft: merged, review_draft_updated_at: Time.current, review_draft_updated_by_id: by.id) if fields.any?
       merged

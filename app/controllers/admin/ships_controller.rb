@@ -9,6 +9,9 @@
 # Nobody's told by this page (D-034). An admin can't review or fraud-check their own ship, and a claim (Claim) keeps two
 # admins off the same ship. The queues (Admin::QueuesController) hand out the oldest ship waiting.
 class Admin::ShipsController < Admin::BaseController
+  # What the review page says when its autosave finds a newer draft (D-135, draft_controller.js).
+  DRAFT_STALE = "This ship's draft changed since you opened the page. Reload to see it before you type more.".freeze
+
   before_action :set_ship, except: :index
   before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split reviewer_ai]
 
@@ -143,10 +146,13 @@ class Admin::ShipsController < Admin::BaseController
   def draft
     return head(:forbidden) if @ship.by?(current_user)
 
-    merged = @ship.save_review_draft!(params.fetch(:draft, {}).permit(*Ship::REVIEW_DRAFT_KEYS), by: current_user)
+    fields = params.fetch(:draft, {}).permit(*Ship::REVIEW_DRAFT_KEYS)
+    # The page says which draft it was filled from. A draft written since is newer than the page's text, so it is not overwritten.
+    merged = params.key?(:loaded_at) ? @ship.save_review_draft!(fields, by: current_user, loaded_at: loaded_draft_time) : @ship.save_review_draft!(fields, by: current_user)
+    return render(json: { error: DRAFT_STALE }, status: :conflict) if merged == :stale
     return head(:unprocessable_entity) unless merged
 
-    render json: { by: current_user.first_name, at: @ship.review_draft_updated_at }
+    render json: { by: current_user.first_name, at: @ship.review_draft_updated_at&.iso8601(6) }
   end
 
   # The checklist saves on every tick, while the ship is in review (D-049). Real name also saves on an approved ship (D-143).
@@ -160,6 +166,9 @@ class Admin::ShipsController < Admin::BaseController
   end
 
   private
+    # The draft time the page was filled from: blank means the page loaded no draft. Anything unreadable counts as blank, so it is checked.
+    def loaded_draft_time = params[:loaded_at].presence && (Time.iso8601(params[:loaded_at].to_s) rescue nil)
+
     def set_ship = @ship = Ship.includes(:decided_by, :reviewer, :fraud_reviewer, project: :user).find(params[:id])
 
     def load_review

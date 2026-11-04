@@ -22,6 +22,14 @@ class Ship::ChecklistTest < ActiveSupport::TestCase
     assert checks.blocked?
   end
 
+  test "a demo that fails to resolve gives one generic message and keeps the reason out of it" do
+    Web.adapter = ->(*) { raise Web::Error, "internal.example is not a public address" }
+    checks = Ship::Checklist.new(repo_url: "https://github.com/a/b", demo_url: "https://internal.example/play")
+    demo = checks.items.find { it.key == :demo }
+    assert_equal :fail, demo.state
+    assert_equal "The link didn't load for someone who isn't signed in.", demo.detail
+  end
+
   test "a check that could not run never blocks" do
     answer(%r{\Ahttps://api\.github\.com/} => Web::Response.new(status: 403, headers: {}, body: "{}"), %r{\Ahttps://example\.com/?\z} => ok)
     checks = Ship::Checklist.new(repo_url: "https://github.com/a/b", demo_url: "https://example.com")

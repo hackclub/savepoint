@@ -28,7 +28,7 @@ class AdminTokenTest < ActiveSupport::TestCase
   end
 
   test "audit rows hold no free text, only IDs" do
-    ids = AdminMcp::Tool.audit_ids(ship_id: 4, user_ids: [ 1, 2 ], query: "ana@hackclub.com", technical_features: "text", project_id: "7", id: 3)
+    ids = AdminMcp::Tool.audit_ids({ ship_id: 4, user_ids: [ 1, 2 ], query: "ana@hackclub.com", technical_features: "text", project_id: "7", id: 3 })
     assert_equal({ "ship_id" => 4, "user_ids" => [ 1, 2 ], "id" => 3 }, ids)
   end
 end

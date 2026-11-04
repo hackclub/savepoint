@@ -154,7 +154,7 @@ class User < ApplicationRecord
   end
 
   def admin?
-    Rails.env.development? || listed_admin?
+    listed_admin? || (Rails.env.development? && ENV["DEV_ADMIN_FOR_ALL"] == "1")
   end
 
   # On the list of admins (config/initializers), rather than an admin because it's development.

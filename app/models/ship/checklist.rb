@@ -202,7 +202,9 @@ class Ship::Checklist
     rescue Web::Timeout
       item(key, :unchecked)
     rescue Web::Error => e
-      item(key, :fail, "#{failure} (#{e.message.first(60)})", blocker: true)
+      # The reason stays in the log: the resolver's message can name internal hosts, and the reviewer needs only the verdict.
+      Rails.logger.warn("[checklist] #{key} probe of #{url.to_s.first(200)} failed: #{e.message.first(120)}")
+      item(key, :fail, failure, blocker: true)
     end
 
     def github(path) = Web.get("#{API}#{path}", headers: Ship::Commits.headers)

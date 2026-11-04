@@ -62,9 +62,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(@token, "tools/list")
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
-    assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
-    writes = %w[review_ship save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text fraud_ship send_verdict_dm mark_order_ordered decide_extension]
+    assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -235,6 +235,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
 
   test "find_ships and get_ship show what the review page shows, and nothing is asked of the network but GitHub" do
     ship = make_ship
+    Stardance.stubbed_status = nil
     Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
 
     ships = mcp_tool(@token, "find_ships")
@@ -300,43 +301,6 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_match "The reviewer's reason: A menu was cut.", full["justifications"]["Justification - Deflation Justification"]
   ensure
     Ship::EarlierShip.token = nil
-  end
-
-  test "review_ship stores exactly the most the rules allow, and asks for words at ROUNDING_GAP or more below it (D-111)" do
-    ship = make_ship
-    users(:ana).streak_activities.update_all(coded_seconds: 19_080)
-    ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
-    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
-
-    below = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 3.5, art_hours: 1.54, technical_features: "A second ball." })
-    assert_equal false, below["decided"]
-    assert_match(/Say why you approve fewer hours/, below["message"])
-
-    done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", technical_features: "A second ball." })
-    assert_equal true, done["decided"]
-    assert_equal [ BigDecimal("5.3"), nil ], [ ship.reload.review_hours, ship.deflation_reason ]
-  end
-
-  test "review_ship takes a rounding gap under 0.05 hours as the most, with no reason (ship 49)" do
-    ship = make_ship
-    users(:ana).streak_activities.update_all(coded_seconds: 19.0 * 3600)
-    ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
-    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
-
-    done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 17.3, art_hours: 1.27, technical_features: "A second ball." })
-    assert_equal true, done["decided"], done["message"]
-    assert_equal [ BigDecimal("18.6"), nil ], [ ship.reload.review_hours, ship.deflation_reason ]
-  end
-
-  test "review_ship still asks for a reason on a gap of 0.1 hours (ship 49's numbers)" do
-    ship = make_ship
-    users(:ana).streak_activities.update_all(coded_seconds: 19.0 * 3600)
-    ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
-    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
-
-    short = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 17.3, art_hours: 1.17, technical_features: "A second ball." })
-    assert_equal false, short["decided"]
-    assert_match(/Say why you approve fewer hours/, short["message"])
   end
 
   test "save_review_draft merges any subset into the draft, decides nothing, tells nobody and is logged (D-135)" do
@@ -661,13 +625,26 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ 0.0, nil, {}, "Pong" ], [ ship.reload.lapse_coding_hours, ship.reviewer_ai_coding_hours, ship.review_checklist, ship.title ]
   end
 
-  test "a verdict through review_ship clears the draft (D-135)" do
+  test "a verdict clears the draft (D-135)" do
     ship = make_ship
     Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
     mcp_tool(@token, "save_review_draft", { ship_id: ship.id, judgement: "Looks thin." })
-    mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "rejected", judgement: "Looks thin." })
+    assert ship.reload.decide!("rejected", by: users(:orpheus), judgement: "Looks thin.")
     assert_equal "rejected", ship.reload.status
     assert_empty ship.review_draft
+  end
+
+  # D-136, D-148: no MCP tool presses a verdict. The page does.
+  test "no tool gives a verdict: review_ship and fraud_ship are gone, and no tool file calls the verdict methods" do
+    mcp_post(@token, "tools/list")
+    names = response.parsed_body.dig("result", "tools").map { it["name"] }
+    assert_not_includes names, "review_ship"
+    assert_not_includes names, "fraud_ship"
+
+    verdicts = /\.(decide!|pass_fraud!|ban_for_fraud!)\b/
+    Dir[Rails.root.join("app/mcp/**/*.rb").to_s].each do |file|
+      assert_no_match verdicts, File.read(file).lines.reject { it.strip.start_with?("#") }.join, "#{file} presses a verdict"
+    end
   end
 
   test "list_orders shows the address only for the ones to order" do
@@ -703,116 +680,6 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
   end
 
   # Writes: the same model methods the admin pages call.
-
-  test "review_ship approves with the limits, or says what's missing, and sends back" do
-    ship = make_ship
-
-    missing = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved" })
-    assert_equal false, missing["decided"]
-    assert_match(/Name the specific technical features/, missing["message"])
-    assert ship.reload.in_review?
-
-    deflated = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 6, technical_features: "A second ball." })
-    assert_equal false, deflated["decided"]
-    assert_match(/Say why you approve fewer hours/, deflated["message"])
-
-    done = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "approved", coding_hours: 6, technical_features: "A second ball.",
-                                              deflation_reason: "A menu was cut." })
-    assert_equal true, done["decided"]
-    assert ship.reload.awaiting_fraud?, "approved goes to the fraud check"
-    assert_equal 6, ship.review_hours
-    assert_nil ship.approved_hours
-    assert_equal users(:orpheus), ship.reviewer
-    assert_equal "awaiting_fraud", done.dig("ship", "status")
-    assert_equal({ "ship_id" => ship.id }, AdminAuditEvent.last.ids)
-
-    again = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "rejected" })
-    assert_equal false, again["decided"]
-    assert_equal "That one's been decided already.", again["message"]
-    assert ship.reload.awaiting_fraud?
-  end
-
-  test "review_ship refuses a ship the participant replaced by shipping again (D-109)" do
-    ship = make_ship
-    ship.update_columns(status: "superseded")
-
-    result = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "changes_needed", feedback: "More." })
-    assert_equal false, result["decided"]
-    assert_equal Ship::REPLACED_MESSAGE, result["message"]
-    assert_equal "superseded", ship.reload.status
-    found = mcp_tool(@token, "find_ships", { status: "superseded" })
-    assert_equal [ ship.id ], found["ships"].map { it["id"] }
-    assert_equal "Replaced", found["ships"].first["status_label"]
-  end
-
-  test "fraud_ship passes, deducts, bans or sends back a ship waiting for its fraud check" do
-    ship = make_ship
-    refused = mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "pass" })
-    assert_equal false, refused["decided"]
-    assert_equal "That one isn't waiting for its fraud check.", refused["message"]
-
-    ship.decide!("approved", by: users(:ana), technical_features: "A second ball.")
-    assert_equal false, mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "deduct", deduct_hours: 1 })["decided"]
-    assert_equal false, mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "send_back" })["decided"]
-    assert_equal false, mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "ban" })["decided"]
-    assert ship.reload.awaiting_fraud?
-
-    sent = mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "send_back", reason: "Hours look high." })
-    assert_equal true, sent["decided"]
-    assert ship.reload.in_review?
-
-    ship.decide!("approved", by: users(:ana), technical_features: "A second ball.")
-    done = mcp_tool(@token, "fraud_ship", { ship_id: ship.id, verdict: "deduct", deduct_hours: 1.5, notes: "AFK." })
-    assert_equal true, done["decided"]
-    assert ship.reload.approved?
-    assert_equal BigDecimal("6"), ship.approved_hours
-    assert_equal users(:orpheus), ship.decided_by
-
-    other = projects(:ana).ships.create!(ship.attributes.slice("title", "description", "repo_url", "demo_url").merge(hours: 3,
-                                         screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true))
-    other.decide!("approved", by: users(:ana), technical_features: "A second ball.")
-    assert_equal true, mcp_tool(@token, "fraud_ship", { ship_id: other.id, verdict: "ban", notes: "Same repo as another account." })["decided"]
-    assert other.reload.rejected?
-    assert users(:ana).reload.banned?
-
-    mcp_post(@token, "tools/call", { name: "fraud_ship", arguments: { ship_id: ship.id, verdict: "maybe" } })
-    assert response.parsed_body.dig("result", "isError") || response.parsed_body["error"]
-  end
-
-  test "review_ship and fraud_ship refuse your own ship and one another admin holds" do
-    ship = make_ship
-    Claim.acquire(ship, "review", users(:ana))
-    held = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "changes_needed", feedback: "Add a README." })
-    assert mcp_error?
-    assert_match(/another admin|holds|open/i, held)
-    assert ship.reload.in_review?
-
-    Claim.where(ship:).delete_all
-    ship = projects(:orpheus).ships.create!(ship.attributes.slice("title", "description", "repo_url", "demo_url").merge(hours: 3,
-                                            screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true))
-    own = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "changes_needed", feedback: "Add a README." })
-    assert mcp_error?
-    assert_match(/your own/i, own)
-    assert ship.reload.in_review?
-  end
-
-  test "review_ship sends a ship back as changes needed" do
-    ship = make_ship
-    refused = mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "changes_needed" })
-    assert_equal false, refused["decided"]
-    assert_match(/Tell the participant what to change/, refused["message"])
-    assert_equal true, mcp_tool(@token, "review_ship", { ship_id: ship.id, decision: "changes_needed", feedback: "Add a README." })["decided"]
-    assert ship.reload.changes_needed?
-    assert_equal "Add a README.", ship.review_feedback
-    assert_equal "Changes needed", mcp_tool(@token, "find_ships", { status: "changes_needed" })["ships"].first["status_label"]
-  end
-
-  test "review_ship refuses a decision that isn't one" do
-    ship = make_ship
-    mcp_post(@token, "tools/call", { name: "review_ship", arguments: { ship_id: ship.id, decision: "maybe" } })
-    assert response.parsed_body.dig("result", "isError") || response.parsed_body["error"]
-    assert ship.reload.in_review?
-  end
 
   test "mark_order_ordered orders once, and the bot DMs them" do
     order = make_order("micro", "waiting")

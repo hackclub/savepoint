@@ -39,6 +39,9 @@ module Stardance
     def message = [ MESSAGE, *ids.map { Stardance.project_url(it) } ].join(" ")
   end
 
+  # Tests set this to a status (test_helper sets :clear) so a verdict doesn't ask the MCP. nil reads the real answer.
+  mattr_accessor :stubbed_status
+
   module_function
 
   def token = ENV["STARDANCE_MCP_TOKEN"].presence
@@ -47,6 +50,7 @@ module Stardance
 
   # Checks a ship's repository. Once a ship of the project is in the Unified YSWS DB it stays with Save Point.
   def check(ship)
+    return Check.new(status: stubbed_status, ids: []) if stubbed_status
     return Check.new(status: :clear, ids: []) if ship.project.ships.exists?(in_unified: true)
 
     key = Ship::EarlierShip.normalize(ship.repo_url)

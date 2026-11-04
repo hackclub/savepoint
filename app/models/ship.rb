@@ -317,10 +317,10 @@ class Ship < ApplicationRecord
       end
     end
     if earlier.checked?
-      defaults["not_double"] = if earlier.overlapping_entry(after: project.hours_start.utc.to_date)
-        [ false, "The Unified YSWS DB has an approval after this project's hours began counting." ]
+      defaults["not_double"] = if earlier.overlapping_entry(user: project.user, from: project.hours_start.utc.to_date, to: (created_at || Time.current).utc.to_date)
+        [ false, "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting." ]
       else
-        [ true, "No approval after this project's hours began counting in the Unified YSWS DB." ]
+        [ true, "No earlier record of this person in the Unified YSWS DB covers time after this project's hours began counting." ]
       end
     end
     defaults["real_name"] = [ false, RealName.new(self).concern || "Nothing in the name looks wrong, but the app never ticks this. Read it and tick it." ]
@@ -462,8 +462,11 @@ class Ship < ApplicationRecord
   # - changes_needed: needs the note to the participant (D-049). They fix it and ship again, hours kept.
   # - rejected: final. Needs the reviewer's judgement.
   # - banned: fraud found at review. Needs the evidence, and bans the account.
+  #
+  # D-148: an approval also passes the gates (#approval_blockers). `overrides` holds the reasons that lift the ones a reason can lift,
+  # by key ("stardance", "limits", "double", "duplicate"). Whoever decides, web page or job, goes through here.
   def decide!(decision, by:, coding_hours: nil, art_hours: nil, technical_features: nil, deflation_reason: nil, feedback: nil,
-                judgement: nil, evidence: nil, checklist_defaults: {})
+                judgement: nil, evidence: nil, checklist_defaults: {}, overrides: {})
     return false unless DECISIONS.include?(decision)
 
     # D-109: under the row's lock, so a verdict can't land on a ship the participant replaces at the same moment.
@@ -481,7 +484,7 @@ class Ship < ApplicationRecord
         next false
       end
       decided = decide_in_review(decision, by:, coding_hours:, art_hours:, technical_features:, deflation_reason:, feedback:, judgement:,
-                                 evidence:, checklist_defaults:)
+                                 evidence:, checklist_defaults:, overrides: overrides.to_h.stringify_keys)
       # D-135: the verdict used the draft up. A ship sent back to review starts from the earlier review, not a stale draft.
       update_columns(review_draft: {}, review_draft_updated_at: nil, review_draft_updated_by_id: nil) if decided
       decided
@@ -489,13 +492,13 @@ class Ship < ApplicationRecord
   end
 
   def decide_in_review(decision, by:, coding_hours:, art_hours:, technical_features:, deflation_reason:, feedback:, judgement:,
-                       evidence:, checklist_defaults:)
+                       evidence:, checklist_defaults:, overrides:)
     self.review_feedback = feedback.to_s.strip.presence
     self.review_judgement = judgement.to_s.strip.presence
     # D-050: the app's ticks freeze with the decision, under any the reviewer saved. Stored only when it decides.
     frozen = checklist_defaults.transform_values(&:first).merge(review_checklist)
     case decision
-    when "approved" then approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen)
+    when "approved" then approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen, overrides)
     when "changes_needed"
       errors.add(:review_feedback, "Tell the participant what to change") if review_feedback.nil?
       close_review("changes_needed", by, frozen)
@@ -506,6 +509,31 @@ class Ship < ApplicationRecord
     end
   end
   private :decide_in_review
+
+  # D-148: a gate on approving. override is true when a typed reason lifts it, false when nothing does.
+  Blocker = Data.define(:key, :message, :override)
+  OVERRIDE_KEYS = %w[stardance limits double duplicate].freeze
+
+  # D-148: what stands in the way of approving this ship, whoever presses it (web page, job). `frozen` is the checklist as the verdict
+  # would store it (the app's ticks under the reviewer's). The checklist itself still never blocks (D-049); only these do:
+  # a red Hackatime trust level (D-148), a repo Stardance reviews or can't be checked (D-063), limits Hackatime couldn't say (D-030),
+  # an overlap with another program (D-110), and a second account on the same repo or person (D-148).
+  def approval_blockers(frozen:, evidence: Ship::Evidence.new(self), limits: self.limits(counted_hours))
+    list = []
+    list << Blocker.new("trust", "Hackatime's trust level for this person is red, so they can't be approved.", false) if evidence.trust_level == "red"
+    stardance = evidence.stardance
+    if stardance.shipped?
+      list << Blocker.new("stardance", "This repo is shipped on Stardance, so Stardance reviews it. Approve is off.", false)
+    elsif stardance.unknown?
+      list << Blocker.new("stardance", "Stardance could not be checked.", true)
+    end
+    list << Blocker.new("limits", "Hackatime did not say how much was AI coding or art, so no cut applies.", true) unless limits.known?
+    list << Blocker.new("double", "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting.", true) if frozen["not_double"] == false
+    if (duplicate = evidence.duplicates.first)
+      list << Blocker.new("duplicate", "Another account has the same #{duplicate.reason.sub("same ", "")}.", true)
+    end
+    list
+  end
 
   # The fraud check passes, or passes with a deduction (hours taken off the review's, which need notes). The ship is
   # then approved: its hours are the participant's to spend, and it goes to Airtable. False when it isn't awaiting the check.
@@ -526,6 +554,7 @@ class Ship < ApplicationRecord
       deduction = deduction.to_d.clamp(0, [ review_hours.to_d - held, 0 ].max).floor(2)
       self.fraud_notes = notes.to_s.strip.presence
       errors.add(:fraud_notes, "Say why you deduct hours") if deduction.positive? && fraud_notes.nil?
+      errors.add(:base, "Hackatime's trust level for this person is red, so they can't be approved.") if project.user.hackatime_banned?
       next false if errors.any?
 
       update!(status: "approved", fraud_status: deduction.positive? ? "deducted" : "passed", fraud_reviewer: by,
@@ -612,7 +641,7 @@ class Ship < ApplicationRecord
       errors.add(:approved_hours, "Approved hours are the review's hours less the fraud deduction")
     end
 
-    def approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen)
+    def approve_review(by, coding_hours, art_hours, technical_features, deflation_reason, frozen, overrides = {})
       # D-111: the limits read the counted hours to the hundredth, as claimed_hours stores them, so approving the most the rules
       # allow stores exactly the most (Ship::Limits#coding_top).
       limits = limits(counted_hours)
@@ -632,6 +661,11 @@ class Ship < ApplicationRecord
       errors.add(:technical_features, "Name the specific technical features that explain the hours") if self.technical_features.nil?
       errors.add(:deflation_reason, "Say why you approve fewer hours than the rules allow") if below && reason.nil?
       total = coding + art
+      # D-148: a reason for going below the rules has to name the cut, in hours, so a stray word can't stand for it.
+      if below && reason && !reason_names_the_cut?(reason, limits.most - total, total)
+        errors.add(:deflation_reason, "Say how many hours you cut in the reason: #{Ship::Limits.hrs([ limits.most - total, 0 ].max)}, or the #{Ship::Limits.hrs(total)} you approve")
+      end
+      used = lift_blockers(by, overrides, frozen, limits)
       # Only when the hours went down, by a hundredth too (D-111): the limits' own words for an AI or art cut, then the reviewer's,
       # so the Airtable justification has both. A reason given when nothing was cut isn't kept. Hours that went down with no
       # words to say why can't be approved.
@@ -641,8 +675,29 @@ class Ship < ApplicationRecord
 
       update!(status: "awaiting_fraud", fraud_status: "pending", reviewer: by, reviewed_at: Time.current, claimed_hours: claimed,
               review_coding_hours: coding, review_art_hours: art, review_hours: total, deflation_reason: cut,
-              approved_hours: nil, decided_by: nil, decided_at: nil, review_checklist: frozen)
+              approved_hours: nil, decided_by: nil, decided_at: nil, review_checklist: frozen, review_overrides: used)
       true
+    end
+
+    # D-148: the blockers a typed reason lifts become errors when it is missing. Returns the reasons that were used, to keep.
+    def lift_blockers(by, overrides, frozen, limits)
+      approval_blockers(frozen:, limits:).each_with_object({}) do |blocker, used|
+        reason = overrides[blocker.key].to_s.strip
+        if !blocker.override
+          errors.add(:base, blocker.message)
+        elsif reason.empty?
+          errors.add(:base, "#{blocker.message} Type a reason to approve anyway.")
+        elsif blocker.key == "limits" && !reason.match?(/\d/)
+          errors.add(:base, "#{blocker.message} Type the AI coding and art hours you checked, with your reason.")
+        else
+          used[blocker.key] = { "reason" => reason, "by" => by.id, "at" => Time.current.iso8601 }
+        end
+      end
+    end
+
+    # D-148: a figure in the reason matches the hours cut (or the hours approved) to about a hundredth.
+    def reason_names_the_cut?(reason, cut, total)
+      reason.scan(/\d+(?:\.\d+)?/).map(&:to_d).any? { |figure| [ cut, total ].any? { (figure - it).abs <= BigDecimal("0.015") } }
     end
 
     def close_review(status, by, frozen)

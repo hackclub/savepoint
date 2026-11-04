@@ -39,15 +39,13 @@ class Admin::ShipsController < Admin::BaseController
     return stale unless @ship.in_review?
     return taken if Claim.held_by_other?(@ship, "review", current_user)
 
-    # D-063 item 9: Stardance reviews a repo shipped there, so Approve is refused. Changes needed and reject stay open.
-    if params[:decision].to_s == "approved" && Ship::Evidence.new(@ship).stardance_shipped?
-      return redirect_to(admin_ship_path(@ship, queue: params[:queue].presence), alert: "This repo is shipped on Stardance, so Stardance reviews it. Approve is off.")
-    end
+    # D-063 item 9, D-148: the gates on Approve (Stardance, trust, limits, overlap, a second account) are Ship#decide!'s, so every path shares them.
     earlier = Ship::EarlierShip.for(@ship)
     decided = @ship.decide!(params[:decision].to_s, by: current_user, coding_hours: params[:coding_hours], art_hours: params[:art_hours],
                             technical_features: params[:technical_features], deflation_reason: params[:deflation_reason],
                             feedback: params[:review_feedback], judgement: params[:review_judgement], evidence: params[:evidence],
-                            checklist_defaults: @ship.checklist_defaults(earlier:))
+                            checklist_defaults: @ship.checklist_defaults(earlier:),
+                            overrides: Ship::OVERRIDE_KEYS.index_with { params["override_#{it}"] })
     return replaced if @ship.superseded?
     return refill unless decided
 
@@ -110,6 +108,10 @@ class Admin::ShipsController < Admin::BaseController
   # D-065: moves the moment the project's Hackatime time starts counting, or clears the reviewer's start (the later of
   # Save Point's start and the sign-up counts again). Logged like an admin tool call. Saving rebuilds their days.
   def hours_start
+    # D-148: only a ship in review, and not one another admin holds, takes this (the MCP tool refuses the same).
+    return redirect_to(admin_ship_path(@ship), alert: "This ship isn't in review.") unless @ship.in_review?
+    return taken if Claim.held_by_other?(@ship, "review", current_user)
+
     project = @ship.project
     value = params[:clear].present? ? nil : parse_start(params[:hours_start_override])
     return redirect_to(admin_ship_path(@ship), alert: "Pick a date and time, or clear the override.") if value == :invalid
@@ -196,6 +198,9 @@ class Admin::ShipsController < Admin::BaseController
       # D-063: the evidence panels. Each part is looked up as the page draws it and shows its own problem line.
       @evidence = Ship::Evidence.new(@ship, commits: @commits)
       @send_backs = @ship.send_backs.includes(:user).to_a
+      # D-148: what stands in the way of Approve, and the reviewer's typed reasons for the ones a reason lifts.
+      @blockers = @ship.in_review? ? @ship.approval_blockers(frozen: @ship.checklist_defaults(earlier: @earlier_ship).transform_values(&:first).merge(@ship.review_checklist),
+                                                            evidence: @evidence, limits: @limits) : []
       @claim, @held = claim_for_page
     end
 

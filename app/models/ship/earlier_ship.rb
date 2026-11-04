@@ -11,7 +11,32 @@ class Ship::EarlierShip
   OWN_PROGRAM = "Save Point"
   REPO_HOSTS = %w[github.com gitlab.com codeberg.org bitbucket.org].freeze
 
-  Entry = Data.define(:program, :approved_at, :hours, :code_url, :screenshot_url)
+  # D-149: ranges are the dates the record's time covers ([from, to] pairs read from its Hackatime projects line, empty when none
+  # can be read). email and hackatime_id say whose record it is, nil when the record does not say.
+  # Field names on the Unified "Approved Projects" table, checked against the live schema on 2026-11-04. They are not the names on
+  # Save Point's own submission side. The justification reads "Hackatime ID: 65164" and "Hackatime Projects: name M/D/YYYY-M/D/YYYY" lines.
+  JUSTIFICATION_FIELD = "Override Hours Spent Justification"
+  EMAIL_FIELD = "Email"
+  EMAIL_FALLBACK_FIELD = "Email - Trimmed & Lowercased"
+
+  Entry = Data.define(:program, :approved_at, :hours, :code_url, :screenshot_url, :ranges, :email, :hackatime_id) do
+    def initialize(program:, approved_at:, hours:, code_url:, screenshot_url:, ranges: [], email: nil, hackatime_id: nil)
+      super
+    end
+
+    # The same person: the email matches, or the Hackatime ID does. A record that names neither is not known to be theirs.
+    def same_person?(user)
+      (email.present? && user.email.present? && email.casecmp?(user.email)) ||
+        (hackatime_id.present? && user.hackatime_uid.present? && hackatime_id.to_s == user.hackatime_uid.to_s)
+    end
+
+    # Whether the dates the record covers meet from..to: true, false, or nil when no range is readable (never guessed, D-144).
+    def overlaps?(from, to)
+      return if ranges.empty?
+
+      ranges.any? { |first, last| first <= to && last >= from }
+    end
+  end
   # status: :found, :none, :not_configured, :error. entry is the latest record, entries every one, oldest first.
   Result = Data.define(:status, :entry, :message, :entries) do
     def initialize(status:, entry:, message:, entries: [])
@@ -22,10 +47,11 @@ class Ship::EarlierShip
     # Whether the Unified YSWS DB was asked and answered (found or none).
     def checked? = status.in?(%i[found none])
 
-    # The first record approved after `date`: its hours may double-count ours. The overlap warning and the
-    # checklist's not_double tick (D-050) both read this, so the rule lives once.
-    def overlapping_entry(after: Program::STARTS_AT.utc.to_date)
-      entries.find { (approved = AirtableFields.parse_date(it.approved_at)) && approved > after }
+    # D-149: the first record of this person whose covered dates meet from..to, or whose dates can't be read. A record of another
+    # person (a teammate on the same repo) is not an overlap, and a record that ends before `from` is not one even when it was
+    # approved after. The overlap warning and the checklist's not_double tick (D-050) both read this, so the rule lives once.
+    def overlapping_entry(user:, from:, to:)
+      entries.find { it.same_person?(user) && it.overlaps?(from, to) != false }
     end
   end
 
@@ -77,8 +103,23 @@ class Ship::EarlierShip
 
       shot = Array(fields["Screenshot"]).first
       Entry.new(program: names.join(", ").presence || "unknown program", approved_at: fields["Approved At"],
-                hours: fields["Override Hours Spent"], code_url: fields["Code URL"],
+                hours: fields["Override Hours Spent"], code_url: fields["Code URL"], ranges: date_ranges(fields),
+                email: Array(fields[EMAIL_FIELD].presence || fields[EMAIL_FALLBACK_FIELD]).first.to_s.strip.presence, hackatime_id: fields[JUSTIFICATION_FIELD].to_s[/^Hackatime ID:\s*(\d+)\s*$/, 1],
                 screenshot_url: shot.is_a?(Hash) ? (shot.dig("thumbnails", "large", "url") || shot["url"]) : nil)
+    end
+
+    # "rhythm-game 10/23/2026-10/27/2026, art 10/22/2026-10/25/2026": every M/D/YYYY-M/D/YYYY pair in the record's Hackatime projects
+    # line (the justification field, or the override hours justification's "Hackatime Projects: ..." line).
+    RANGE = %r{(\d{1,2}/\d{1,2}/\d{4})\s*[-\u2013]\s*(\d{1,2}/\d{1,2}/\d{4})}
+
+    def date_ranges(fields)
+      text = fields[JUSTIFICATION_FIELD].to_s.lines.grep(/\AHackatime Projects:/).join("\n")
+      text.scan(RANGE).filter_map do |first, last|
+        first, last = [ first, last ].map { Date.strptime(it, "%m/%d/%Y") }
+        [ first, last ] if first <= last
+      rescue Date::Error
+        nil
+      end
     end
 
     def failure(response)

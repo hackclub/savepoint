@@ -3,6 +3,7 @@ require "test_helper"
 class StardanceTest < ActiveSupport::TestCase
   setup do
     @token = ENV["STARDANCE_MCP_TOKEN"]
+    Stardance.stubbed_status = nil
     ENV["STARDANCE_MCP_TOKEN"] = "token-test"
     @ship = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.",
                                          repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", hours: 3,

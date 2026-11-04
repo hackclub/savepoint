@@ -49,13 +49,27 @@ class Ship::Evidence
 
   def lapse_review_url = Telescreen.lapse_review_url(user)
 
-  # Hackatime's trust level for them, as last stored. Asked once when nothing is stored yet.
+  # Hackatime's trust level for them, read afresh when they have linked Hackatime (the stored one can be old), and the stored one
+  # when Hackatime can't say.
   def trust_level
-    return user.hackatime_trust_level if user.hackatime_trust_level.present? || !user.hackatime_linked?
+    return user.hackatime_trust_level.presence unless user.hackatime_linked?
 
     ::Hackatime.refresh_trust_level!(user)
   rescue ::Hackatime::NotLinked, ::Hackatime::Expired, ::Hackatime::Unavailable
-    nil
+    user.hackatime_trust_level.presence
+  end
+
+  # D-146: the code has to be in git. A line when the commits can't be read, the repository is empty, or it has no commit since the
+  # hours began counting. nil when there are commits. The reviewer decides (the checklist never blocks), but the page says it in red.
+  def no_code_in_git
+    commits = @commits || Ship::Commits.for(ship)
+    if !commits.ok?
+      "The commits could not be read (#{commits.message}) Check by hand that the code is in git."
+    elsif repo.ok? && repo.commits == 0
+      "The repository is empty, so the code is not in git."
+    elsif commits.commits.empty?
+      "The repository has no commits since this project's hours began counting, so the code may not be in git."
+    end
   end
 
   def other_ships

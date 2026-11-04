@@ -349,10 +349,9 @@ module AirtableFields
     if others.any?
       parts << "This code URL is already in the Unified YSWS DB: #{others.map { record_text(it) }.join("; ")}."
       parts << "Save Point counts only Hackatime time from #{us_date(start)}, when #{window&.start ? "this record's claim window began" : "this project's hours began counting"}, so time those records counted before then is not claimed again."
-      later = others.select { (date = parse_date(it.approved_at)) && date > start }
-      later.each do |entry|
-        parts << "The #{entry.program} record was approved on #{us_date(parse_date(entry.approved_at))}, after this project's hours began counting, so its time from #{us_date(start)} may overlap this record."
-      end
+      finish = (s.created_at || Time.current).utc.to_date
+      others.each { |entry| parts << overlap_text(entry, s.project.user, start, finish) }
+      parts.compact!
     end
     key = Ship::EarlierShip.normalize(s.repo_url)
     same = earlier_ships(s).select { Ship::EarlierShip.normalize(it.repo_url) == key }
@@ -362,6 +361,20 @@ module AirtableFields
       parts << "This record claims only the #{hours_text(new_hours(s, window))} since then, #{date_range(s, window)}."
     end
     parts.join(" ").presence
+  end
+
+  # D-149: what dates a record covers and whether they meet the time counted here (start to the ship), said plainly. Never a guess:
+  # a record with no readable dates cannot be ruled in or out. A record not known to be this person's says nothing (nil).
+  def overlap_text(entry, user, start, finish)
+    counted = "#{us_date(start)}-#{us_date(finish)}"
+    return unless entry.same_person?(user) # another person's record (a teammate on the same repo) is no overlap
+
+    covered = entry.ranges.map { |first, last| "#{us_date(first)}-#{us_date(last)}" }.to_sentence
+    case entry.overlaps?(start, finish)
+    when true then "The #{entry.program} record covers #{covered}, which overlaps the time counted here (#{counted})."
+    when false then "The #{entry.program} record covers #{covered}, which does not overlap the time counted here (#{counted})."
+    else "The #{entry.program} record has no readable dates, so an overlap with the time counted here (#{counted}) cannot be ruled out."
+    end
   end
 
   def record_text(entry)

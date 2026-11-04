@@ -54,6 +54,18 @@ class Ship::Snapshot
       return nil
     end
 
+    # D-148: a decided ship takes corrections to its words (logged), not new links: the repo and playable link on a Unified record
+    # are what the reviewer judged. A ship the participant replaced takes nothing.
+    if ship.superseded?
+      errors.add(:base, Ship::REPLACED_MESSAGE)
+    elsif !ship.in_review? && (changed & %w[repo_url demo_url]).any?
+      errors.add(:base, "Only a ship in review takes new links. A decided ship takes corrections to its title and words only.")
+    end
+    if errors.any?
+      ship.restore_attributes
+      return false
+    end
+
     ship.valid?
     ship.errors.each { errors.add(it.attribute, it.message) if changed.include?(it.attribute.to_s) }
     if errors.any?

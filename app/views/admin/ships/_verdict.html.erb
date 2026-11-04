@@ -32,7 +32,10 @@
 <% art_max_now = prior ? [ limits.art_max_for(prior_coding + coding_now.to_d) - prior_art, 0 ].max : limits.art_max_for(coding_now.to_d) %>
 <% format = Ship::Limits.method(:format) %>
 <%# D-063 item 9: when the repo is shipped on Stardance, Stardance reviews it, so Approve is off (the evidence panel says why). %>
-<% approve_off = @evidence&.stardance_shipped? %>
+<%# D-148: a blocker no reason lifts (Stardance reviews the repo, trust is red) turns Approve off. The others ask for a typed reason below. %>
+<% blockers = @blockers.to_a %>
+<% approve_off = blockers.any? { !it.override } %>
+<% code_problem = @evidence&.no_code_in_git %>
 
 <%# D-112: "Why deflated" shows whenever the hours to approve fall below the hours claimed, the test approve_review makes (claimed > total,
     a hundredth counts). The figures are the ones approve_new would take from the form as drawn. An AI cut or the art hold shows it
@@ -104,6 +107,11 @@
           data: { verdict_target: "pick", verdict: "banned", action: "verdict#pick", shortcut: "b", shortcut_submit: "#verdict-submit" } do %><%= sp_icon "warning-fill" %>Fraud: reject and ban <kbd class="ash__kbd">b b</kbd><% end %>
   </div>
 
+  <%# D-148: what stopped a verdict that no field of its own explains (a gate on Approve). %>
+  <% ship.errors[:base].each do |message| %>
+    <p class="ash__problem ash__problem--coral" role="alert"><%= sp_icon "warning-fill" %><%= message %></p>
+  <% end %>
+
   <%# Approve: the hours, why they went down, the features that explain them. %>
   <div class="ash__verdict-fields" data-verdict-target="fields" data-verdict-for="approved" <%= "hidden" if hide.("approved") %>>
     <% if prior %>
@@ -143,6 +151,18 @@
             <button type="button" class="sp-btn sp-btn--sm ash__preset" data-percent="<%= percent %>" data-action="deflate#setArt"><%= percent %>% <small><%= format.(art_claimed * percent / 100) %>h</small></button>
           <% end %>
         </div>
+      </div>
+    <% end %>
+
+    <%# D-146: the checklist never blocks, but a repo with no commits is said in red where Approve is pressed. %>
+    <% if code_problem %>
+      <p class="ash__problem ash__problem--coral" data-code="approve"><%= sp_icon "warning-fill" %><%= code_problem %></p>
+    <% end %>
+    <% blockers.select(&:override).each do |blocker| %>
+      <div class="sp-field" data-override="<%= blocker.key %>">
+        <%= form.label "override_#{blocker.key}", "Approve anyway: #{blocker.message}", class: "sp-label" %>
+        <%= form.text_area "override_#{blocker.key}", value: params["override_#{blocker.key}"], rows: 2, class: "sp-input ash__textarea" %>
+        <span class="sp-help"><%= blocker.key == "limits" ? "Type the AI coding and art hours you checked, with your reason." : "Say why this approval is fine. It is kept with the ship." %></span>
       </div>
     <% end %>
 

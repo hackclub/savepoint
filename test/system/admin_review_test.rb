@@ -183,10 +183,10 @@ class AdminReviewTest < ApplicationSystemTestCase
     assert_equal "3.75", find("input[name=coding_hours]").value, "what was typed comes back"
     assert_selector "[data-deflate-target=whyRequired]", text: /Required/
 
-    fill_in "Why deflated", with: "A menu was cut."
+    fill_in "Why deflated", with: "A menu was cut, 0.81 hrs."
     find("#verdict-submit").click
     assert_text "Fraud check"
-    assert_equal "#{AI_WORDS} A menu was cut.", @ship.reload.deflation_reason
+    assert_equal "#{AI_WORDS} A menu was cut, 0.81 hrs.", @ship.reload.deflation_reason
   end
 
   test "with nothing cut Why deflated stays hidden until the hours drop, and then has no limits' words (D-112)" do

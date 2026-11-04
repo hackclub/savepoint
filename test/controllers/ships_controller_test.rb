@@ -92,6 +92,7 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     ready_to_ship
     post project_ship_path, params: { ship: ship_params }
     first = projects(:orpheus).ships.sole
+    first.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
     first.decide!("approved", by: users(:ana), technical_features: "A beat grid.")
     assert first.reload.awaiting_fraud?
 
@@ -121,6 +122,7 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as_orpheus
     post project_ship_path, params: { ship: ship_params }
     ship = projects(:orpheus).ships.sole
+    ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
 
     ship.decide!("approved", by: users(:ana), technical_features: "A beat grid.")
     assert ship.reload.awaiting_fraud?

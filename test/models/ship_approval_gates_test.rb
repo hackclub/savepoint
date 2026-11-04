@@ -93,9 +93,9 @@ class ShipApprovalGatesTest < ActiveSupport::TestCase
   end
 
   test "an overlap with another program refuses an approval until the reviewer ticks it away or types a reason (finding 11)" do
-    defaults = { "not_double" => [ false, "The Unified YSWS DB has an approval after this project's hours began counting." ] }
+    defaults = { "not_double" => [ false, "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting." ] }
     assert_not approve(checklist_defaults: defaults)
-    assert_includes @ship.errors[:base], "The Unified YSWS DB has an approval after this project's hours began counting. Type a reason to approve anyway."
+    assert_includes @ship.errors[:base], "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting. Type a reason to approve anyway."
 
     assert approve(checklist_defaults: defaults, overrides: { "double" => "Their other record is a different build, 4 months apart." })
     assert @ship.reload.review_overrides["double"]["reason"].present?

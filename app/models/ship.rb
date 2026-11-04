@@ -317,10 +317,10 @@ class Ship < ApplicationRecord
       end
     end
     if earlier.checked?
-      defaults["not_double"] = if earlier.overlapping_entry(after: project.hours_start.utc.to_date)
-        [ false, "The Unified YSWS DB has an approval after this project's hours began counting." ]
+      defaults["not_double"] = if earlier.overlapping_entry(user: project.user, from: project.hours_start.utc.to_date, to: (created_at || Time.current).utc.to_date)
+        [ false, "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting." ]
       else
-        [ true, "No approval after this project's hours began counting in the Unified YSWS DB." ]
+        [ true, "No earlier record of this person in the Unified YSWS DB covers time after this project's hours began counting." ]
       end
     end
     defaults["real_name"] = [ false, RealName.new(self).concern || "Nothing in the name looks wrong, but the app never ticks this. Read it and tick it." ]
@@ -528,7 +528,7 @@ class Ship < ApplicationRecord
       list << Blocker.new("stardance", "Stardance could not be checked.", true)
     end
     list << Blocker.new("limits", "Hackatime did not say how much was AI coding or art, so no cut applies.", true) unless limits.known?
-    list << Blocker.new("double", "The Unified YSWS DB has an approval after this project's hours began counting.", true) if frozen["not_double"] == false
+    list << Blocker.new("double", "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting.", true) if frozen["not_double"] == false
     if (duplicate = evidence.duplicates.first)
       list << Blocker.new("duplicate", "Another account has the same #{duplicate.reason.sub("same ", "")}.", true)
     end

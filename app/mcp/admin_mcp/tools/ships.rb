@@ -53,7 +53,7 @@ module AdminMcp::Tools::Ships
       review = ship.review
       project = ship.project
       earlier = review.earlier_ship
-      overlap = earlier.entries.find { (date = AirtableFields.parse_date(it.approved_at)) && date > project.hours_start.utc.to_date }
+      overlap = earlier.overlapping_entry(user: project.user, from: project.hours_start.utc.to_date, to: ship.created_at.utc.to_date)
       AdminMcp::Present.ship(ship).merge(
         user: AdminMcp::Present.person(project.user), description: ship.description, changes_made: ship.changes_made.presence,
         repo_url: ship.repo_url, demo_url: ship.demo_url, has_screenshot: ship.screenshot.attached?,

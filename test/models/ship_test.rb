@@ -240,7 +240,7 @@ class ShipTest < ActiveSupport::TestCase
 
   test "the checklist defaults decide only what the app knows (D-050)" do
     ship = ship_now(hours: 10)
-    entry = ->(approved_at) { Ship::EarlierShip::Entry.new(program: "jame gam", approved_at:, hours: 4, code_url: nil, screenshot_url: nil) }
+    entry = ->(approved_at, ranges = []) { Ship::EarlierShip::Entry.new(program: "jame gam", approved_at:, hours: 4, code_url: nil, screenshot_url: nil, ranges:, email: ship.project.user.email) }
     result = ->(status, *entries) { Ship::EarlierShip::Result.new(status:, entry: entries.last, message: nil, entries:) }
     unchecked = result.(:not_configured)
     limits = ->(art) { Ship::Limits.new(claimed: 10, ai_coding_seconds: 0, art_seconds: art) }
@@ -258,7 +258,7 @@ class ShipTest < ActiveSupport::TestCase
     assert_match(/over the cap/, over.last)
 
     assert_equal false, ship.checklist_defaults(earlier: result.(:found, entry.((Program::STARTS_AT + 1.day).to_date.to_s)), limits: limits.(nil))["not_double"].first
-    assert_equal true, ship.checklist_defaults(earlier: result.(:found, entry.("2020-01-01")), limits: limits.(nil))["not_double"].first
+    assert_equal true, ship.checklist_defaults(earlier: result.(:found, entry.("2020-01-01", [ [ Date.new(2019, 12, 1), Date.new(2019, 12, 31) ] ])), limits: limits.(nil))["not_double"].first
     assert_equal true, ship.checklist_defaults(earlier: result.(:none), limits: limits.(nil))["not_double"].first
   end
 

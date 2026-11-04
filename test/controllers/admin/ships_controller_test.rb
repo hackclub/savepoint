@@ -1041,14 +1041,15 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
   test "an approved ship shows what goes to Airtable, with the duplicate justification, and a later record warns of overlap" do
     Ship::EarlierShip.token = "pat-test"
-    records = [ { fields: { "Code URL" => "https://github.com/ana/pong", "YSWS–Name" => [ "jame gam" ], "Approved At" => "2026-10-24", "Override Hours Spent" => 4 } } ]
+    records = [ { fields: { "Code URL" => "https://github.com/ana/pong", "YSWS–Name" => [ "jame gam" ], "Approved At" => "2026-10-24", "Override Hours Spent" => 4,
+                                 "Email" => users(:ana).email, "Justification - Hackatime Project Name(s) + Date Range(s)" => "pong 10/20/2026-10/30/2026" } } ]
     Web.adapter = lambda do |_method, url, _headers|
       body = URI(url).host == "api.github.com" ? [].to_json : { records: }.to_json
       Web::Response.new(status: 200, headers: {}, body:)
     end
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
-    assert_select "[data-overlap]", /jame gam record was approved after this project's hours began counting/
+    assert_select "[data-overlap]", /jame gam record of this person covers 10\/20\/2026-10\/30\/2026, which meets the time counted here/
 
     approve_through_fraud(@ship, technical_features: "Two-ball physics.")
     get admin_ship_path(@ship)

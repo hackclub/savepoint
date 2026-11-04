@@ -40,8 +40,9 @@ class AirtableFieldsTest < ActiveSupport::TestCase
     ship
   end
 
-  def unified_record(program, approved_at, hours, url: "#{REPO}/")
-    { "Code URL" => url, "YSWS–Name" => [ program ], "Approved At" => approved_at, "Override Hours Spent" => hours }
+  def unified_record(program, approved_at, hours, url: "#{REPO}/", email: nil, range: nil)
+    { "Code URL" => url, "YSWS–Name" => [ program ], "Approved At" => approved_at, "Override Hours Spent" => hours, "Email" => email,
+      "Justification - Hackatime Project Name(s) + Date Range(s)" => (range && "rhythm-game #{range}") }.compact
   end
 
   def first_ship = approved(at: Program::STARTS_AT + 2.days, hours: 6)
@@ -215,12 +216,21 @@ class AirtableFieldsTest < ActiveSupport::TestCase
                  "counted before then is not claimed again.", text
   end
 
-  test "a record approved after Save Point began is named as one that may overlap" do
-    @unified = [ unified_record("jame gam", "2026-10-20T12:00:00.000Z", 4), unified_record("Sleepover", "2026-10-24", nil) ]
+  test "D-149: a same-person record is said to overlap or not by the dates it covers, never by its approval date" do
+    me = @project.user.email
+    @unified = [ unified_record("jame gam", "2026-10-20T12:00:00.000Z", 4),
+                 unified_record("Sleepover", "2026-10-31", nil, email: me, range: "10/10/2026-10/20/2026"),
+                 unified_record("Cabin", "2026-10-31", nil, email: me, range: "10/22/2026-10/24/2026") ]
     text = AirtableFields.ship(first_ship)["Optional - Override Duplicate Justification"]
-    assert_match "jame gam (approved 10/20/2026, 4 hours); Sleepover (approved 10/24/2026, hours unknown).", text
-    assert_match "The Sleepover record was approved on 10/24/2026, after this project's hours began counting, so its time from 10/23/2026 may overlap this record.", text
-    assert_no_match "The jame gam record", text
+    assert_match "The Sleepover record covers 10/10/2026-10/20/2026, which does not overlap the time counted here (10/23/2026-10/25/2026).", text
+    assert_match "The Cabin record covers 10/22/2026-10/24/2026, which overlaps the time counted here (10/23/2026-10/25/2026).", text
+    assert_no_match "The jame gam record", text, "a record that is not known to be theirs says nothing"
+  end
+
+  test "D-149: a same-person record with no readable dates cannot be ruled out" do
+    @unified = [ unified_record("Sleepover", "2026-10-31", nil, email: @project.user.email) ]
+    text = AirtableFields.ship(first_ship)["Optional - Override Duplicate Justification"]
+    assert_match "The Sleepover record has no readable dates, so an overlap with the time counted here (10/23/2026-10/25/2026) cannot be ruled out.", text
   end
 
   test "an update names the earlier Save Point ship, starts its dates there, and claims only its new hours" do

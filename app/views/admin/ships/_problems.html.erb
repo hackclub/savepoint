@@ -3,7 +3,7 @@
     evidence.stardance_shipped?, which the verdict form reads to turn Approve off. Styled in admin-ship.css. %>
 <% stardance = evidence.stardance %>
 <% repo = evidence.repo %>
-<% overlap = ship.in_review? && earlier_ship.found? ? earlier_ship.overlapping_entry(after: ship.project.hours_start.utc.to_date) : nil %>
+<% overlap = ship.in_review? && earlier_ship.found? ? earlier_ship.overlapping_entry(user: ship.project.user, from: ship.project.hours_start.utc.to_date, to: ship.created_at.utc.to_date) : nil %>
 <% old_release = repo.ok? && evidence.release_predates? %>
 <% if stardance.shipped? %>
   <p class="ash__problem ash__problem--coral" data-stardance="shipped" id="admin-ship-stardance">
@@ -21,7 +21,7 @@
     This release is from <%= repo.release.published_at.utc.strftime("%b %-d") %>, before <%= evidence.first_commit_at ? "the first commit since Save Point began (#{evidence.first_commit_at.utc.strftime("%b %-d")})" : "this project's hours began counting (#{ship.project.hours_start.utc.strftime("%b %-d")})" %>. It can't hold this work.</p>
 <% end %>
 <% if overlap %>
-  <p class="ash__problem" data-overlap="true"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record was approved after this project's hours began counting, so some of these hours may be counted there too. Deflate them and say so.</p>
+  <p class="ash__problem" data-overlap="true"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record of this person covers <%= overlap.ranges.any? ? overlap.ranges.map { |a, b| "#{a.strftime("%-m/%-d/%Y")}-#{b.strftime("%-m/%-d/%Y")}" }.to_sentence : "dates that can't be read" %>, which meets the time counted here (from <%= ship.project.hours_start.utc.strftime("%-m/%-d/%Y") %>) or can't be ruled out, so some of these hours may be counted there too. Deflate them and say so.</p>
 <% end %>
 <% if ship.in_review? && !limits.known? %>
   <p class="ash__problem" data-limits="unknown"><%= sp_icon "warning-fill" %>Hackatime didn't say how much was AI coding or art, so no cut applies. Check Hackatime before you approve.</p>

@@ -68,7 +68,8 @@ module AdminMcp::SqlGuard
     raise Refused, "Only the #{SCHEMA} schema is readable here, not #{value}." if mark?(following, ".") && outside.include?(token.kind == :word ? folded : value)
   end
 
-  def denied_function?(name) = DENIED_FUNCTIONS.include?(name) || DENIED_PREFIXES.any? { name.start_with?(it) }
+  # The whole *_to_xml* family (query_to_xml, table_to_xmlschema, cursor_to_xml_and_xmlschema, ...) runs SQL from a string.
+  def denied_function?(name) = DENIED_FUNCTIONS.include?(name) || DENIED_PREFIXES.any? { name.start_with?(it) } || name.include?("_to_xml")
 
   def name?(token) = token.kind == :word || token.kind == :name
 

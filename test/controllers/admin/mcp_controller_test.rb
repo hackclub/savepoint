@@ -93,6 +93,33 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a tool's answer is fenced as data, with a boundary that is new each time" do
+    mcp_post(@token, "tools/call", { name: "admin_summary", arguments: {} })
+    text = response.parsed_body.dig("result", "content", 0, "text")
+    assert text.start_with?(AdminMcp::Tool::FENCE_NOTE)
+    boundary = text[/=== DATA (\h+) ===/, 1]
+    assert_match(/=== END DATA #{boundary} ===\z/, text)
+    mcp_post(@token, "tools/call", { name: "admin_summary", arguments: {} })
+    assert_not_equal boundary, response.parsed_body.dig("result", "content", 0, "text")[/=== DATA (\h+) ===/, 1]
+  end
+
+  test "query_sql's audit row holds the SHA-256 of the SQL and no text" do
+    sql = "select 1 as secret_looking_column"
+    mcp_tool(@token, "query_sql", { sql: })
+    ids = AdminAuditEvent.last.ids
+    assert_equal Digest::SHA256.hexdigest(sql), ids["sql_sha256"]
+    assert_equal sql.length, ids["sql_length"]
+    assert_not_includes ids.to_s, "secret_looking_column"
+  end
+
+  test "audit ids keep only the keys a tool declares, and cap a list" do
+    declared = %w[ship_id]
+    ids = AdminMcp::Tool.audit_ids({ ship_id: 4, user_id: 9, ids: (1..80).to_a, note_ids: "x" }, allowed: declared)
+    assert_equal({ "ship_id" => 4 }, ids)
+    capped = AdminMcp::Tool.audit_ids({ user_ids: (1..80).to_a })
+    assert_equal AdminMcp::Tool::MAX_AUDIT_IDS, capped["user_ids"].size
+  end
+
   test "the audit row is written before the tool runs, with IDs and no text" do
     ids_seen = nil
     replacing(AdminMcp::Tools::People::GetPerson, :run, ->(_args, _caller) { ids_seen = AdminAuditEvent.last.ids; {} }) do

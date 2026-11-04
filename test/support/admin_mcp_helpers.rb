@@ -29,7 +29,14 @@ module AdminMcpHelpers
     result = response.parsed_body.fetch("result") { flunk("no result: #{response.body}") }
     text = result.dig("content", 0, "text")
     @mcp_error = result["isError"]
-    @mcp_error ? text : JSON.parse(text)
+    @mcp_error ? text : JSON.parse(unfenced(text))
+  end
+
+  # A tool's answer is a note and the JSON between two boundary lines (AdminMcp::Tool::FENCE_NOTE).
+  def unfenced(text)
+    match = text.match(/\A#{Regexp.escape(AdminMcp::Tool::FENCE_NOTE)}\n=== DATA (\h+) ===\n(.*)\n=== END DATA \1 ===\z/m)
+    assert match, "the answer is not fenced: #{text.first(200)}"
+    match[2]
   end
 
   def mcp_error? = @mcp_error

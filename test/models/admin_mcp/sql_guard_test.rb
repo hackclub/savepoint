@@ -6,6 +6,13 @@ class AdminMcp::SqlGuardTest < ActiveSupport::TestCase
 
   def refusal(sql) = assert_raises(AdminMcp::SqlGuard::Refused) { AdminMcp::SqlGuard.check(sql, schemas: SCHEMAS) }
 
+  test "the whole to_xml function family is refused" do
+    %w[query_to_xmlschema table_to_xmlschema cursor_to_xmlschema schema_to_xmlschema database_to_xmlschema query_to_xml_and_xmlschema
+       table_to_xml_and_xmlschema some_new_to_xml_thing].each do |name|
+      assert_match(/#{name}\(\) is not allowed/, refusal("select #{name}('select 1', true, false, '')").message)
+    end
+  end
+
   test "a comment ended by a carriage return does not hide the query after it" do
     error = refusal("select 1 as a --\r, (select count(*) from public.users) as b")
     assert_equal SCHEMA_MESSAGE, error.message

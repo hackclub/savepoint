@@ -377,6 +377,46 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "button#verdict-submit[value=approved]:not([hidden])"
   end
 
+  test "the review forms turn browser autofill off, and the draft form says which draft it loaded (finding 18)" do
+    sign_in_as(users(:orpheus))
+    @ship.update_columns(review_draft: { "judgement" => "x" }, review_draft_updated_at: Time.utc(2026, 11, 4, 10, 0, 0, 123_456))
+    get admin_ship_path(@ship)
+    assert_select "form#verdict[autocomplete=off][data-draft-loaded-value=?]", "2026-11-04T10:00:00.123456Z"
+    assert_select "form#reviewer-ai[autocomplete=off]"
+  end
+
+  test "a draft save from a page older than the stored draft is refused and changes nothing (finding 18)" do
+    sign_in_as(users(:orpheus))
+    post draft_admin_ship_path(@ship), params: { draft: { judgement: "First." } }
+    first = response.parsed_body["at"]
+    assert_match(/\.\d{6}Z?\z|\.\d{6}[+-]/, first)
+
+    post draft_admin_ship_path(@ship), params: { loaded_at: first, draft: { judgement: "Second." } }
+    assert_response :success
+    second = response.parsed_body["at"]
+
+    post draft_admin_ship_path(@ship), params: { loaded_at: first, draft: { judgement: "Restored by the browser." } }
+    assert_response :conflict
+    assert_equal Admin::ShipsController::DRAFT_STALE, response.parsed_body["error"]
+    assert_equal "Second.", @ship.reload.review_draft["judgement"]
+
+    post draft_admin_ship_path(@ship), params: { loaded_at: "", draft: { judgement: "From a page that loaded no draft." } }
+    assert_response :conflict
+
+    post draft_admin_ship_path(@ship), params: { loaded_at: second, draft: { judgement: "Third." } }
+    assert_response :success
+    assert_equal "Third.", @ship.reload.review_draft["judgement"]
+  end
+
+  test "a draft save with no draft stored takes a blank loaded time, and one with no loaded time skips the check" do
+    sign_in_as(users(:orpheus))
+    post draft_admin_ship_path(@ship), params: { loaded_at: "", draft: { judgement: "First." } }
+    assert_response :success
+    post draft_admin_ship_path(@ship), params: { draft: { judgement: "A beacon after a beacon." } }
+    assert_response :success
+    assert_equal "A beacon after a beacon.", @ship.reload.review_draft["judgement"]
+  end
+
   test "a blank draft field beats the default, and a verdict uses the draft up (D-135)" do
     sign_in_as(users(:orpheus))
     post draft_admin_ship_path(@ship), params: { draft: { feedback: "", judgement: "Rejecting." } }

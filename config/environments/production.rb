@@ -26,13 +26,14 @@ Rails.application.configure do
   config.active_storage.service = ENV["R2_BUCKET"].present? && ENV["R2_ACCESS_KEY_ID"].present? ? :cloudflare : :local
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
+  # TLS ends at Cloudflare and Orchard's ingress, so every request that reaches a pod is treated as https.
+  config.assume_ssl = true
 
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
+  # Secure cookies, and HSTS for a year (no preload). The pod's readiness probe is plain http to /up, so /up is not redirected.
+  config.force_ssl = true
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } }, hsts: { expires: 1.year, subdomains: false, preload: false } }
 
-  # Skip http-to-https redirect for the default health check endpoint.
-  # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
   config.log_tags = [ :request_id ]
@@ -80,11 +81,8 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
   # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # The public site, and the address Orchard gives the deployment (*.k.hackclub.dev). EXTRA_HOSTS (comma separated) adds more
+  # without a deploy of code. The readiness probe calls /up by the pod's IP, so /up is exempt.
+  config.hosts = [ "savepoint.hackclub.com", /\A[a-z0-9-]+\.k\.hackclub\.dev\z/, *ENV["EXTRA_HOSTS"].to_s.split(/[\s,]+/).compact_blank ]
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

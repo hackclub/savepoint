@@ -310,13 +310,28 @@ module Hackatime
 
   # The OAuth token reads who you are and gets an API key; the API key reads your stats.
   def self.api_key(user)
-    Rails.cache.fetch([ "hackatime/api_key", user.hackatime_uid ], expires_in: 1.week) do
-      response = get("/api/v1/authenticated/api_keys", bearer: user.hackatime_access_token)
-      raise Expired if response.is_a?(Net::HTTPUnauthorized)
-      raise Unavailable, "Hackatime answered #{response.code}" unless response.is_a?(Net::HTTPSuccess)
-
-      JSON.parse(response.body).fetch("token")
+    cache_key = [ "hackatime/api_key", user.hackatime_uid ]
+    sealed = Rails.cache.read(cache_key)
+    if sealed
+      cached = begin
+        key_vault.decrypt_and_verify(sealed)
+      rescue ActiveSupport::MessageEncryptor::InvalidMessage, ActiveSupport::MessageVerifier::InvalidSignature
+        nil
+      end
+      return cached if cached
     end
+
+    response = get("/api/v1/authenticated/api_keys", bearer: user.hackatime_access_token)
+    raise Expired if response.is_a?(Net::HTTPUnauthorized)
+    raise Unavailable, "Hackatime answered #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+
+    JSON.parse(response.body).fetch("token").tap { Rails.cache.write(cache_key, key_vault.encrypt_and_sign(it), expires_in: 1.week) }
+  end
+
+  # The cached API key is sealed, so a read of the cache table (a backup, a SQL slip) doesn't hand out a key to someone's coding data.
+  # Cache entries from before this change hold the key in clear: decrypting one fails, so it is fetched again and overwritten.
+  def self.key_vault
+    ActiveSupport::MessageEncryptor.new(Rails.application.key_generator.generate_key("hackatime/api_key cache", ActiveSupport::MessageEncryptor.key_len))
   end
 
   def self.get(path, bearer:)
@@ -327,5 +342,5 @@ module Hackatime
   rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError => error
     raise Unavailable, error.message
   end
-  private_class_method :stats, :api_key, :get, :remember_trust_level
+  private_class_method :stats, :api_key, :key_vault, :get, :remember_trust_level
 end

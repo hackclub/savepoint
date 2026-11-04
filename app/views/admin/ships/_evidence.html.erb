@@ -132,7 +132,7 @@
       <p id="admin-ship-lapse-time">Lapse time <strong><%= Ship::Limits.hrs(limits.lapse) %></strong>:
         <strong><%= Ship::Limits.hrs(limits.lapse_coding) %></strong> coding, <strong><%= Ship::Limits.hrs(limits.lapse - limits.lapse_coding) %></strong> art.</p>
       <% if ship.in_review? && !ship.by?(current_user) %>
-        <%= form_with url: lapse_split_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "lapse-split", data: { turbo: false } do |form| %>
+        <%= form_with url: lapse_split_admin_ship_path(ship), method: :patch, class: "ash__hours-start-form", id: "lapse-split", html: { autocomplete: "off" }, data: { turbo: false } do |form| %>
           <%= form.hidden_field :queue, value: params[:queue].presence, id: nil if params[:queue].present? %>
           <div class="sp-field">
             <%= form.label :lapse_coding_hours, "Lapse hours that were coding", class: "sp-label" %>

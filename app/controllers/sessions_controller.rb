@@ -7,6 +7,9 @@ class SessionsController < ApplicationController
   # (reset_session below), and a banned person signing in again is refused here.
   skip_before_action :end_banned_session, only: :create
 
+  # /auth/failure?message= is a link anyone can craft, so only these OmniAuth codes reach the flash. Any other text is dropped.
+  FAILURE_REASONS = %w[access_denied invalid_credentials csrf_detected timeout invalid_response session_expired].index_with { it.humanize.downcase }.freeze
+
   def create
     auth = request.env["omniauth.auth"]
     # Which claims came back, never their values (they're personal).
@@ -35,7 +38,8 @@ class SessionsController < ApplicationController
       return redirect_to project_path, alert: hackatime_failed_alert
     end
 
-    redirect_to onboarding_path, alert: "Couldn't sign you in with Hack Club (#{params[:message].to_s.humanize.downcase})."
+    reason = FAILURE_REASONS[params[:message].to_s]
+    redirect_to onboarding_path, alert: reason ? "Couldn't sign you in with Hack Club (#{reason})." : "Couldn't sign you in with Hack Club."
   end
 
   # The page between the two sign-ins. It exists only straight after a Hack Club Auth sign-in (the session flag is

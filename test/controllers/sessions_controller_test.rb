@@ -61,6 +61,18 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/phish"
   end
 
+  test "a failure message outside the list is dropped, not shown" do
+    get auth_failure_path, params: { message: "Your account is suspended, call 555-0100 or visit evil.example" }
+
+    assert_redirected_to onboarding_path
+    assert_equal "Couldn't sign you in with Hack Club.", flash[:alert]
+  end
+
+  test "a callback for a provider that isn't Hack Club is a 404, not a 500" do
+    get "/auth/foo/callback"
+    assert_response :not_found
+  end
+
   test "a failed sign-in goes back to onboarding with the reason" do
     get auth_failure_path, params: { message: "access_denied" }
 

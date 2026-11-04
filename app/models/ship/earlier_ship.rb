@@ -13,6 +13,12 @@ class Ship::EarlierShip
 
   # D-149: ranges are the dates the record's time covers ([from, to] pairs read from its Hackatime projects line, empty when none
   # can be read). email and hackatime_id say whose record it is, nil when the record does not say.
+  # Field names on the Unified "Approved Projects" table, checked against the live schema on 2026-11-04. They are not the names on
+  # Save Point's own submission side. The justification reads "Hackatime ID: 65164" and "Hackatime Projects: name M/D/YYYY-M/D/YYYY" lines.
+  JUSTIFICATION_FIELD = "Override Hours Spent Justification"
+  EMAIL_FIELD = "Email"
+  EMAIL_FALLBACK_FIELD = "Email - Trimmed & Lowercased"
+
   Entry = Data.define(:program, :approved_at, :hours, :code_url, :screenshot_url, :ranges, :email, :hackatime_id) do
     def initialize(program:, approved_at:, hours:, code_url:, screenshot_url:, ranges: [], email: nil, hackatime_id: nil)
       super
@@ -98,7 +104,7 @@ class Ship::EarlierShip
       shot = Array(fields["Screenshot"]).first
       Entry.new(program: names.join(", ").presence || "unknown program", approved_at: fields["Approved At"],
                 hours: fields["Override Hours Spent"], code_url: fields["Code URL"], ranges: date_ranges(fields),
-                email: Array(fields["Email"]).first.to_s.strip.presence, hackatime_id: Array(fields["Justification - Submitter Hackatime ID"]).first.to_s.strip.presence,
+                email: Array(fields[EMAIL_FIELD].presence || fields[EMAIL_FALLBACK_FIELD]).first.to_s.strip.presence, hackatime_id: fields[JUSTIFICATION_FIELD].to_s[/^Hackatime ID:\s*(\d+)\s*$/, 1],
                 screenshot_url: shot.is_a?(Hash) ? (shot.dig("thumbnails", "large", "url") || shot["url"]) : nil)
     end
 
@@ -107,7 +113,7 @@ class Ship::EarlierShip
     RANGE = %r{(\d{1,2}/\d{1,2}/\d{4})\s*[-\u2013]\s*(\d{1,2}/\d{1,2}/\d{4})}
 
     def date_ranges(fields)
-      text = [ fields["Justification - Hackatime Project Name(s) + Date Range(s)"], fields["Optional - Override Hours Spent Justification"] ].join("\n")
+      text = fields[JUSTIFICATION_FIELD].to_s.lines.grep(/\AHackatime Projects:/).join("\n")
       text.scan(RANGE).filter_map do |first, last|
         first, last = [ first, last ].map { Date.strptime(it, "%m/%d/%Y") }
         [ first, last ] if first <= last

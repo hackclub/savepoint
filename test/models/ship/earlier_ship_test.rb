@@ -62,21 +62,21 @@ class Ship::EarlierShipTest < ActiveSupport::TestCase
   end
 
   test "D-149: ship 74's shape, the person's own record ending before the hours start, is no overlap" do
-    result = fetch_with("Email" => "robin@example.com", "Optional - Override Hours Spent Justification" => "Hackatime Projects: robin-game jame-gam-26 10/22/2026-10/25/2026")
+    result = fetch_with("Email" => "robin@example.com", "Override Hours Spent Justification" => "[HACKATIME]\nHackatime ID: not reported (jame gam)\nHackatime Projects: jame-gam-26 10/22/2026-10/25/2026")
     user = User.new(email: "Robin@example.com")
     assert_equal [ [ Date.new(2026, 10, 22), Date.new(2026, 10, 25) ] ], result.entry.ranges
     assert_nil result.overlapping_entry(user:, from: Date.new(2026, 10, 27), to: Date.new(2026, 11, 3))
   end
 
   test "D-149: a same-person record meeting the window is an overlap, by email or by Hackatime ID" do
-    by_email = fetch_with("Email" => "robin@example.com", "Justification - Hackatime Project Name(s) + Date Range(s)" => "g 10/22/2026-10/28/2026")
+    by_email = fetch_with("Email - Trimmed & Lowercased" => "robin@example.com", "Override Hours Spent Justification" => "[HACKATIME]\nHackatime ID: not reported\nHackatime Projects: g 10/22/2026-10/28/2026")
     assert by_email.overlapping_entry(user: User.new(email: "robin@example.com"), from: Date.new(2026, 10, 27), to: Date.new(2026, 11, 3))
-    by_id = fetch_with("Justification - Submitter Hackatime ID" => "77", "Justification - Hackatime Project Name(s) + Date Range(s)" => "g 10/22/2026-10/28/2026")
+    by_id = fetch_with("Override Hours Spent Justification" => "[HACKATIME]\nHackatime ID: 77\nHackatime Projects: g 10/22/2026-10/28/2026")
     assert by_id.overlapping_entry(user: User.new(email: "other@example.com", hackatime_uid: "77"), from: Date.new(2026, 10, 27), to: Date.new(2026, 11, 3))
   end
 
   test "D-149: a teammate's record overlapping in dates is no overlap" do
-    result = fetch_with("Email" => "teammate@example.com", "Justification - Hackatime Project Name(s) + Date Range(s)" => "g 10/22/2026-10/30/2026")
+    result = fetch_with("Email" => "teammate@example.com", "Override Hours Spent Justification" => "[HACKATIME]\nHackatime ID: 99\nHackatime Projects: g 10/22/2026-10/30/2026")
     assert_nil result.overlapping_entry(user: User.new(email: "robin@example.com"), from: Date.new(2026, 10, 27), to: Date.new(2026, 11, 3))
   end
 

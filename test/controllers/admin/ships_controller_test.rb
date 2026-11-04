@@ -1042,7 +1042,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
   test "an approved ship shows what goes to Airtable, with the duplicate justification, and a later record warns of overlap" do
     Ship::EarlierShip.token = "pat-test"
     records = [ { fields: { "Code URL" => "https://github.com/ana/pong", "YSWS–Name" => [ "jame gam" ], "Approved At" => "2026-10-24", "Override Hours Spent" => 4,
-                                 "Email" => users(:ana).email, "Justification - Hackatime Project Name(s) + Date Range(s)" => "pong 10/20/2026-10/30/2026" } } ]
+                                 "Email" => users(:ana).email, "Override Hours Spent Justification" => "[HACKATIME]\nHackatime ID: 5\nHackatime Projects: pong 10/20/2026-10/30/2026" } } ]
     Web.adapter = lambda do |_method, url, _headers|
       body = URI(url).host == "api.github.com" ? [].to_json : { records: }.to_json
       Web::Response.new(status: 200, headers: {}, body:)

@@ -42,7 +42,7 @@ class AirtableFieldsTest < ActiveSupport::TestCase
 
   def unified_record(program, approved_at, hours, url: "#{REPO}/", email: nil, range: nil)
     { "Code URL" => url, "YSWS–Name" => [ program ], "Approved At" => approved_at, "Override Hours Spent" => hours, "Email" => email,
-      "Justification - Hackatime Project Name(s) + Date Range(s)" => (range && "rhythm-game #{range}") }.compact
+      "Override Hours Spent Justification" => (range && "[HACKATIME]\nHackatime ID: not reported (jame gam)\nHackatime Projects: rhythm-game #{range}") }.compact
   end
 
   def first_ship = approved(at: Program::STARTS_AT + 2.days, hours: 6)

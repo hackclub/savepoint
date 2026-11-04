@@ -159,9 +159,11 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     Airtable::SyncJob.perform_now
     assert_equal true, @fake.rows(SUBMISSIONS).last["Automation - Submit to Unified YSWS"]
 
+    # D-150: once sent with the box true, the row is frozen, so unticking sends nothing.
+    @fake.upserts.clear
     ship.tick_checklist!("real_name", false)
     Airtable::SyncJob.perform_now
-    assert_equal false, @fake.rows(SUBMISSIONS).last["Automation - Submit to Unified YSWS"]
+    assert_empty @fake.rows(SUBMISSIONS)
   end
 
   test "a ship approved before the check has no Real name tick, so its box is false (D-143)" do
@@ -509,31 +511,65 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_not_nil ship.reload.synced_at, "settled, so the queue does not stall on it"
     assert_equal true, @fake.rows("Users").find { it["save_point_id"] == "user-#{ship.project.user_id}" }["Banned"]
 
-    ship.project.user.update_columns(banned_at: nil)
+    # Airtable has a row from an earlier send with the box false; the ban keeps it false.
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => {} } }
     ship.update_columns(synced_at: nil)
     Airtable::SyncJob.perform_now
-    assert_equal true, box(ship)
-
-    ship.project.user.update!(banned_at: Time.current)
-    assert_nil ship.reload.synced_at, "a ban sends the ship again"
-    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => {} } }
-    Airtable::SyncJob.perform_now
     assert_equal false, box(ship), "the Airtable row is unticked"
+    assert_not ship.reload.in_unified?, "sent with the box false, so not frozen (D-150)"
   end
 
-  test "gate audit 5: a name change after the tick unticks the box until a reviewer ticks again" do
+  test "gate audit 5: a name change before the row is sent unticks the box until a reviewer ticks again" do
     ship = approved_ship
     ship.tick_checklist!("real_name", true, by: users(:ana))
-    Airtable::SyncJob.perform_now
-    assert_equal true, box(ship)
     ship.project.user.update!(first_name: "Orphan", name: "Orphan the Dino")
-    assert_nil ship.reload.synced_at
     Airtable::SyncJob.perform_now
     assert_equal false, box(ship)
     assert_match(/Real name tick was for Orpheus the Dino, and the name is now Orphan the Dino/, ship.unified_holds.join)
     ship.tick_checklist!("real_name", true, by: users(:ana))
     Airtable::SyncJob.perform_now
     assert_equal true, box(ship)
+  end
+
+  test "D-150: a ship sent with the box true is frozen and never sent again after an edit, a Real name untick or a name change" do
+    ship = approved_ship
+    ship.tick_checklist!("real_name", true, by: users(:ana))
+    Airtable::SyncJob.perform_now
+    assert_equal true, box(ship)
+    assert ship.reload.in_unified?
+    @fake.upserts.clear
+    ship.update!(description: "A rhythm game where every beat is a cell lighting up. Now with a combo meter.")
+    assert_not_nil ship.reload.changed_after_unified_at, "the edit is marked for the admins"
+    ship.tick_checklist!("real_name", false, by: users(:ana))
+    ship.project.user.update!(first_name: "Orphan", name: "Orphan the Dino")
+    Airtable::SyncJob.perform_now
+    assert_empty @fake.rows(SUBMISSIONS)
+  end
+
+  test "D-150: a ship sent with the box false is still sent again" do
+    ship = approved_ship
+    Airtable::SyncJob.perform_now
+    assert_equal false, box(ship)
+    assert_not ship.reload.in_unified?
+    @fake.upserts.clear
+    ship.update!(description: "A rhythm game where every beat is a cell lighting up. Now with a combo meter.")
+    Airtable::SyncJob.perform_now
+    assert_equal 1, @fake.rows(SUBMISSIONS).size
+  end
+
+  test "D-150: a failed push does not freeze the ship" do
+    ship = approved_ship
+    ship.tick_checklist!("real_name", true, by: users(:ana))
+    @fake.fail_on = [ "ship-#{ship.id}" ]
+    Airtable::SyncJob.perform_now
+    assert_not ship.reload.in_unified?
+    assert_not_nil ship.airtable_failed_at
+    @fake.fail_on = nil
+    travel 61.minutes do
+      Airtable::SyncJob.perform_now
+    end
+    assert_equal true, box(ship)
+    assert ship.reload.in_unified?
   end
 
   test "gate audit 14: an incomplete record holds the box and names the missing fields" do

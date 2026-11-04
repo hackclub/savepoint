@@ -29,6 +29,61 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "That's 5 hours, and you've 0.5 approved to spend.", flash[:shop_error]
   end
 
+  test "D-147: an eligible claim passes, and a claim from someone not eligible is refused" do
+    approve(@project, hours: 7)
+    sign_in_orpheus(ysws_eligible: false)
+
+    assert_no_difference -> { @project.orders.count } do
+      post shop_order_path, params: { order: { prize_key: "micro" } }
+    end
+    assert_equal OrdersController::NOT_ELIGIBLE, flash[:shop_error]
+
+    sign_in_orpheus(ysws_eligible: true)
+    assert_difference -> { @project.orders.count }, 1 do
+      post shop_order_path, params: { order: { prize_key: "micro" } }
+    end
+  end
+
+  test "D-147: the claim asks Hack Club Auth again, so someone verified since sign-in passes and someone since revoked is refused" do
+    approve(@project, hours: 7)
+    sign_in_orpheus(ysws_eligible: false)
+    hca_says({ "ysws_eligible" => true, "verification_status" => "verified" }) do
+      assert_difference -> { @project.orders.count }, 1 do
+        post shop_order_path, params: { order: { prize_key: "micro" } }
+      end
+    end
+    assert users(:orpheus).reload.ysws_eligible?, "the answer is stored"
+
+    hca_says({ "verification_status" => "pending" }) do
+      assert_no_difference -> { @project.orders.count } do
+        post shop_order_path, params: { order: { prize_key: "aseprite" } }
+      end
+    end
+    assert_equal OrdersController::NOT_ELIGIBLE, flash[:shop_error]
+    assert_not users(:orpheus).reload.ysws_eligible?
+  end
+
+  test "D-147: when Hack Club Auth can't be asked, the stored claim decides" do
+    approve(@project, hours: 7)
+    unavailable = -> { HackClubAuth.singleton_class.alias_method(:__identity, :identity) }
+    unavailable.call
+    HackClubAuth.define_singleton_method(:identity) { |_user| raise HackClubAuth::Unavailable, "down" }
+    begin
+      sign_in_orpheus(ysws_eligible: false)
+      assert_no_difference -> { @project.orders.count } do
+        post shop_order_path, params: { order: { prize_key: "micro" } }
+      end
+      assert_equal OrdersController::NOT_ELIGIBLE, flash[:shop_error]
+
+      sign_in_orpheus(ysws_eligible: true)
+      assert_difference -> { @project.orders.count }, 1 do
+        post shop_order_path, params: { order: { prize_key: "micro" } }
+      end
+    ensure
+      HackClubAuth.singleton_class.alias_method(:identity, :__identity)
+    end
+  end
+
   test "D-138: a claim works after the end, until the shop closes, and is refused after" do
     approve(@project, hours: 7)
     sign_in_orpheus
@@ -104,10 +159,19 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
-    def sign_in_orpheus
-      mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS")
+    def sign_in_orpheus(**claims)
+      mock_hack_club_auth(uid: users(:orpheus).hca_id, slack_id: "U0ORPHEUS", **claims)
       post "/auth/hackclub"
       follow_redirect!
+    end
+
+    # Hack Club Auth's /me answers with this identity inside the block.
+    def hca_says(identity)
+      HackClubAuth.singleton_class.alias_method(:__identity, :identity)
+      HackClubAuth.define_singleton_method(:identity) { |_user| identity }
+      yield
+    ensure
+      HackClubAuth.singleton_class.alias_method(:identity, :__identity)
     end
 
     def approve(project, hours:)

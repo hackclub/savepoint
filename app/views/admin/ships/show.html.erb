@@ -165,6 +165,7 @@
         <%# D-143: the Real name item shows the first and last name exactly as the Unified YSWS row will carry them, and gates the box. %>
         <% first_name, last_name = AirtableFields.names(@ship.project.user) %>
         <% checklist["real_name"] = "Real name: first “#{first_name.presence || "(none)"}”, last “#{last_name.presence || "(none)"}” are a real person's name, not a handle, mash or one word" %>
+        <% checklist["real_name"] += ". Not YSWS eligible in Hack Club Auth, so it will not go to the Unified YSWS DB." unless @ship.project.user.ysws_eligible? %>
         <% defaults = @ship.checklist_defaults(earlier: @earlier_ship, limits: @limits) %>
         <% ticked = checklist.keys.count { |key| @ship.checklist_tick(key, defaults) } %>
         <section class="sp-panel ash__panel ash__decide ash__decide--<%= tone %>" aria-labelledby="admin-ship-decision">

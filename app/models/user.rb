@@ -17,6 +17,8 @@ class User < ApplicationRecord
 
   # Linking Hackatime gives us their Hackatime ID and a token that reads their projects and hours.
   encrypts :hackatime_access_token
+  # D-147: Hack Club Auth's tokens from sign-in, for asking its /me (see #confirm_ysws_eligibility!).
+  encrypts :hca_access_token, :hca_refresh_token
   # Where to post things, from Hack Club Auth (its address claim): street_address, locality, region, postal_code and
   # country. Encrypted, and only for sending prizes and a ship's submission.
   ADDRESS_FIELDS = %w[street_address locality region postal_code country].freeze
@@ -185,7 +187,10 @@ class User < ApplicationRecord
         # Kept if this sign-in didn't share one (from before the scope, or a community-app sign-in).
         address: address_from(claims[:address]) || user.address,
         phone_number: claims[:phone_number].presence || user.phone_number,
-        birthdate: claims[:birthdate].presence || user.birthdate
+        birthdate: claims[:birthdate].presence || user.birthdate,
+        # D-147: kept for /me. Kept as they were if this sign-in didn't carry one.
+        hca_access_token: auth.credentials&.token.presence || user.hca_access_token,
+        hca_refresh_token: auth.credentials&.refresh_token.presence || user.hca_refresh_token
       )
     end
   end
@@ -196,6 +201,20 @@ class User < ApplicationRecord
     claim.to_h.stringify_keys.slice(*ADDRESS_FIELDS).transform_values { |value| value.to_s.strip }.compact_blank.presence
   rescue JSON::ParserError
     nil
+  end
+
+  # D-147: whether they are YSWS eligible in Hack Club Auth right now. It asks /me and stores the answer; when HCA can't be asked
+  # (no token kept yet, or it is down), the value stored at sign-in stands. A person who turns eligible has their approved ships
+  # sent to Airtable again, because the Unified YSWS box waits for it.
+  def confirm_ysws_eligibility!
+    identity = HackClubAuth.identity(self)
+    was = ysws_eligible?
+    update!(ysws_eligible: identity["ysws_eligible"] == true, verification_status: identity["verification_status"].presence || verification_status)
+    Ship.approved.where(project_id: Project.where(user_id: id), in_unified: false).update_all(synced_at: nil, airtable_failed_at: nil) if ysws_eligible? && !was
+    ysws_eligible?
+  rescue HackClubAuth::Unavailable => error
+    Rails.logger.warn("[hca] eligibility not refreshed for user #{id}: #{error.message}")
+    ysws_eligible?
   end
 
   # We don't have their address (they signed in before we asked, or didn't share it): shipping and buying wait for it.

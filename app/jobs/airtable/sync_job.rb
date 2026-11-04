@@ -69,7 +69,7 @@ module Airtable
       taken, fresh = ships.partition { existing.dig("ship-#{it.id}", "fields", AirtableSchema::UNIFIED_FIELD).present? }
       Ship.where(id: taken.map(&:id)).update_all(in_unified: true)
       # D-111: the row Airtable has already is read, so a deflation sentence the ship no longer has is cleared rather than left (AirtableFields.clearing_stale_deflation).
-      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) { AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: it.real_name_checked?), existing["ship-#{it.id}"]) }
+      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) { AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: it.submit_to_unified?), existing["ship-#{it.id}"]) }
     end
 
     # Upserts the rows. Returns [rows done, rows failed]. A failed batch is tried one row at a time.

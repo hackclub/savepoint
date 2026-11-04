@@ -87,7 +87,8 @@ module AdminMcp::Tools::Ships
   def self.real_name(ship)
     check = Ship::RealName.new(ship)
     first, last = check.names
-    { first_name: first, last_name: last, concern: check.concern, ticked: ship.real_name_checked? }
+    { first_name: first, last_name: last, concern: check.concern, ticked: ship.real_name_checked?,
+      ysws_eligible: ship.project.user.ysws_eligible? }
   end
 
   # What the review and fraud tools check before they change a ship: not your own (D-063), and not one another admin has open.

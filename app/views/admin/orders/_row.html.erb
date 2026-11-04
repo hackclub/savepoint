@@ -10,6 +10,7 @@
       <%= admin_avatar_link(user, "pg-admin-orders__avatar") %>
       <span class="pg-admin-orders__person">
         <b><%= admin_person_link(user) %></b>
+        <% unless user.ysws_eligible? %><span class="sp-badge sp-badge--coral pg-admin-orders__ineligible"><%= sp_icon "warning-fill" %>Not YSWS eligible: do not order</span><% end %>
         <small><%= user.email %><% if user.slack_display_name.present? %> · <%= name_with_slack(user, name: user.slack_display_name) %><% end %></small>
       </span>
     </span>

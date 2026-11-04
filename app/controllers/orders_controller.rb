@@ -6,9 +6,12 @@ class OrdersController < ApplicationController
   before_action :require_project
 
   BANNED = "This account can't claim prizes.".freeze
+  # D-147: claiming needs YSWS eligibility in Hack Club Auth.
+  NOT_ELIGIBLE = "To claim a prize, finish identity verification in Hack Club Auth (auth.hackclub.com). Then try again.".freeze
 
   def create
     return refuse(BANNED) if current_user.banned?
+    return refuse(NOT_ELIGIBLE) unless current_user.confirm_ysws_eligibility! # D-147: asks Hack Club Auth, else the stored claim
 
     order = @project.orders.build(order_params)
     # The address they confirmed in the claim step, else (a claim with no form) the one Hack Club Auth shared. Never logged.

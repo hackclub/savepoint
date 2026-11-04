@@ -107,6 +107,25 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_equal true, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
   end
 
+  test "D-147: the Unified box stays false for someone not YSWS eligible, even with Real name ticked, until Hack Club Auth says they are" do
+    ship = approved_ship
+    ship.update_columns(review_checklist: { "real_name" => true })
+    ship.project.user.update_columns(ysws_eligible: false)
+    HackClubAuth.singleton_class.alias_method(:__identity, :identity)
+    HackClubAuth.define_singleton_method(:identity) { |_user| raise HackClubAuth::Unavailable, "down" }
+    begin
+      Airtable::SyncJob.perform_now
+      assert_equal false, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"], "not eligible, Hack Club Auth down"
+
+      HackClubAuth.define_singleton_method(:identity) { |_user| { "ysws_eligible" => true } }
+      assert_equal true, ship.reload.submit_to_unified?
+      assert ship.project.user.reload.ysws_eligible?
+      assert_nil ship.reload.synced_at, "the ship is sent again with the box ticked"
+    ensure
+      HackClubAuth.singleton_class.alias_method(:identity, :__identity)
+    end
+  end
+
   test "the resync migration sends approved ships again, but not one the Unified YSWS DB has taken (D-141)" do
     sent = approved_ship
     Airtable::SyncJob.perform_now

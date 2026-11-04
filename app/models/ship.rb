@@ -320,6 +320,13 @@ class Ship < ApplicationRecord
   # D-143: the Real name item, ticked by a reviewer or an agent, never by the app. Gates the Unified YSWS box.
   def real_name_checked? = review_checklist["real_name"] == true && AirtableFields.names(project.user).all?(&:present?)
 
+  # D-147: the Unified YSWS box needs the Real name tick and a YSWS eligible person. A person stored as not eligible is asked
+  # about again (Hack Club Auth may have verified them since); one stored as eligible is not asked at every sync.
+  def submit_to_unified?
+    user = project.user
+    real_name_checked? && (user.ysws_eligible? || user.confirm_ysws_eligibility!)
+  end
+
   # D-143: Real name is the one tick that can still change after the verdict, because ships approved before it exists wait for it.
   def checklist_open_for?(key) = in_review? || (approved? && key.to_s == "real_name")
 

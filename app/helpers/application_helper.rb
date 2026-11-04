@@ -23,6 +23,14 @@ module ApplicationHelper
   # The name an admin sees someone by: their Hack Club name, else what everyone sees them as.
   def admin_person_name(user) = user.name.presence || user.public_name
 
+  # A "banned" badge beside a name on an admin page (D-148), so nobody orders for or reviews a banned account unawares.
+  def admin_ban_badge(user)
+    return unless user.banned?
+
+    tag.span(safe_join([ sp_icon("close-circle-fill"), "banned" ]), class: "sp-badge sp-badge--coral admin-ban-badge",
+             title: "Banned #{user.banned_at.to_date}: #{user.ban_reason}")
+  end
+
   # Their name as a link to their page in the admin (Admin::UsersController#show). Admin pages only.
   def admin_person_link(user, **options)
     link_to admin_person_name(user), admin_user_path(user), **options, class: [ "admin-person", options[:class] ]

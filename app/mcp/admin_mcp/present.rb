@@ -6,7 +6,8 @@ module AdminMcp::Present
 
   # Who a row is about, as every admin list names them: the name, email and Slack display name.
   def user_ref(user)
-    { id: user.id, name: user.name.presence || user.public_name, email: user.email, slack_display_name: user.slack_display_name.presence }
+    { id: user.id, name: user.name.presence || user.public_name, email: user.email, slack_display_name: user.slack_display_name.presence,
+      banned_at: user.banned_at, ban_reason: (user.ban_reason if user.banned?) }
   end
 
   # A row of the people page.

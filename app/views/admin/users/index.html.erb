@@ -66,7 +66,7 @@
                   <span class="pg-admin-users__who">
                     <%= admin_avatar_link(user, "pg-admin-users__avatar") %>
                     <span>
-                      <span class="pg-admin-users__name"><%= admin_person_link(user) %></span>
+                      <span class="pg-admin-users__name"><%= admin_person_link(user) %></span> <%= admin_ban_badge(user) %>
                       <small class="pg-admin-users__muted"><%= user.email %> · <%= user.hca_id %></small>
                     </span>
                   </span>

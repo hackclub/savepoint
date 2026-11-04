@@ -17,6 +17,8 @@ class OrdersController < ApplicationController
     # The address they confirmed in the claim step, else (a claim with no form) the one Hack Club Auth shared. Never logged.
     shipping = params.key?(:address) ? ShippingAddress.from_params(params[:address]) : ShippingAddress.for(current_user)
     problems = shipping.problems
+    # D-148: a posted prize also needs a postal code (where the country has one) and a phone, each named under its own field.
+    problems = shipping.delivery_problems if problems.empty? && order.prize_item&.physical? && !order.stickers?
     return refuse(problems.values.first, problems) if problems.any?
 
     order.address = shipping.to_h

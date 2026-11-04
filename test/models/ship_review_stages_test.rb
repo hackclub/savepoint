@@ -435,6 +435,25 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_not_includes Ship.where(project: @project).latest_per_project, first
   end
 
+  test "fraud actions take the row lock: a stale copy can't pass or ban a ship that went back to review (D-148)" do
+    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+    stale = Ship.find(@ship.id)
+    assert Ship.find(@ship.id).send_back_to_review!(by: users(:orpheus), reason: "Art hours look high.")
+
+    assert_not stale.pass_fraud!(by: @reviewer)
+    assert_not stale.send_back_to_review!(by: users(:orpheus), reason: "again")
+    assert @ship.reload.in_review?
+    assert_not users(:orpheus).reload.banned?
+  end
+
+  test "a banned owner's ship can't pass its fraud check (D-148)" do
+    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+    @project.user.update_columns(banned_at: Time.current)
+    assert_not @ship.pass_fraud!(by: @reviewer)
+    assert_equal [ "This account is banned." ], @ship.errors[:base]
+    assert @ship.reload.awaiting_fraud?
+  end
+
   private
     # Shipping through the project, as the form does. The hours the form stores come from Hackatime, so they are set here.
     def ship_again(hours)

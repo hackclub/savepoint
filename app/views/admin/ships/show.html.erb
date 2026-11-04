@@ -23,7 +23,7 @@
         </p>
         <p class="leaderboard__note ash__byline">
           Shipped <%= @ship.created_at.strftime("%b %-d, %H:%M") %> UTC by
-          <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %><% if user.slack_display_name.present? %>
+          <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %> <%= admin_ban_badge(user) %><% if user.slack_display_name.present? %>
           (<%= name_with_slack(user, name: user.slack_display_name) %> on Slack)<% end %>.
         </p>
         <%# Gate audit findings 2, 5, 14, 15: why an approved ship's Unified YSWS box stays unticked, and a change made after Unified took the row. %>

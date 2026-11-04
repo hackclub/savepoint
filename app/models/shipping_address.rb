@@ -14,6 +14,17 @@ class ShippingAddress
   validates(*FIELDS, length: { maximum: 120 })
   validates :phone_number, format: { with: /\A[+\d\s().-]{5,30}\z/ }, allow_blank: true
 
+  # Countries with no postal code, by ISO code (D-148): a postal code is asked for everywhere else.
+  NO_POSTAL_CODE = %w[AE AG AO AW BF BI BJ BO BS BW BZ CD CF CG CI CK CM DJ DM ER FJ GD GH GM GQ GY HK KI KM KN KP LY ML MO MR NR NU QA RW SB SC SL SR ST SY TF TG TK TL TO TV UG VU YE ZW].freeze
+
+  # What a posted parcel needs beyond the basics (D-148): a postal code where the country uses one, and a phone for the carrier.
+  def delivery_problems
+    problems = {}
+    problems["postal_code"] = "Add the postal code." if postal_code.blank? && !country.to_s.strip.upcase.in?(NO_POSTAL_CODE)
+    problems["phone_number"] = "Add a phone number for the carrier." if phone_number.blank?
+    problems
+  end
+
   # From the signed-in user: their Hack Club address (its street may hold a second line) and phone.
   def self.for(user)
     from_hash(user.address).tap do |shipping|

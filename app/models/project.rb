@@ -266,7 +266,7 @@ class Project < ApplicationRecord
   # Summed in the database, not from the loaded orders: a claim checks this under the project's lock (Order#save), and
   # the lock's reload would otherwise leave a stale, empty orders cache behind for whoever built the order.
   def hours_spent
-    orders.sum(:hours).to_f
+    orders.where.not(status: "cancelled").sum(:hours).to_f
   end
 
   def hours_to_spend

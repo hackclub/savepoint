@@ -11,13 +11,29 @@
         <div class="au__who">
           <%= avatar_tag(@user, "au__avatar", aria: { hidden: true }, role: nil, title: nil) %>
           <div class="au__who-text">
-            <h1 class="au__title"><%= admin_person_name(@user) %></h1>
+            <h1 class="au__title"><%= admin_person_name(@user) %> <%= admin_ban_badge(@user) %></h1>
           </div>
         </div>
         <% if flash[:alert] %>
           <p class="sp-toast sp-toast--coral au__alert" role="alert">
             <span class="sp-toast__icon"><%= sp_icon "warning-fill" %></span><%= flash[:alert] %>
           </p>
+        <% end %>
+        <% if flash[:notice] %>
+          <p class="sp-toast au__alert" role="status"><span class="sp-toast__icon"><%= sp_icon "check-fill" %></span><%= flash[:notice] %></p>
+        <% end %>
+        <% if @user.banned? %>
+          <%# D-148: a ban is shown plainly, with the way to lift it. %>
+          <section class="sp-toast sp-toast--coral au__alert au__ban" role="alert" id="admin-user-ban">
+            <span class="sp-toast__icon"><%= sp_icon "close-circle-fill" %></span>
+            <div>
+              <p><b>Banned</b> on <%= project_date(@user.banned_at) %>: <%= @user.ban_reason %></p>
+              <%= form_with url: admin_user_ban_path(@user), method: :delete, class: "au__lift", data: { turbo: false } do |form| %>
+                <%= form.text_field :reason, required: true, placeholder: "Why lift it", aria: { label: "Why lift the ban" }, class: "sp-input", autocomplete: "off" %>
+                <%= form.button "Lift ban", type: "submit", class: "sp-btn sp-btn--sm" %>
+              <% end %>
+            </div>
+          </section>
         <% end %>
         <div class="au__actions">
           <% if @user.impersonable_by?(current_user) && !impersonating? %>

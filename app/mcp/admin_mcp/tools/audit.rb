@@ -15,7 +15,7 @@ module AdminMcp::Tools::Audit
       events = events.where(user_id: args[:user_id]) if args[:user_id]
       events = events.where(created_at: since(args[:since])..) if args[:since].present?
       total, rows = page(events, args)
-      { total:, events: rows.map { { id: it.id, at: it.created_at, tool: it.tool, ids: it.ids, user_id: it.user_id, admin: it.user.first_name, token: it.admin_token&.name || "web" } } }
+      { total:, events: rows.map { { id: it.id, at: it.created_at, tool: it.tool, ids: it.ids, user_id: it.user_id, admin: it.user&.first_name || "Hackatime", token: it.admin_token&.name || "web" } } }
     end
 
     def self.since(text) = Time.zone.parse(text) || raise(AdminMcp::Refused, "since is not a date: #{text}.")

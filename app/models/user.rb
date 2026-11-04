@@ -89,6 +89,22 @@ class User < ApplicationRecord
     end
   end
 
+  HACKATIME_BAN_REASON = "Hackatime banned this account (red trust)."
+
+  # D-151: Hackatime's ban is Save Point's. Called when a trust level is stored (Hackatime.store_trust_level). Bans
+  # someone whose stored level is red and who isn't banned, with no actor (the audit event shows Hackatime). Never lifts
+  # (an admin does, D-148), and never raises: it runs in the middle of reads, which a failed ban must not break.
+  def ban_for_hackatime!
+    return false unless hackatime_banned? && !banned?
+
+    AdminAuditEvent.create!(user: nil, tool: "hackatime_ban", ids: { "user_id" => id })
+    ban!(HACKATIME_BAN_REASON, by: nil)
+    true
+  rescue StandardError => error
+    Rails.error.report(error, handled: true, context: { user_id: id })
+    false
+  end
+
   # D-148: an admin lifts a ban, with a reason. The ban's own reason stays beside it, and the orders the ban cancelled
   # wait again. False unless banned or the reason is blank. The ship the ban rejected stays rejected.
   def lift_ban!(reason, by:)

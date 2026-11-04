@@ -272,13 +272,13 @@ module Hackatime
   def self.refresh_trust_level!(user)
     raise NotLinked unless user.hackatime_linked?
     if fake
-      user.update_column(:hackatime_trust_level, Fake.trust_level(user))
+      store_trust_level(user, Fake.trust_level(user))
       return user.hackatime_trust_level
     end
     if stubbed_trust_levels
       level = stubbed_trust_levels[user.hackatime_uid]
       raise Unavailable, "stubbed failure" if level == :unavailable
-      user.update_column(:hackatime_trust_level, level) if level
+      store_trust_level(user, level) if level
       return user.hackatime_trust_level
     end
 
@@ -301,7 +301,13 @@ module Hackatime
   # validations: this runs in the middle of reads.
   def self.remember_trust_level(user, body)
     level = body.dig("trust_factor", "trust_level") || body.dig("data", "trust_factor", "trust_level")
-    user.update_column(:hackatime_trust_level, level.to_s) if level.present? && user.persisted?
+    store_trust_level(user, level.to_s) if level.present? && user.persisted?
+  end
+
+  # The one place a trust level is stored. D-151: red, Hackatime's ban, bans them in Save Point too (User#ban_for_hackatime!).
+  def self.store_trust_level(user, level)
+    user.update_column(:hackatime_trust_level, level)
+    user.ban_for_hackatime!
   end
 
   def self.stats(user, path = stats_path)
@@ -342,5 +348,5 @@ module Hackatime
   rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError => error
     raise Unavailable, error.message
   end
-  private_class_method :stats, :api_key, :key_vault, :get, :remember_trust_level
+  private_class_method :stats, :api_key, :key_vault, :get, :remember_trust_level, :store_trust_level
 end

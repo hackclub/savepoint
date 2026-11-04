@@ -94,6 +94,8 @@ Rails.application.routes.draw do
     resources :projects, only: %i[index show]
     resources :users, only: %i[index show] do
       resource :impersonation, only: :create
+      # D-148: lifting a ban takes a reason.
+      resource :ban, only: :destroy
     end
     # The admin MCP server (D-046), for Claude: POST only, with an admin's token rather than the session (Admin::McpController).
     post "mcp" => "mcp#create", as: :mcp

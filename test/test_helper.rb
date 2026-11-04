@@ -63,6 +63,8 @@ module HackClubAuthHelpers
 
   HQ_ADDRESS = { "street_address" => "15 Falls Rd", "locality" => "Shelburne", "region" => "VT", "postal_code" => "05482",
                  "country" => "US" }.freeze
+  HQ_PHONE = "+1 802 555 0100".freeze
+  HQ_ADDRESS_WITH_PHONE = HQ_ADDRESS.merge("phone_number" => HQ_PHONE).freeze
 end
 
 module HackatimeHelpers
@@ -77,6 +79,18 @@ module HackatimeHelpers
     ship.decide!("approved", by: users(:ana), technical_features:, **options)
     ship.pass_fraud!(by: users(:ana))
     ship
+  end
+
+  # An approved ship of `hours` for the project, written straight to the row (no review), so an order made with
+  # validate: false is still covered by approved hours when an admin places it (D-148).
+  def give_approved_hours(project, hours)
+    project.ships.new(title: "Approved", description: "An approved game.", repo_url: "https://github.com/x/approved", demo_url: "https://example.com/approved",
+                      hours:, status: "approved", review_hours: hours, approved_hours: hours).save!(validate: false)
+  end
+
+  # The free stickers earned, as the dispatch check wants them.
+  def give_sticker_reward(user)
+    Reward.insert!({ user_id: user.id, key: "stickers", created_at: Time.current, updated_at: Time.current }) unless user.rewards.exists?(key: "stickers")
   end
 
   def link_hackatime(user, token: "token-#{user.first_name.downcase}")

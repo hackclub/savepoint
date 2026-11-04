@@ -43,6 +43,17 @@ class Prize < Data.define(:key, :name, :article, :kind, :cost, :hours, :image, :
 
   def pace_minutes(from: Time.current) = self.class.pace_minutes(hours, from:)
 
+  # Prizes that arrive as a code or a key by email, not a parcel (D-148). The free stickers are posted, so not these.
+  DIGITAL_KEYS = %w[aseprite steam25 steam100 roblox25 roblox50 roblox75 roblox100 ps100 xbox100].freeze
+
+  def digital? = key.in?(DIGITAL_KEYS)
+
+  # Posted to an address (D-148): everything that is not digital.
+  def physical? = !digital?
+
+  # Terms that say 18 or older (the $100 PlayStation card's): the claim needs a birthdate showing it (D-148).
+  def adults_only? = terms.any? { it.match?(/\b18\+|\b18 or older/) }
+
   PRICED = [
     { key: "aseprite", name: "Aseprite", article: "an", kind: "Pixel art editor (Steam key)", cost: 19.99, image: "aseprite.png", icon: "palette-fill", url: "https://www.aseprite.org/",
       facts: [ "Layers, frames and animation tags", "Onion skin to see the frames around the one you draw", "Tiled mode for repeating patterns", "Comes as a Steam key" ] },

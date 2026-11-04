@@ -12,7 +12,7 @@ class Admin::OrdersController < Admin::BaseController
     return redirect_to admin_orders_path, alert: "That one's been #{order.stickers? ? "shipped" : "ordered"} already." unless result
 
     redirect_to admin_orders_path, notice: ("Shipped, but Theseus had it already, so there's no letter ID." if result == :already_sent)
-  rescue TheseusClient::Error => e
+  rescue TheseusClient::Error, Order::Blocked => e
     redirect_to admin_orders_path, alert: e.message
   end
 
@@ -21,14 +21,22 @@ class Admin::OrdersController < Admin::BaseController
     sent = 0
     unknown = 0
     failed = []
+    skipped = 0
     Order.waiting.where(prize_key: Prize::STICKERS.key).includes(project: :user).order(:created_at).each do |order|
+      # D-148: a banned person's sticker order is skipped, not sent.
+      if order.project.user.banned?
+        skipped += 1
+        next
+      end
+
       result = order.place!(by: current_user)
       sent += 1 if result
       unknown += 1 if result == :already_sent
-    rescue TheseusClient::Error => e
+    rescue TheseusClient::Error, Order::Blocked => e
       failed << "order #{order.id} (#{e.message})"
     end
     message = "Shipped #{sent} sticker #{"order".pluralize(sent)}."
+    message += " Skipped #{skipped} from banned #{"account".pluralize(skipped)}." if skipped.positive?
     message += " #{unknown} had a letter already, so there's no letter ID." if unknown.positive?
     flash[failed.any? ? :alert : :notice] = failed.any? ? "#{message} Failed: #{failed.join("; ")}." : message
     redirect_to admin_orders_path

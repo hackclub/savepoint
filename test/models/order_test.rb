@@ -7,6 +7,7 @@ class OrderTest < ActiveSupport::TestCase
     @admins = Rails.configuration.x.admin_slack_ids
     Rails.configuration.x.admin_slack_ids = [ "U0ADMIN" ]
     @project = projects(:orpheus)
+    users(:orpheus).update!(phone_number: HQ_PHONE)
   end
 
   teardown { Rails.configuration.x.admin_slack_ids = @admins }
@@ -68,7 +69,7 @@ class OrderTest < ActiveSupport::TestCase
 
     users(:orpheus).update!(address: HQ_ADDRESS)
     order = buy_prize("micro")
-    assert_equal HQ_ADDRESS, order.address
+    assert_equal HQ_ADDRESS_WITH_PHONE, order.address
     users(:orpheus).update!(address: HQ_ADDRESS.merge("street_address" => "1 New St"))
     assert_equal "15 Falls Rd", order.reload.address["street_address"]
   end
@@ -94,13 +95,100 @@ class OrderTest < ActiveSupport::TestCase
     users(:orpheus).update!(address: HQ_ADDRESS)
     order = buy_prize("micro")
     assert order.persisted?
-    assert_equal [ "micro", micro.hours.to_d, HQ_ADDRESS ], [ order.prize_key, order.hours, order.address ]
+    assert_equal [ "micro", micro.hours.to_d, HQ_ADDRESS_WITH_PHONE ], [ order.prize_key, order.hours, order.address ]
     assert_equal "8BitDo Micro", order.configuration
     assert_equal 2, @project.reload.hours_to_spend
 
     assert_equal "That's #{Prize.find("steam100").hours.to_s.delete_suffix(".0")} hours, and you've 2 approved to spend.", buy_prize("steam100").problem
     assert_not buy_prize("not-a-prize").persisted?
     assert_not @project.orders.create.persisted?, "no prize at all"
+  end
+
+  test "a banned owner can't claim, and a red Hackatime trust level can't either (D-148)" do
+    approve(hours: Prize.find("micro").hours)
+    users(:orpheus).update!(banned_at: Time.current, ban_reason: "fraud")
+    assert_equal "This account can't claim prizes.", buy_prize("micro").problem
+
+    users(:orpheus).update!(banned_at: nil)
+    users(:orpheus).update_columns(hackatime_trust_level: "red")
+    assert_equal "This account can't claim prizes.", buy_prize("micro").problem
+
+    users(:orpheus).update_columns(hackatime_trust_level: "blue")
+    assert buy_prize("micro").persisted?
+  end
+
+  test "a ban cancels the waiting orders, which stop counting as spent, and placing a banned order is refused" do
+    approve(hours: Prize.find("micro").hours + 1)
+    order = buy_prize("micro")
+    users(:orpheus).ban!("fraud", by: users(:ana))
+    assert order.reload.cancelled?
+    assert_equal 0, @project.reload.hours_spent
+    assert_raises(Order::Blocked) { order.update_columns(status: "waiting") && order.place!(by: users(:ana)) }
+    assert order.reload.waiting?
+  end
+
+  test "placing an order again checks the ban, the stickers, and the hours (D-148)" do
+    approve(hours: Prize.find("micro").hours)
+    order = buy_prize("micro")
+    users(:orpheus).update_columns(banned_at: Time.current)
+    error = assert_raises(Order::Blocked) { order.place!(by: users(:ana)) }
+    assert_match(/is banned/, error.message)
+    assert_raises(Order::Blocked) { order.ordered!(by: users(:ana)) }
+
+    users(:orpheus).update_columns(banned_at: nil)
+    @project.ships.update_all(approved_hours: 1, review_hours: 1, claimed_hours: 1)
+    assert_equal "Their approved hours no longer cover this prize.", assert_raises(Order::Blocked) { order.place!(by: users(:ana)) }.message
+    assert order.reload.waiting?
+
+    users(:orpheus).rewards.create!(key: "stickers")
+    sticker = buy_prize("stickers")
+    users(:orpheus).rewards.destroy_all
+    assert_equal "They haven't earned these stickers.", assert_raises(Order::Blocked) { sticker.place!(by: users(:ana)) }.message
+  end
+
+  test "lifting a ban needs a reason, restores the cancelled orders and keeps the ban's reason" do
+    approve(hours: Prize.find("micro").hours)
+    order = buy_prize("micro")
+    user = users(:orpheus)
+    user.ban!("copied game", by: users(:ana))
+    assert_not user.lift_ban!("  ", by: users(:ana))
+    assert user.reload.banned?
+
+    assert user.lift_ban!("wrongly flagged", by: users(:ana))
+    assert_not user.reload.banned?
+    assert_match(/wrongly flagged.*copied game/, user.ban_reason)
+    assert order.reload.waiting?
+    assert_not user.lift_ban!("again", by: users(:ana))
+  end
+
+  test "a posted prize needs a postal code where the country has one, and a phone (D-148)" do
+    approve(hours: Prize.find("micro").hours + Prize.find("u2c").hours + Prize.find("k617").hours)
+    no_postal = HQ_ADDRESS_WITH_PHONE.except("postal_code")
+    assert_equal "Add the postal code.", @project.reload.orders.create(prize_key: "micro", address: no_postal).problem
+    assert_equal "Add a phone number for the carrier.", @project.reload.orders.create(prize_key: "micro", address: HQ_ADDRESS).problem
+    assert @project.reload.orders.create(prize_key: "micro", address: no_postal.merge("country" => "HK")).persisted?, "Hong Kong has no postal code"
+    assert @project.reload.orders.create(prize_key: "u2c", address: HQ_ADDRESS_WITH_PHONE).persisted?
+  end
+
+  test "a prize whose terms say 18 or older needs a birthdate showing it (D-148)" do
+    assert Prize.find("ps100").adults_only?
+    assert_not Prize.find("xbox100").adults_only?
+    approve(hours: Prize.find("ps100").hours)
+    user = users(:orpheus)
+
+    assert_equal "We need your birthdate to check you're 18 or older for this prize.", buy_prize("ps100").problem
+    user.update!(birthdate: 17.years.ago.to_date.to_s)
+    assert_equal "You need to be 18 or older to claim this prize.", buy_prize("ps100").problem
+    user.update!(birthdate: 18.years.ago.to_date.to_s)
+    assert buy_prize("ps100").persisted?
+  end
+
+  test "a code sent by email needs an email (D-148)" do
+    approve(hours: Prize.find("aseprite").hours)
+    users(:orpheus).update_columns(email: nil)
+    assert_equal "We need an email to send it to.", buy_prize("aseprite").problem
+    users(:orpheus).update_columns(email: "orpheus@hackclub.com")
+    assert buy_prize("aseprite").persisted?
   end
 
   private
@@ -219,6 +307,7 @@ class OrderConcurrencyTest < ActiveSupport::TestCase
     assert_operator micro.hours + aseprite.hours, :>, 7
     assert_operator [ micro.hours, aseprite.hours ].max, :<=, 7
 
+    project.user.update!(phone_number: HQ_PHONE) # not transactional: undone below
     approve(project, hours: 7)
     start = Queue.new
     meet = { mutex: Mutex.new, cond: ConditionVariable.new, arrived: 0 }
@@ -243,6 +332,7 @@ class OrderConcurrencyTest < ActiveSupport::TestCase
     Order.where(project_id: project.id).delete_all
     project.ships.destroy_all
     project.user.streak_activities.delete_all
+    project.user.update!(phone_number: nil)
   end
 
   test "parallel claims of the stickers take no more packs than were earned" do

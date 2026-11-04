@@ -104,4 +104,31 @@ class Admin::UsersControllerTest < ActionDispatch::IntegrationTest
       post "/auth/hackclub"
       follow_redirect!
     end
+
+  test "a banned person shows a badge, and an admin lifts the ban with a reason, which is audited (D-148)" do
+    users(:ana).update_columns(banned_at: Time.current, ban_reason: "copied a game")
+    sign_in_as(users(:orpheus))
+    get admin_users_path
+    assert_select "tr##{dom_id(users(:ana))} .admin-ban-badge", /banned/
+
+    get admin_user_path(users(:ana))
+    assert_select "#admin-user-ban", /copied a game/
+
+    delete admin_user_ban_path(users(:ana)), params: { reason: " " }
+    assert_equal "Say why you are lifting the ban.", flash[:alert]
+    assert users(:ana).reload.banned?
+
+    assert_difference -> { AdminAuditEvent.where(tool: "lift_ban").count }, 1 do
+      delete admin_user_ban_path(users(:ana)), params: { reason: "wrongly flagged" }
+    end
+    assert_not users(:ana).reload.banned?
+  end
+
+  test "only admins can lift a ban" do
+    users(:ana).update_columns(banned_at: Time.current, ban_reason: "x")
+    sign_in_as(users(:ana)) rescue nil
+    delete admin_user_ban_path(users(:ana)), params: { reason: "me" }
+    assert_response :not_found
+    assert users(:ana).reload.banned?
+  end
 end

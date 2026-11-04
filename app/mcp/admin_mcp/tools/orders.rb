@@ -33,7 +33,7 @@ module AdminMcp::Tools::Orders
       elsif result == :already_sent then "Theseus had a letter for it already, so there's no letter ID."
       end
       { ordered: !!result, message:, order: AdminMcp::Present.order(order.reload) }
-    rescue TheseusClient::Error => e
+    rescue TheseusClient::Error, Order::Blocked => e
       { ordered: false, message: e.message, order: AdminMcp::Present.order(order.reload) }
     end
   end

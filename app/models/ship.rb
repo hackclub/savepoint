@@ -482,18 +482,27 @@ class Ship < ApplicationRecord
   def pass_fraud!(by:, deduction: 0, notes: nil)
     return false unless awaiting_fraud?
 
-    errors.clear
-    # D-097: a deduction comes off the new hours only; the earlier approval stands.
-    held = earlier_approval&.hours.to_d
-    deduction = deduction.to_d.clamp(0, [ review_hours.to_d - held, 0 ].max).floor(2)
-    self.fraud_notes = notes.to_s.strip.presence
-    errors.add(:fraud_notes, "Say why you deduct hours") if deduction.positive? && fraud_notes.nil?
-    return false if errors.any?
+    # D-148: under the row's lock, so a pass and a send-back landing together can't both win, and never for a banned owner.
+    transaction do
+      next false unless Ship.lock.where(id:).pick(:status) == "awaiting_fraud"
 
-    update!(status: "approved", fraud_status: deduction.positive? ? "deducted" : "passed", fraud_reviewer: by,
-            fraud_reviewed_at: Time.current, fraud_deduction_hours: deduction, approved_hours: review_hours - deduction,
-            decided_by: by, decided_at: Time.current)
-    true
+      errors.clear
+      if project.user.banned?
+        errors.add(:base, "This account is banned.")
+        next false
+      end
+      # D-097: a deduction comes off the new hours only; the earlier approval stands.
+      held = earlier_approval&.hours.to_d
+      deduction = deduction.to_d.clamp(0, [ review_hours.to_d - held, 0 ].max).floor(2)
+      self.fraud_notes = notes.to_s.strip.presence
+      errors.add(:fraud_notes, "Say why you deduct hours") if deduction.positive? && fraud_notes.nil?
+      next false if errors.any?
+
+      update!(status: "approved", fraud_status: deduction.positive? ? "deducted" : "passed", fraud_reviewer: by,
+              fraud_reviewed_at: Time.current, fraud_deduction_hours: deduction, approved_hours: review_hours - deduction,
+              decided_by: by, decided_at: Time.current)
+      true
+    end
   end
 
   # What a banned participant's rejected ship says when the reviewer wrote nothing of their own under Ban (D-112).
@@ -512,12 +521,15 @@ class Ship < ApplicationRecord
 
     from_review = in_review?
     transaction do
+      # D-148: under the row's lock, so a ban can't land on a ship another admin has decided in the meantime.
+      next false unless Ship.lock.where(id:).pick(:status).in?(%w[in_review awaiting_fraud])
+
       assign_attributes(reviewer: by, reviewed_at: Time.current, review_checklist: checklist || review_checklist) if from_review
       update!(status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current, approved_hours: nil,
               review_feedback: (review_feedback.presence if from_review) || BAN_NOTE, decided_by: by, decided_at: Time.current)
       project.user.ban!(fraud_notes, by:)
+      true
     end
-    true
   end
 
   # A ship waiting for its fraud check goes back to review, with a reason. The review is cleared (kept in the send-back,
@@ -531,12 +543,14 @@ class Ship < ApplicationRecord
     return false if errors.any?
 
     transaction do
+      next false unless Ship.lock.where(id:).pick(:status) == "awaiting_fraud"
+
       send_backs.create!(user: by, reason:, earlier_review: earlier_review)
       update!(status: "in_review", fraud_status: nil, reviewer: nil, reviewed_at: nil, review_coding_hours: nil, review_art_hours: nil,
               review_hours: nil, review_judgement: nil, review_feedback: nil, technical_features: nil, deflation_reason: nil,
               claimed_hours: nil, review_checklist: {})
+      true
     end
-    true
   end
 
   # What a review held, for the send-back that clears it.

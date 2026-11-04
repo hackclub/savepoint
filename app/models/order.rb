@@ -9,7 +9,7 @@ class Order < ApplicationRecord
 
   # A project's hours spent come from its orders.
   after_commit -> { Project.where(id: project_id).update_all(synced_at: nil, updated_at: Time.current) }, on: %i[create update destroy]
-  STATUSES = %w[waiting ordered].freeze
+  STATUSES = %w[waiting ordered cancelled].freeze
 
   belongs_to :project
   belongs_to :ordered_by, class_name: "User", optional: true
@@ -26,11 +26,18 @@ class Order < ApplicationRecord
   validates :prize_key, inclusion: { in: Prize::CLAIMABLE.map(&:key) }
   # The free stickers can be claimed up to Reward::STICKER_PACKS_MAX times, once for each pack earned (stickers_earned).
   validates :prize_key, uniqueness: { scope: :project_id, message: "is one you've bought already" }, allow_nil: true, unless: :stickers?
-  validate :shop_open, on: :create
-  validate :stickers_earned, :covered_by_approved_hours, :addressed, on: :create
+  validate :shop_open, :not_banned, on: :create
+  validate :stickers_earned, :covered_by_approved_hours, :addressed, :deliverable, :old_enough, :has_email, on: :create
+
+  # An order that can't go ahead at dispatch (ban, stickers no longer earned, hours no longer covering it). The message
+  # is plain words for the admin.
+  class Blocked < StandardError; end
+
+  BANNED = "This account can't claim prizes.".freeze
 
   scope :waiting, -> { where(status: "waiting") }
   scope :ordered, -> { where(status: "ordered") }
+  scope :cancelled, -> { where(status: "cancelled") }
 
   # Claiming is a check then an insert (covered_by_approved_hours, then the row), so a new order is saved under its project's
   # row lock: parallel claims for different prizes take turns, and each one checks the hours the last one left. The lock
@@ -66,12 +73,24 @@ class Order < ApplicationRecord
   end
 
   # An admin's ordered it: once.
+  # Under the row lock, so two admins pressing at once order it once. Raises Blocked when the owner is banned (D-148).
   def ordered!(by:, theseus_letter_id: nil)
-    return false unless waiting?
+    ordered = with_lock do
+      next false unless waiting?
 
-    update!(status: "ordered", ordered_by: by, ordered_at: Time.current, theseus_letter_id:)
-    OrderNotifier.ordered(self)
-    true
+      check_dispatchable!
+      update!(status: "ordered", ordered_by: by, ordered_at: Time.current, theseus_letter_id:)
+      true
+    end
+    OrderNotifier.ordered(self) if ordered
+    ordered
+  end
+
+  def cancelled? = status == "cancelled"
+
+  # A banned person's waiting order is cancelled with the ban (User#ban!, D-148). The row stays, off the hours spent.
+  def cancel_for_ban!
+    with_lock { update!(status: "cancelled") if waiting? }
   end
 
   # The free stickers HQ sends through Theseus (D-067).
@@ -81,21 +100,69 @@ class Order < ApplicationRecord
   # ordered only if it took them, so one can't be marked without being sent. Answers :ordered, :sent, :already_sent
   # (Theseus had it, so there's no letter id), or false when it was ordered already. A Theseus failure raises
   # TheseusClient::Error and changes nothing.
+  # Raises Order::Blocked, before anything is sent, when the owner is banned or no longer qualifies (D-148). The whole of
+  # it runs under the order's row lock, so a second press waits and then finds it done.
   def place!(by:)
-    return false unless waiting?
-    return (ordered!(by:) && :ordered) unless stickers?
+    with_lock do
+      next false unless waiting?
 
-    letter_id = begin
-      TheseusClient.new.send_stickers(self)
-    rescue TheseusClient::AlreadySent
-      nil
+      check_dispatchable!
+      next (ordered!(by:) && :ordered) unless stickers?
+
+      letter_id = begin
+        TheseusClient.new.send_stickers(self)
+      rescue TheseusClient::AlreadySent
+        nil
+      end
+      next false unless ordered!(by:, theseus_letter_id: letter_id)
+
+      letter_id ? :sent : :already_sent
     end
-    return false unless ordered!(by:, theseus_letter_id: letter_id)
-
-    letter_id ? :sent : :already_sent
   end
 
   private
+    # The checks again at dispatch (D-148): the person may have been banned, lost their stickers or their hours since they claimed.
+    def check_dispatchable!
+      user = project.user
+      raise Blocked, "#{user.name.presence || "This person"} is banned. Cancel this order." if user.banned?
+      raise Blocked, "Hackatime has banned this account (red trust)." if user.hackatime_banned?
+      if stickers?
+        raise Blocked, "They haven't earned these stickers." if Reward.sticker_packs_earned(user).zero?
+        raise Blocked, "Hack Club stickers aren't available on this account." unless user.sticker_eligible?
+      elsif project.hours_approved < project.orders.where.not(id:).where.not(status: "cancelled").sum(:hours).to_f + hours.to_f
+        raise Blocked, "Their approved hours no longer cover this prize."
+      end
+    end
+
+    def not_banned
+      user = project&.user
+      errors.add(:base, BANNED) if user&.banned? || user&.hackatime_banned?
+    end
+
+    # D-148: a posted prize needs a postal code (where the country has one) and a phone. The free stickers go through
+    # Theseus, which checks the address itself.
+    def deliverable
+      return unless prize_item&.physical? && !stickers?
+
+      problem = ShippingAddress.from_hash(address).delivery_problems.values.first
+      errors.add(:base, problem) if problem
+    end
+
+    # D-148: a prize whose terms say 18 or older needs a birthdate that shows it.
+    def old_enough
+      return unless prize_item&.adults_only?
+
+      born = (Date.parse(project.user.birthdate.to_s) rescue nil)
+      if born.nil? then errors.add(:base, "We need your birthdate to check you're 18 or older for this prize.")
+      elsif born > 18.years.ago.to_date then errors.add(:base, "You need to be 18 or older to claim this prize.")
+      end
+    end
+
+    # A code sent by email needs somewhere to send it.
+    def has_email
+      errors.add(:base, "We need an email to send it to.") if prize_item&.digital? && project&.user&.email.blank?
+    end
+
     # D-138: claiming ends when the shop closes (Program::SHOP_CLOSES_AT), a week after hours and shipping.
     def shop_open
       errors.add(:base, "The shop is closed.") unless Program.shop_open?
@@ -106,8 +173,15 @@ class Order < ApplicationRecord
       return unless project && prize_item
 
       self.hours = prize_item.hours
-      self.address ||= project.user.address
+      self.address ||= address_with_phone(project.user)
       self.recipient_name ||= project.user.recipient_name
+    end
+
+    # Their Hack Club address with the phone Hack Club Auth shared, for an order made without the claim step's form.
+    def address_with_phone(user)
+      return if user.address.blank?
+
+      ShippingAddress.from_hash(user.address).tap { it.phone_number ||= user.phone_number }.to_h
     end
 
     # The free stickers (D-051) are for someone who earned them: a sticker Reward for each pack, the first-hour one or a

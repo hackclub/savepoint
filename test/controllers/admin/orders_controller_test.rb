@@ -8,6 +8,7 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
     Rails.configuration.x.admin_slack_ids = [ "U0ORPHEUS" ]
     @order = projects(:ana).orders.new(prize_key: "micro", hours: 6.5, address: HQ_ADDRESS)
     @order.save!(validate: false) # as if their approved hours covered it
+    give_approved_hours(projects(:ana), 6.5)
   end
 
   teardown do
@@ -189,8 +190,39 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a banned person is marked on the page, and their order can't be marked ordered (D-148)" do
+    users(:ana).update_columns(banned_at: Time.current, ban_reason: "copied")
+    sign_in_as(users(:orpheus))
+    get admin_orders_path
+    assert_select "tr##{dom_id(@order)} .admin-ban-badge", /banned/
+
+    patch admin_order_path(@order)
+    assert_match(/is banned/, flash[:alert])
+    assert @order.reload.waiting?
+    assert_no_enqueued_jobs only: SlackMessageJob
+  end
+
+  test "Ship all skips a banned person's sticker order and says so" do
+    ENV["THESEUS_API_KEY"] = "k"
+    banned = make_sticker(projects(:ana))
+    users(:ana).update_columns(banned_at: Time.current)
+    calls = stub_theseus
+    sign_in_as(users(:orpheus))
+    post send_stickers_admin_orders_path
+    assert_equal "Shipped 0 sticker orders. Skipped 1 from banned account.", flash[:notice]
+    assert banned.reload.waiting?
+    assert_empty calls
+  end
+
+  test "two admins pressing Mark ordered order it once" do
+    stale = Order.find(@order.id)
+    @order.update_columns(status: "ordered", ordered_by_id: users(:orpheus).id, ordered_at: Time.current)
+    assert_not stale.place!(by: users(:orpheus)), "the lock reloads it and finds it done"
+  end
+
   private
     def make_sticker(project)
+      give_sticker_reward(project.user)
       project.orders.new(prize_key: "stickers", hours: 0, address: HQ_ADDRESS).tap { it.save!(validate: false) }
     end
 

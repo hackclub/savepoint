@@ -970,6 +970,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     def make_order(prize_key, status, **attributes)
       order = projects(:ana).orders.new(prize_key:, hours: 6.5, address: HQ_ADDRESS, status:, **attributes)
       order.save!(validate: false) # as if their approved hours covered it
+      give_approved_hours(projects(:ana), 6.5) if prize_key != "stickers"
+      give_sticker_reward(users(:ana)) if prize_key == "stickers"
       order
     end
 end

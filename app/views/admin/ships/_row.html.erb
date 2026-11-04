@@ -6,7 +6,7 @@
 <tr id="<%= dom_id(ship) %>" data-status="<%= ship.status %>">
   <th scope="row">
     <%= admin_avatar_link(user, "admin__avatar") %>
-    <%= admin_person_link(user) %>
+    <%= admin_person_link(user) %> <%= admin_ban_badge(user) %>
     <small class="admin__muted"><%= user.email %><% if user.slack_display_name.present? %> · <%= name_with_slack(user, name: user.slack_display_name) %><% end %></small>
   </th>
   <td>

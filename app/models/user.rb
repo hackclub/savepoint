@@ -75,8 +75,10 @@ class User < ApplicationRecord
   def banned? = banned_at.present?
 
   def ban!(reason, by:)
-    transaction do
+    with_lock do
       update!(banned_at: Time.current, ban_reason: reason)
+      # D-148: the prizes they were waiting for are cancelled, so nothing is posted to a banned account.
+      project&.orders&.waiting&.find_each(&:cancel_for_ban!)
       project&.ships&.pending&.find_each do |ship|
         rejection = { status: "rejected", fraud_status: "banned", fraud_reviewer: by, fraud_reviewed_at: Time.current,
                       fraud_notes: "Banned with the account: #{reason}", decided_by: by, decided_at: Time.current }
@@ -84,6 +86,21 @@ class User < ApplicationRecord
         rejection[:review_feedback] = Ship::BAN_NOTE if ship.awaiting_fraud?
         ship.update!(rejection)
       end
+    end
+  end
+
+  # D-148: an admin lifts a ban, with a reason. The ban's own reason stays beside it, and the orders the ban cancelled
+  # wait again. False unless banned or the reason is blank. The ship the ban rejected stays rejected.
+  def lift_ban!(reason, by:)
+    reason = reason.to_s.strip
+    return false if reason.empty?
+
+    with_lock do
+      next false unless banned?
+
+      update!(banned_at: nil, ban_reason: "Lifted by #{by.name.presence || by.public_name} on #{Time.current.to_date}: #{reason}. Banned for: #{ban_reason}")
+      project&.orders&.cancelled&.find_each { it.update!(status: "waiting") }
+      true
     end
   end
 

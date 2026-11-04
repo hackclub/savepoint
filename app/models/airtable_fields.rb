@@ -16,6 +16,7 @@ module AirtableFields
       "Hackatime ID" => u.hackatime_uid,
       "Verification Status" => u.verification_status,
       "YSWS Eligible" => u.ysws_eligible,
+      "Banned" => u.banned?,
       "Signed Up At" => u.created_at&.iso8601
     }.compact
   end

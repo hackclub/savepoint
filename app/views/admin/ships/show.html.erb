@@ -26,6 +26,13 @@
           <%= admin_avatar_link(user, "admin__avatar") %><%= admin_person_link(user) %><% if user.slack_display_name.present? %>
           (<%= name_with_slack(user, name: user.slack_display_name) %> on Slack)<% end %>.
         </p>
+        <%# Gate audit findings 2, 5, 14, 15: why an approved ship's Unified YSWS box stays unticked, and a change made after Unified took the row. %>
+        <% if @ship.approved? && !@ship.in_unified? && @ship.unified_holds.any? %>
+          <p class="leaderboard__note" id="admin-ship-unified-holds"><strong>Held from the Unified YSWS DB:</strong> <%= @ship.unified_holds.join(" ") %></p>
+        <% end %>
+        <% if @ship.changed_after_unified_at %>
+          <p class="leaderboard__note" id="admin-ship-changed-after-unified"><strong>Changed after the Unified YSWS DB took this row</strong> (<%= @ship.changed_after_unified_at.strftime("%b %-d, %H:%M") %> UTC). The sync cannot send it. Fix the row in Airtable by hand.</p>
+        <% end %>
         <p class="ash__links">
           <%# A link that isn't http(s) shows as text, never as a link (the reviewer still sees what was typed). %>
           <% { "repo" => [ @ship.repo_url, "github-fill", "Repo" ], "demo" => [ @ship.demo_url, "play-fill", "Demo" ] }.each do |key, (url, icon, name)| %>
@@ -165,6 +172,10 @@
         <%# D-143: the Real name item shows the first and last name exactly as the Unified YSWS row will carry them, and gates the box. %>
         <% first_name, last_name = AirtableFields.names(@ship.project.user) %>
         <% checklist["real_name"] = "Real name: first “#{first_name.presence || "(none)"}”, last “#{last_name.presence || "(none)"}” are a real person's name, not a handle, mash or one word" %>
+        <% if @ship.real_name_ticked_at %>
+          <% checklist["real_name"] += ". Ticked for #{@ship.real_name_first} #{@ship.real_name_last} by #{@ship.real_name_ticked_by&.first_name.presence || "someone"} on #{@ship.real_name_ticked_at.strftime("%b %-d")}" %>
+          <% checklist["real_name"] += ". The name has changed since, so the tick no longer counts" if @ship.real_name_stale? %>
+        <% end %>
         <% checklist["real_name"] += ". Not YSWS eligible in Hack Club Auth, so it will not go to the Unified YSWS DB." unless @ship.project.user.ysws_eligible? %>
         <% defaults = @ship.checklist_defaults(earlier: @earlier_ship, limits: @limits) %>
         <% ticked = checklist.keys.count { |key| @ship.checklist_tick(key, defaults) } %>

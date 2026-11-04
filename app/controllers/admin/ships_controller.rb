@@ -155,7 +155,7 @@ class Admin::ShipsController < Admin::BaseController
     return head(:unprocessable_entity) unless Ship::CHECKLIST_KEYS.include?(key) && @ship.checklist_open_for?(key)
     return head(:forbidden) if @ship.by?(current_user)
 
-    @ship.tick_checklist!(key, params[:value] == "1")
+    @ship.tick_checklist!(key, params[:value] == "1", by: current_user)
     head :no_content
   end
 

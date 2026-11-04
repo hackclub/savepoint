@@ -2,6 +2,11 @@
 # It never says "real": checklist_defaults returns unticked either way, and a reviewer or an agent ticks the item.
 class Ship::RealName
   KEYBOARD_RUNS = %w[qwer wert erty rtyu tyui yuio uiop asdf sdfg dfgh fghj ghjk hjkl zxcv xcvb cvbn vbnm qazw wsxe 1234].freeze
+  # Words that are internet noise or a placeholder, not a name ("Lol Mao", "Test User", "John Doe"). "Mao" alone is a real surname, so
+  # only the first word and the pairs below count.
+  JOKE_WORDS = %w[lol lmao lmfao rofl omg wtf test testing fake anon anonymous nobody idk null undefined poop butt fart noob
+                  firstname lastname name user admin foo bar baz].freeze
+  JOKE_PAIRS = [ %w[john doe], %w[jane doe], %w[mickey mouse], %w[donald duck] ].freeze
   NAME_CHARS = /\A[\p{L}\p{M}][\p{L}\p{M} '.’-]*\z/
 
   def initialize(ship)
@@ -23,6 +28,7 @@ class Ship::RealName
     return "The name has digits or symbols." unless first.match?(NAME_CHARS) && last.match?(NAME_CHARS)
     return "The name matches the participant's Slack name or GitHub username, so it may be a handle." if handle?(first, last)
     return "The name looks like keyboard mash." if mash?(first) || mash?(last)
+    return "The name looks like a joke or a placeholder." if joke?(first, last)
 
     nil
   end
@@ -39,6 +45,11 @@ class Ship::RealName
     def handle?(first, last)
       candidates = [ squash(last), squash(first + last), squash(last + first) ]
       handles.any? { |handle| candidates.include?(handle) }
+    end
+
+    def joke?(first, last)
+      words = [ first, last ].map { squash(it) }
+      JOKE_WORDS.include?(words.first) || JOKE_WORDS.include?(words.last) || JOKE_PAIRS.include?(words)
     end
 
     # No vowel in a word of four letters or more, a run of one letter, or a run of keys side by side.

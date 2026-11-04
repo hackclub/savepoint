@@ -87,7 +87,9 @@ module AdminMcp::Tools::Ships
   def self.real_name(ship)
     check = Ship::RealName.new(ship)
     first, last = check.names
-    { first_name: first, last_name: last, concern: check.concern, ticked: ship.real_name_checked?,
+    { first_name: first, last_name: last, concern: check.concern, ticked: ship.real_name_checked?, ticked_for: [ ship.real_name_first, ship.real_name_last ].compact,
+      ticked_by: ship.real_name_ticked_by&.first_name, ticked_at: ship.real_name_ticked_at, tick_is_stale: ship.real_name_stale?,
+      unified_holds: (ship.approved? ? ship.unified_holds : []), changed_after_unified_at: ship.changed_after_unified_at,
       ysws_eligible: ship.project.user.ysws_eligible? }
   end
 
@@ -308,7 +310,7 @@ module AdminMcp::Tools::Ships
       raise AdminMcp::Refused, "key is one of #{ReviewAction::CHECKLIST_KEYS.join(", ")}." unless ReviewAction::CHECKLIST_KEYS.include?(args[:key].to_s)
 
       ship = ReviewAction.open_ship(args, caller, key: args[:key])
-      ship.tick_checklist!(args[:key], args[:checked] == true)
+      ship.tick_checklist!(args[:key], args[:checked] == true, by: caller.user)
       ReviewAction.answer(true, nil, ship)
     end
   end

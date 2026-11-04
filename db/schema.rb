@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_04_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_04_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -327,9 +327,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_060000) do
     t.jsonb "review_draft", default: {}, null: false
     t.datetime "review_draft_updated_at"
     t.bigint "review_draft_updated_by_id"
+    t.string "real_name_first"
+    t.string "real_name_last"
+    t.bigint "real_name_ticked_by_id"
+    t.datetime "real_name_ticked_at"
+    t.datetime "changed_after_unified_at"
     t.index ["decided_by_id"], name: "index_ships_on_decided_by_id"
     t.index ["fraud_reviewer_id"], name: "index_ships_on_fraud_reviewer_id"
     t.index ["project_id"], name: "index_ships_on_project_id"
+    t.index ["real_name_ticked_by_id"], name: "index_ships_on_real_name_ticked_by_id"
     t.index ["reviewer_id"], name: "index_ships_on_reviewer_id"
     t.index ["snapshot_edited_by_id"], name: "index_ships_on_snapshot_edited_by_id"
     t.index ["status"], name: "index_ships_on_status"
@@ -622,6 +628,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_060000) do
   add_foreign_key "ships", "ships", column: "superseded_by_id", on_delete: :nullify
   add_foreign_key "ships", "users", column: "decided_by_id"
   add_foreign_key "ships", "users", column: "fraud_reviewer_id"
+  add_foreign_key "ships", "users", column: "real_name_ticked_by_id"
   add_foreign_key "ships", "users", column: "reviewer_id"
   add_foreign_key "ships", "users", column: "snapshot_edited_by_id"
   add_foreign_key "site_days", "users", on_delete: :cascade

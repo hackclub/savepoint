@@ -12,7 +12,6 @@ class AirtableFieldParityTest < ActiveSupport::TestCase
   # Playground fields Save Point leaves out on purpose, each with its reason. Add a line only after Armand agrees.
   USER_GAPS = {
     "Last Name" => "The Users table has no Last Name column yet. The ship row has it, from users.last_name.",
-    "Banned" => "Save Point does not sync a banned flag to its Users table.",
     "Loops - playgroundSignupAt" => "Save Point sends no Loops emails from Airtable.",
     "Loops - playgroundFirstShipAt" => "Save Point sends no Loops emails from Airtable.",
     "Loops - playgroundFirstPetCreatedAt" => "Playground only: Save Point has no pets.",

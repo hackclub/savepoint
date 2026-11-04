@@ -48,6 +48,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
 
   def approved_ship(approved_hours: 10)
     @orpheus.user.update!(name: "Orpheus the Dino", first_name: "Orpheus", last_name: "the Dino", hackatime_uid: "1001", birthdate: "2010-04-01")
+    @orpheus.user.update!(address: { street_address: "15 Falls Rd", locality: "Shelburne", region: "VT", postal_code: "05482", country: "US" }.to_json) if @orpheus.user.address.blank?
     ship = @orpheus.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                                   repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/play",
                                   hackatime_projects: [ "rhythm-game" ], hours: 12.5, screenshot: upload, screenshot_shows_game: true)
@@ -100,16 +101,16 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_not row.key?("Optional - Override Hours Spent Justification")
   end
 
-  test "the Unified box is true for an approved ship whose Real name is ticked, whatever Stardance has or its URL (D-141, D-143)" do
+  test "the Unified box is true for an approved ship whose Real name is ticked, whatever Stardance has (D-141, D-143)" do
     ship = approved_ship
-    ship.update_columns(repo_url: "", review_checklist: { "real_name" => true })
+    ship.tick_checklist!("real_name", true)
     Airtable::SyncJob.perform_now
     assert_equal true, @fake.rows(SUBMISSIONS).first["Automation - Submit to Unified YSWS"]
   end
 
   test "D-147: the Unified box stays false for someone not YSWS eligible, even with Real name ticked, until Hack Club Auth says they are" do
     ship = approved_ship
-    ship.update_columns(review_checklist: { "real_name" => true })
+    ship.tick_checklist!("real_name", true)
     ship.project.user.update_columns(ysws_eligible: false)
     HackClubAuth.singleton_class.alias_method(:__identity, :identity)
     HackClubAuth.define_singleton_method(:identity) { |_user| raise HackClubAuth::Unavailable, "down" }
@@ -495,5 +496,81 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     @config[:enabled] = false
     Airtable::SyncJob.perform_now
     assert_empty @fake.upserts
+  end
+
+  def box(ship) = @fake.rows(SUBMISSIONS).reverse.find { it["save_point_id"] == "ship-#{ship.id}" }&.fetch("Automation - Submit to Unified YSWS")
+
+  test "gate audit 2: a banned owner's ship with no Airtable row is never sent, and one with a row goes with the box unticked" do
+    ship = approved_ship
+    ship.tick_checklist!("real_name", true)
+    ship.project.user.update_columns(banned_at: Time.current)
+    Airtable::SyncJob.perform_now
+    assert_empty @fake.rows(SUBMISSIONS), "no row, so nothing is sent"
+    assert_not_nil ship.reload.synced_at, "settled, so the queue does not stall on it"
+    assert_equal true, @fake.rows("Users").find { it["save_point_id"] == "user-#{ship.project.user_id}" }["Banned"]
+
+    ship.project.user.update_columns(banned_at: nil)
+    ship.update_columns(synced_at: nil)
+    Airtable::SyncJob.perform_now
+    assert_equal true, box(ship)
+
+    ship.project.user.update!(banned_at: Time.current)
+    assert_nil ship.reload.synced_at, "a ban sends the ship again"
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "rec1", "fields" => {} } }
+    Airtable::SyncJob.perform_now
+    assert_equal false, box(ship), "the Airtable row is unticked"
+  end
+
+  test "gate audit 5: a name change after the tick unticks the box until a reviewer ticks again" do
+    ship = approved_ship
+    ship.tick_checklist!("real_name", true, by: users(:ana))
+    Airtable::SyncJob.perform_now
+    assert_equal true, box(ship)
+    ship.project.user.update!(first_name: "Orphan", name: "Orphan the Dino")
+    assert_nil ship.reload.synced_at
+    Airtable::SyncJob.perform_now
+    assert_equal false, box(ship)
+    assert_match(/Real name tick was for Orpheus the Dino, and the name is now Orphan the Dino/, ship.unified_holds.join)
+    ship.tick_checklist!("real_name", true, by: users(:ana))
+    Airtable::SyncJob.perform_now
+    assert_equal true, box(ship)
+  end
+
+  test "gate audit 14: an incomplete record holds the box and names the missing fields" do
+    ship = approved_ship
+    ship.tick_checklist!("real_name", true)
+    ship.project.user.update!(birthdate: nil, address: { locality: "Shelburne", country: "US" }.to_json)
+    Airtable::SyncJob.perform_now
+    assert_equal false, box(ship)
+    assert_equal [ "The record is incomplete: Address (Line 1) and Birthday missing." ], ship.reload.unified_holds
+  end
+
+  test "gate audit 15: an edit after Unified took the row is marked for the admins, and the sync still skips it" do
+    ship = approved_ship
+    ship.update_columns(in_unified: true, synced_at: Time.current)
+    ship.update!(technical_features: "A new beat grid.")
+    assert_not_nil ship.reload.changed_after_unified_at
+    ship.update_columns(changed_after_unified_at: nil)
+    ship.project.user.update!(last_name: "Dinosaur")
+    assert_not_nil ship.reload.changed_after_unified_at
+    @fake.upserts.clear
+    Airtable::SyncJob.perform_now
+    assert_empty @fake.rows(SUBMISSIONS)
+    ship.update_columns(in_unified: false, changed_after_unified_at: nil)
+    ship.update!(technical_features: "Another change.")
+    assert_nil ship.reload.changed_after_unified_at, "a ship Unified has not taken is not marked"
+  end
+
+  test "a later ship with no new hours never ticks the box" do
+    first = approved_ship(approved_hours: 10)
+    first.update_columns(created_at: 2.days.ago)
+    later = @orpheus.ships.create!(title: "Beat Sheet 2", description: "A rhythm game where every beat is a cell lighting up in time.",
+                                   repo_url: "https://example.com/beat-sheet", demo_url: "https://example.com/play",
+                                   hackatime_projects: [ "rhythm-game" ], hours: 12.5, screenshot: upload, screenshot_shows_game: true)
+    later.update!(approved_columns(10))
+    later.tick_checklist!("real_name", true)
+    assert_includes later.unified_holds, "No new hours since the earlier ship."
+    later.update_columns(approved_hours: 12, review_hours: 12)
+    assert_not_includes later.reload.unified_holds, "No new hours since the earlier ship."
   end
 end

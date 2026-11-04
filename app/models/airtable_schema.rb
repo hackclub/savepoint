@@ -15,7 +15,7 @@ module AirtableSchema
     [ ID_FIELD, "singleLineText" ], [ "Email", "email" ], [ "Name", "singleLineText" ], [ "First Name", "singleLineText" ],
     [ "Slack ID", "singleLineText" ], [ "Hack Club Auth ID", "singleLineText" ], [ "Hackatime ID", "singleLineText" ],
     [ "Verification Status", "singleLineText" ], [ "YSWS Eligible", "checkbox", CHECKBOX ],
-    [ "Signed Up At", "dateTime", DATETIME ]
+    [ "Banned", "checkbox", CHECKBOX ], [ "Signed Up At", "dateTime", DATETIME ]
   ].freeze
 
   PROJECTS = [

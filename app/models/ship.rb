@@ -407,8 +407,13 @@ class Ship < ApplicationRecord
 
   # Saves a tick. Ticking Real name on an approved ship sends its row again, with the Unified YSWS box set from the new value.
   # `by` is the reviewer. A Real name tick keeps the names it was made for, who ticked and when.
+  # D-152: Real name can't be ticked while a name is missing or an initial. Returns false then, with the reason in errors[:base].
   def tick_checklist!(key, value, by: nil)
     key = key.to_s
+    if key == "real_name" && value == true && (problem = full_name_problem)
+      errors.add(:base, "Real name can't be ticked yet. #{problem}")
+      return false
+    end
     attrs = { review_checklist: review_checklist.merge(key => value == true) }
     if key == "real_name"
       ticked = value == true
@@ -417,6 +422,18 @@ class Ship < ApplicationRecord
     end
     update!(attrs)
     update_columns(synced_at: nil, airtable_failed_at: nil) if approved? && key == "real_name" && !in_unified?
+    true
+  end
+
+  # D-152: why the person has no full name for the Unified YSWS DB: a first or last name that is missing, or only an initial
+  # ("D", "D."). Nil when both are whole names. Whether the name is a real person's stays the reviewer's call (D-143).
+  def full_name_problem
+    first, last = AirtableFields.names(project.user)
+    { "first" => first, "last" => last }.each do |which, name|
+      return "Their #{which} name is missing, so they need to sign in to Hack Club Auth again." if name.blank?
+      return "Their #{which} name is an initial (#{name}), so they need to enter their full name in Hack Club Auth and sign in again." if name.gsub(/[^\p{L}]/, "").length < 2
+    end
+    nil
   end
 
   # D-050: a tick as the reviewer sees it. Their saved tick wins, either way. Otherwise the app's default, otherwise unticked.
@@ -520,6 +537,12 @@ class Ship < ApplicationRecord
   # an overlap with another program (D-110), and a second account on the same repo or person (D-148).
   def approval_blockers(frozen:, evidence: Ship::Evidence.new(self), limits: self.limits(counted_hours))
     list = []
+    # D-152: a full first and last name with Real name ticked, for the Unified YSWS DB. No reason lifts it.
+    if (problem = full_name_problem)
+      list << Blocker.new("name", "Approve needs a full first and last name with Real name ticked. #{problem}", false)
+    elsif !real_name_checked?
+      list << Blocker.new("real_name", "Tick Real name first.", false)
+    end
     list << Blocker.new("trust", "Hackatime's trust level for this person is red, so they can't be approved.", false) if evidence.trust_level == "red"
     stardance = evidence.stardance
     if stardance.shipped?

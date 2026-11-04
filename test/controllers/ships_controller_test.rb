@@ -93,7 +93,7 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     post project_ship_path, params: { ship: ship_params }
     first = projects(:orpheus).ships.sole
     first.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
-    first.decide!("approved", by: users(:ana), technical_features: "A beat grid.")
+    ticked(first).decide!("approved", by: users(:ana), technical_features: "A beat grid.")
     assert first.reload.awaiting_fraud?
 
     get project_ship_path(again: 1)
@@ -124,7 +124,7 @@ class ShipsControllerTest < ActionDispatch::IntegrationTest
     ship = projects(:orpheus).ships.sole
     ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
 
-    ship.decide!("approved", by: users(:ana), technical_features: "A beat grid.")
+    ticked(ship).decide!("approved", by: users(:ana), technical_features: "A beat grid.")
     assert ship.reload.awaiting_fraud?
     get project_ship_path
     assert_select ".ship__done-text", /Beat Sheet is in review/

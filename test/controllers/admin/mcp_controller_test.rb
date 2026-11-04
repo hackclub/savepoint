@@ -417,6 +417,24 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, ship.reload.review_checklist["real_name"]
   end
 
+  test "set_checklist_item refuses to tick real_name while a name is missing or an initial, and says why (D-152)" do
+    ship = make_ship
+    user = ship.project.user
+    user.update_columns(last_name: nil)
+    refused = mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "real_name", checked: true })
+    assert_equal false, refused["saved"]
+    assert_equal "Real name can't be ticked yet. Their last name is missing, so they need to sign in to Hack Club Auth again.", refused["message"]
+    user.update_columns(last_name: "D")
+    refused = mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "real_name", checked: true })
+    assert_equal false, refused["saved"]
+    assert_match(/last name is an initial \(D\)/, refused["message"])
+    assert_not ship.reload.real_name_checked?
+
+    user.update_columns(last_name: "Dorsey")
+    assert_equal true, mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "real_name", checked: true })["saved"]
+    assert ship.reload.real_name_checked?
+  end
+
   test "set_hours_start moves and clears the override through the model, and logs the project (D-136)" do
     ship = make_ship
     project = ship.project

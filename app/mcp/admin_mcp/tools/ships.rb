@@ -255,7 +255,7 @@ module AdminMcp::Tools::Ships
   # D-136: a tick of the checklist (Admin::ShipsController#checklist).
   class SetChecklistItem < AdminMcp::Tool
     writes "set_checklist_item", "Tick or untick a review checklist item",
-           "A tick of the review page's checklist (it saves on every tick there). It never blocks a verdict, but real_name gates the Unified YSWS submit (D-143): the Airtable sync ticks the box only on a ship whose real_name is true. The app never ticks it itself: read first_name and last_name (get_ship's real_name) and tick it only when they are a real person's name. real_name also works on an approved ship that has not reached the Unified YSWS DB, to let it through. Your tick replaces the app's own default for that item (get_ship's checklist_defaults). " \
+           "A tick of the review page's checklist (it saves on every tick there). It never blocks a verdict, but real_name gates the Unified YSWS submit (D-143): the Airtable sync ticks the box only on a ship whose real_name is true. The app never ticks it itself: read first_name and last_name (get_ship's real_name) and tick it only when they are a real person's name. real_name also works on an approved ship that has not reached the Unified YSWS DB, to let it through. It refuses to tick while the first or last name is missing or an initial (D-152), and an approval needs it ticked. Your tick replaces the app's own default for that item (get_ship's checklist_defaults). " \
            "Decides nothing and tells nobody. The ship must be in review (real_name: or approved). You can't tick on your own ship, or one another admin has open. Answers { saved, message, ship }.",
            { ship_id: { type: "integer", description: "The ship ID." },
              key: { type: "string", enum: ReviewAction::CHECKLIST_KEYS, description: "runs, readme, screenshot, hours_fit, art_cap, not_double or real_name (the first and last name as get_ship shows them are a real person's name, not a handle, mash or one word)." },
@@ -266,8 +266,9 @@ module AdminMcp::Tools::Ships
       raise AdminMcp::Refused, "key is one of #{ReviewAction::CHECKLIST_KEYS.join(", ")}." unless ReviewAction::CHECKLIST_KEYS.include?(args[:key].to_s)
 
       ship = ReviewAction.open_ship(args, caller, key: args[:key])
-      ship.tick_checklist!(args[:key], args[:checked] == true, by: caller.user)
-      ReviewAction.answer(true, nil, ship)
+      return ReviewAction.answer(true, nil, ship) if ship.tick_checklist!(args[:key], args[:checked] == true, by: caller.user)
+
+      ReviewAction.answer(false, ship.errors.full_messages.to_sentence, ship)
     end
   end
 

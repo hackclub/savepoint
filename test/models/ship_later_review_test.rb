@@ -40,7 +40,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     later = ship_now(hours: 20)
     later.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
 
-    assert later.decide!("approved", by: @reviewer, coding_hours: "6", art_hours: "1", technical_features: "A boss fight.",
+    assert ticked(later).decide!("approved", by: @reviewer, coding_hours: "6", art_hours: "1", technical_features: "A boss fight.",
                                      deflation_reason: "Some of it was a menu, so 12.71 hours.")
     later.reload
     assert_equal [ BigDecimal("10"), BigDecimal("2.71"), BigDecimal("12.71") ], [ later.review_coding_hours, later.review_art_hours, later.review_hours ]
@@ -55,7 +55,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     later = ship_now(hours: 20)
     later.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
     # Counted 20, AI 3 and art 4: coding 16, coding cap 14, art up to 4. Earlier used 4 coding and 1.71 art.
-    assert later.decide!("approved", by: @reviewer, technical_features: "A boss fight.")
+    assert ticked(later).decide!("approved", by: @reviewer, technical_features: "A boss fight.")
     assert_equal [ BigDecimal("14"), BigDecimal("4"), BigDecimal("18") ], [ later.review_coding_hours, later.review_art_hours, later.review_hours ]
   end
 
@@ -66,7 +66,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     limits = later.limits
     assert_equal BigDecimal("2"), limits.new_coding_top(4)
     assert_equal BigDecimal("0.86"), limits.new_art_top(4, BigDecimal("1.71"), BigDecimal("2"))
-    assert later.decide!("approved", by: @reviewer, coding_hours: "99", art_hours: "99", technical_features: "A boss fight.")
+    assert ticked(later).decide!("approved", by: @reviewer, coding_hours: "99", art_hours: "99", technical_features: "A boss fight.")
     assert_equal [ BigDecimal("6"), BigDecimal("2.57") ], [ later.review_coding_hours, later.review_art_hours ]
 
     capped = ship_now(hours: 20)
@@ -97,7 +97,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
   test "a fraud deduction comes off the new hours only" do
     later = ship_now(hours: 20)
     later.update_columns(ai_coding_seconds: 0, art_seconds: 0)
-    assert later.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "A boss fight.", deflation_reason: "Cut, so 7.71 hours.")
+    assert ticked(later).decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "A boss fight.", deflation_reason: "Cut, so 7.71 hours.")
     assert_equal BigDecimal("7.71"), later.review_hours
     assert later.pass_fraud!(by: @reviewer, deduction: "50", notes: "None of it.")
     assert_equal BigDecimal("5.71"), later.reload.approved_hours
@@ -107,7 +107,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     @first.update_columns(status: "in_review", approved_hours: nil, review_hours: nil, review_coding_hours: nil, review_art_hours: nil,
                           ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
     assert_nil @first.earlier_approval
-    assert @first.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@first).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_equal [ BigDecimal("4"), BigDecimal("1.71"), BigDecimal("5.71") ], [ @first.review_coding_hours, @first.review_art_hours, @first.review_hours ]
   end
 
@@ -116,7 +116,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: { records: [] }.to_json) }
     later = ship_now(hours: 20)
     later.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
-    assert later.decide!("approved", by: @reviewer, coding_hours: "6", art_hours: "1", technical_features: "A boss fight.",
+    assert ticked(later).decide!("approved", by: @reviewer, coding_hours: "6", art_hours: "1", technical_features: "A boss fight.",
                                      deflation_reason: "Some of it was a menu, so 12.71 hours.")
     assert later.pass_fraud!(by: @reviewer)
 

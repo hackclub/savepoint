@@ -92,7 +92,7 @@ class ShipDeflationReasonTest < ActiveSupport::TestCase
     reviewer = users(:orpheus)
     projects(:ana).user.streak_activities.create!(activity_date: (Program::STARTS_AT + 1.day).to_date, coded_seconds: 10 * 3600)
     @ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600, hours: 10)
-    assert @ship.decide!("approved", by: reviewer, technical_features: "A beat grid.")
+    assert ticked(@ship).decide!("approved", by: reviewer, technical_features: "A beat grid.")
     assert @ship.valid?, "waiting for the fraud check: #{@ship.errors.full_messages.to_sentence}"
     assert @ship.deflation_reason.present?, "a cut from the limits is named"
     assert @ship.pass_fraud!(by: reviewer, deduction: "1", notes: "An hour was AFK.")

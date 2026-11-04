@@ -88,7 +88,7 @@ class ShipTest < ActiveSupport::TestCase
     assert first.decide!("changes_needed", by: users(:ana), feedback: "Add a README.")
     assert first.changes_needed?
     assert_equal users(:ana), first.decided_by
-    assert_not first.decide!("approved", by: users(:ana)), "decided already"
+    assert_not ticked(first).decide!("approved", by: users(:ana)), "decided already"
     assert first.reload.changes_needed?
 
     second = ship_now(hours: 5)
@@ -121,7 +121,7 @@ class ShipTest < ActiveSupport::TestCase
       ship = ship_now(hours: 4)
       assert approve(ship, technical_features: "A combo meter.", judgement: "Plays well.")
       assert_equal [ "Plays well.", nil ], [ ship.reload.review_judgement, ship.review_feedback ]
-      assert_equal({}, ship.review_checklist)
+      assert_equal({ "real_name" => true }, ship.review_checklist)
     end
   end
 
@@ -205,14 +205,14 @@ class ShipTest < ActiveSupport::TestCase
       ship.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
       assert_equal BigDecimal("5.71"), ship.limits.most
 
-      assert_not ship.decide!("approved", by: users(:ana))
+      assert_not ticked(ship).decide!("approved", by: users(:ana))
       assert_equal [ "Name the specific technical features that explain the hours" ], ship.errors.map(&:message),
                    "the AI cut and the art hold need no reason"
       assert ship.reload.in_review?, "nothing saved"
 
-      assert_not ship.decide!("approved", by: users(:ana), coding_hours: "3", technical_features: "A rhythm grid.")
+      assert_not ticked(ship).decide!("approved", by: users(:ana), coding_hours: "3", technical_features: "A rhythm grid.")
       assert_equal [ "Say why you approve fewer hours than the rules allow" ], ship.errors.map(&:message), "below the AI cap needs a reason"
-      assert_not ship.decide!("approved", by: users(:ana), art_hours: "1", technical_features: "A rhythm grid.")
+      assert_not ticked(ship).decide!("approved", by: users(:ana), art_hours: "1", technical_features: "A rhythm grid.")
       assert_equal [ "Say why you approve fewer hours than the rules allow" ], ship.errors.map(&:message), "and so does less art than the hold allows"
 
       assert approve(ship, coding_hours: "9", technical_features: "  A rhythm grid and a combo meter. ",
@@ -279,15 +279,15 @@ class ShipTest < ActiveSupport::TestCase
     approved = ship_now(hours: 0)
     approved.update!(review_checklist: { "screenshot" => false, "runs" => true })
     assert approve(approved, technical_features: "Beat detection.", checklist_defaults: defaults)
-    assert_equal({ "readme" => true, "screenshot" => false, "runs" => true }, approved.reload.review_checklist)
+    assert_equal({ "readme" => true, "screenshot" => false, "runs" => true, "real_name" => true }, approved.reload.review_checklist)
 
     rejected = ship_now(hours: 0)
     assert rejected.decide!("changes_needed", by: users(:ana), feedback: "Add a README.", checklist_defaults: defaults)
     assert_equal({ "readme" => true, "screenshot" => true }, rejected.reload.review_checklist)
 
     refused = ship_now(hours: 0)
-    assert_not refused.decide!("approved", by: users(:ana), checklist_defaults: defaults)
-    assert_equal({}, refused.reload.review_checklist, "nothing frozen when it is not decided")
+    assert_not ticked(refused).decide!("approved", by: users(:ana), checklist_defaults: defaults)
+    assert_equal({ "real_name" => true }, refused.reload.review_checklist, "nothing frozen when it is not decided")
   end
 
   test "changes needed asks for neither" do
@@ -425,7 +425,7 @@ class ShipTest < ActiveSupport::TestCase
       assert_equal BigDecimal("5.71"), ship.limits.most, "before: all the art is under the cap"
       ship.set_lapse_coding!("3")
       assert_equal 8, ship.limits.most
-      assert ship.decide!("approved", by: users(:ana), technical_features: "A save file.")
+      assert ticked(ship).decide!("approved", by: users(:ana), technical_features: "A save file.")
       assert_equal [ 7, 1, 8 ], ship.reload.values_at(:review_coding_hours, :review_art_hours, :review_hours).map(&:to_i)
     end
   end
@@ -467,7 +467,7 @@ class ShipTest < ActiveSupport::TestCase
     # A review's approval, then a fraud check that passes: the ship is approved and its hours are spendable.
     def approve(ship, **options)
       ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0) if ship.ai_coding_seconds.nil? && ship.art_seconds.nil? # D-148: unknown limits need a typed reason
-      ship.decide!("approved", by: users(:ana), **options) && ship.pass_fraud!(by: users(:ana))
+      ticked(ship).decide!("approved", by: users(:ana), **options) && ship.pass_fraud!(by: users(:ana))
     end
 
     def ship_now(hours:)

@@ -76,13 +76,18 @@ module HackatimeHelpers
     OmniAuth.config.mock_auth[:hackatime] = OmniAuth::AuthHash.new(provider: "hackatime", uid: nil, credentials: { token: })
   end
 
-  # As if they'd already linked Hackatime.
+  # D-152: an approval needs Real name ticked (and a full name). The reviewer's tick, for tests that are not about it.
+  def ticked(ship)
+    ship.tick_checklist!("real_name", true, by: users(:ana))
+    ship
+  end
+
   # A review's approval, then a fraud check that passes: the ship is approved, with hours to spend (D-063).
   def approve_through_fraud(ship, technical_features: "A beat grid and a combo meter.", **options)
     # D-148: unknown limits need a typed reason, so a ship with no AI or art time read yet reads as none.
     ship.update_columns(ai_coding_seconds: 0) if ship.ai_coding_seconds.nil?
     ship.update_columns(art_seconds: 0, lapse_seconds: 0) if ship.art_seconds.nil?
-    ship.decide!("approved", by: users(:ana), technical_features:, **options)
+    ticked(ship).decide!("approved", by: users(:ana), technical_features:, **options)
     ship.pass_fraud!(by: users(:ana))
     ship
   end

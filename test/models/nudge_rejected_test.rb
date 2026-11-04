@@ -73,7 +73,7 @@ class NudgeRejectedTest < ActiveSupport::TestCase
     end
     @ship.update_columns(status: "in_review")
     assert_no_enqueued_jobs(only: NudgeRejectedJob) do
-      @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+      ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
     end
     assert_empty @sent
   end

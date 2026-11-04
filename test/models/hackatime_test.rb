@@ -30,7 +30,8 @@ class HackatimeTest < ActiveSupport::TestCase
     answer = Net::HTTPSuccess.new("1.1", "200", "OK").tap { |response| response.define_singleton_method(:body) { { token: "secret-hackatime-key" }.to_json } }
     original_get = Hackatime.method(:get)
     original_cache = Rails.cache
-    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    store = ActiveSupport::Cache::MemoryStore.new
+    Rails.singleton_class.define_method(:cache) { store } # as Ship::ChecklistTest swaps it: `Rails.cache =` cannot reach a singleton left by an earlier test
     Hackatime.define_singleton_method(:get) { |*, **| calls += 1; answer }
 
     assert_equal "secret-hackatime-key", Hackatime.send(:api_key, user)
@@ -44,7 +45,7 @@ class HackatimeTest < ActiveSupport::TestCase
     assert_equal 2, calls, "a clear entry is not trusted"
     assert_not_includes Rails.cache.read([ "hackatime/api_key", user.hackatime_uid ]).to_s, "secret-hackatime-key"
   ensure
-    Rails.cache = original_cache
+    Rails.singleton_class.define_method(:cache) { original_cache }
     Hackatime.define_singleton_method(:get, original_get)
   end
 

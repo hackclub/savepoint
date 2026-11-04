@@ -153,7 +153,7 @@ class ShipTest < ActiveSupport::TestCase
 
     second = ship_now(hours: 11)
     approve(second, coding_hours: "4.5", technical_features: "A combo meter and beat timing.",
-                                                         deflation_reason: "Half an hour was a broken build.")
+                                                         deflation_reason: "Half an hour was a broken build, so 10.5 hours.")
     assert_equal 10.5, second.approved_hours, "the earlier 6 plus 4.5 new hours (D-097)"
     assert_equal 10.5, @project.reload.hours_approved, "each ship's total is cumulative, so the latest is the project's"
 
@@ -466,6 +466,7 @@ class ShipTest < ActiveSupport::TestCase
   private
     # A review's approval, then a fraud check that passes: the ship is approved and its hours are spendable.
     def approve(ship, **options)
+      ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0) if ship.ai_coding_seconds.nil? && ship.art_seconds.nil? # D-148: unknown limits need a typed reason
       ship.decide!("approved", by: users(:ana), **options) && ship.pass_fraud!(by: users(:ana))
     end
 

@@ -44,9 +44,9 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     other.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
     assert_not other.decide!("approved", by: @reviewer, coding_hours: "2", technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], other.errors[:deflation_reason]
-    assert other.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut.")
+    assert other.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut, so 2.85 hours.")
     assert_equal [ BigDecimal("2"), BigDecimal("0.85") ], [ other.review_coding_hours, other.review_art_hours ], "art held at 30% of the new total"
-    assert_match(/A menu was cut\.\z/, other.deflation_reason)
+    assert_match(/A menu was cut, so 2.85 hours\.\z/, other.deflation_reason)
   end
 
   test "a ship with no art hours approves coding alone" do
@@ -109,10 +109,10 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], @ship.errors[:deflation_reason]
     assert @ship.reload.in_review?
 
-    assert @ship.decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut.")
+    assert @ship.decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut, so 5 hours.")
     @ship.reload
     assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), BigDecimal("5") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
-    assert_equal "A menu was cut.", @ship.deflation_reason, "the limits cut nothing, so only the reviewer's words"
+    assert_equal "A menu was cut, so 5 hours.", @ship.deflation_reason, "the limits cut nothing, so only the reviewer's words"
   end
 
   test "a gap under Ship::Limits::ROUNDING_GAP is rounding: it needs no reason and stores the most (ship 49)" do
@@ -135,7 +135,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "hours that went down with no words to say why can't be approved, even when no figure was typed below the limits (D-111)" do
-    nothing_to_say = Struct.new(:claimed, :reason) { def approve(*) = [ BigDecimal("2"), BigDecimal("2"), false ] }.new(BigDecimal("5.3"), nil)
+    nothing_to_say = Struct.new(:claimed, :reason) { def approve(*) = [ BigDecimal("2"), BigDecimal("2"), false ]; def known? = true; def most = BigDecimal("5.3") }.new(BigDecimal("5.3"), nil)
     @ship.define_singleton_method(:limits) { |*| nothing_to_say }
     assert_not @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer than the 5.3 hrs claimed" ], @ship.errors[:deflation_reason]
@@ -382,7 +382,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal 5.71, @project.reload.hours_approved
     assert_equal @ship, second.reload.earlier_approval.ship
     assert_includes Ship.reviewable, second
-    assert second.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "More levels.", deflation_reason: "Some of it is repeat work.")
+    assert second.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "More levels.", deflation_reason: "Some of it is repeat work, so 7.71 hours.")
     assert second.pass_fraud!(by: @reviewer)
 
     new_hours = second.reload.approved_hours - @ship.approved_hours
@@ -469,6 +469,6 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     def ship_now
       @project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                              changes_made: "Added a combo meter.", repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat",
-                             hours: 10, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+                             hours: 10, ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
     end
 end

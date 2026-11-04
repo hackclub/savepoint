@@ -12,6 +12,7 @@ class Ship::EvidenceTest < ActiveSupport::TestCase
                                    screenshot_shows_game: true)
     @ship.update_columns(created_at: Program::STARTS_AT + 1.day)
     @stardance_token = ENV["STARDANCE_MCP_TOKEN"]
+    Stardance.stubbed_status = nil
   end
 
   teardown do

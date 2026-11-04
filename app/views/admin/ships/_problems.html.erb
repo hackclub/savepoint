@@ -13,6 +13,9 @@
 <% elsif stardance.unknown? %>
   <p class="admin__muted ash__quiet" data-stardance="unknown" id="admin-ship-stardance"><%= sp_icon "information-fill" %>Could not check Stardance<%= " (no STARDANCE_MCP_TOKEN set)" unless Stardance.configured? %>.</p>
 <% end %>
+<% if ship.in_review? && (no_code = evidence.no_code_in_git) %>
+  <p class="ash__problem ash__problem--coral" data-code="missing"><%= sp_icon "warning-fill" %><%= no_code %></p>
+<% end %>
 <% if old_release %>
   <p class="ash__problem" data-release="predates"><%= sp_icon "warning-fill" %>
     This release is from <%= repo.release.published_at.utc.strftime("%b %-d") %>, before <%= evidence.first_commit_at ? "the first commit since Save Point began (#{evidence.first_commit_at.utc.strftime("%b %-d")})" : "this project's hours began counting (#{ship.project.hours_start.utc.strftime("%b %-d")})" %>. It can't hold this work.</p>

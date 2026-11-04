@@ -17,6 +17,9 @@ module ActiveSupport
     # stubbed and forgot to put back. A class's own setup runs after this, so the stubs it sets still apply.
     setup { HackatimeStubs.reset }
 
+    # A verdict doesn't ask the Stardance MCP (D-148: an unreadable Stardance needs a reason to approve). A test of the check sets nil.
+    setup { Stardance.stubbed_status = :clear }
+
     # Add more helper methods to be used by all tests here...
   end
 end
@@ -76,6 +79,9 @@ module HackatimeHelpers
   # As if they'd already linked Hackatime.
   # A review's approval, then a fraud check that passes: the ship is approved, with hours to spend (D-063).
   def approve_through_fraud(ship, technical_features: "A beat grid and a combo meter.", **options)
+    # D-148: unknown limits need a typed reason, so a ship with no AI or art time read yet reads as none.
+    ship.update_columns(ai_coding_seconds: 0) if ship.ai_coding_seconds.nil?
+    ship.update_columns(art_seconds: 0, lapse_seconds: 0) if ship.art_seconds.nil?
     ship.decide!("approved", by: users(:ana), technical_features:, **options)
     ship.pass_fraud!(by: users(:ana))
     ship

@@ -42,6 +42,10 @@ class Project < ApplicationRecord
   # Only a new screenshot is checked, so a project with a GIF from before they were refused still saves.
   validate :screenshot_is_an_image, if: -> { attachment_changes["screenshot"] }
   validate :picking_hackatime_projects_you_have
+  validate :hackatime_project_names_hold_no_comma, if: :will_save_change_to_hackatime_projects?
+  # D-148: the cached AI, art and Lapse seconds of ships in review cover the old hours window when the hours start moves, so they are
+  # cleared and the next page load asks Hackatime again (Ship#fetch_hackatime_categories!).
+  after_update_commit :forget_category_seconds, if: -> { saved_change_to_hours_start_override? || saved_change_to_jame_gam_submitted_at? }
   before_save :note_when_first_hackatime_project_picked, if: :will_save_change_to_hackatime_projects?
   # D-065: a moved hours start rebuilds every day from the new moment too.
   after_update_commit :refresh_streak, if: -> { saved_change_to_hackatime_projects? || saved_change_to_hours_start_override? }
@@ -527,7 +531,7 @@ class Project < ApplicationRecord
     end
 
     gained = ->(project) { project.seconds - (hackatime_baseline_seconds&.dig(project.name) || 0) }
-    newest = without_other_repos(available.select { |project| gained.(project).positive? }).max_by(&gained)
+    newest = without_other_repos(available.select { |project| gained.(project).positive? && !project.name.include?(",") }).max_by(&gained)
     return unless newest
 
     update_columns(hackatime_projects: [ newest.name ], hackatime_auto_linked: true, hackatime_picked_at: hackatime_picked_at || Time.current)
@@ -743,7 +747,7 @@ class Project < ApplicationRecord
 
   # Until then, unless an admin banned the account or rejected the newest ship for good (D-063).
   def may_ship?(now: Time.current)
-    now <= ship_closes_at && !user.banned? && ship_rejected.nil?
+    now <= ship_closes_at && !user.banned? && !user.hackatime_banned? && ship_rejected.nil?
   end
 
   # Nobody can ask for more time: there are no extensions in Save Point.
@@ -827,6 +831,16 @@ class Project < ApplicationRecord
       user.sync_streak_now!
     rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
       nil
+    end
+
+    # D-148: Hackatime's category read joins project names with commas, so a name with one reads as unknown time and skips the AI and art cuts.
+    def hackatime_project_names_hold_no_comma
+      commas = hackatime_projects.select { it.include?(",") }
+      errors.add(:hackatime_projects, "can't include a comma (#{commas.to_sentence}). Rename it on Hackatime first.") if commas.any?
+    end
+
+    def forget_category_seconds
+      ships.in_review.update_all(ai_coding_seconds: nil, art_seconds: nil, lapse_seconds: nil)
     end
 
     def picking_hackatime_projects_you_have

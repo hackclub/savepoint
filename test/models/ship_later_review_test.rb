@@ -41,7 +41,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     later.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
 
     assert later.decide!("approved", by: @reviewer, coding_hours: "6", art_hours: "1", technical_features: "A boss fight.",
-                                     deflation_reason: "Some of it was a menu.")
+                                     deflation_reason: "Some of it was a menu, so 12.71 hours.")
     later.reload
     assert_equal [ BigDecimal("10"), BigDecimal("2.71"), BigDecimal("12.71") ], [ later.review_coding_hours, later.review_art_hours, later.review_hours ]
     assert_equal 20, later.claimed_hours
@@ -97,7 +97,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
   test "a fraud deduction comes off the new hours only" do
     later = ship_now(hours: 20)
     later.update_columns(ai_coding_seconds: 0, art_seconds: 0)
-    assert later.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "A boss fight.", deflation_reason: "Cut.")
+    assert later.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "A boss fight.", deflation_reason: "Cut, so 7.71 hours.")
     assert_equal BigDecimal("7.71"), later.review_hours
     assert later.pass_fraud!(by: @reviewer, deduction: "50", notes: "None of it.")
     assert_equal BigDecimal("5.71"), later.reload.approved_hours
@@ -117,7 +117,7 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     later = ship_now(hours: 20)
     later.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
     assert later.decide!("approved", by: @reviewer, coding_hours: "6", art_hours: "1", technical_features: "A boss fight.",
-                                     deflation_reason: "Some of it was a menu.")
+                                     deflation_reason: "Some of it was a menu, so 12.71 hours.")
     assert later.pass_fraud!(by: @reviewer)
 
     assert_equal 12.71, later.reload.approved_hours.to_f
@@ -139,6 +139,6 @@ class ShipLaterReviewTest < ActiveSupport::TestCase
     def ship_now(hours:)
       @project.ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
                              changes_made: "Added a combo meter.", repo_url: "https://github.com/orpheus/beat-sheet", demo_url: "https://example.com/beat",
-                             hours:, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+                             hours:, ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0, screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
     end
 end

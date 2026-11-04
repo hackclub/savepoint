@@ -10,6 +10,8 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
       @ship = projects(:ana).ships.create!(title: "Pong", description: "Two paddles, one ball, and every frame is a sprite.",
                                            changes_made: "Added a second ball.", repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong",
                                            hackatime_projects: [ "pong" ], hours: 7.5, screenshot: screenshot_upload, screenshot_shows_game: true)
+      # D-148: unknown limits need a typed reason to approve, so these ships start with the AI and art time read as none.
+      @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
     end
     @heidi = User.create!(hca_id: "ident!heidi", email: "heidi@hackclub.com", name: "Heidi Hakkuun", first_name: "Heidi", slack_id: "U0HEIDI")
   end
@@ -46,7 +48,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form#verdict input[name=coding_hours][value='7.5'][max='7.5']"
 
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball with its own physics.",
-                                                  deflation_reason: "An hour and a half went on a menu that was cut." }
+                                                  deflation_reason: "An hour and a half went on a menu that was cut, so 6 hours." }
     assert_redirected_to admin_ship_path(@ship)
     @ship.reload
     assert @ship.awaiting_fraud?, "approving a review moves it to the fraud check"
@@ -211,7 +213,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
   test "a ship waiting for its fraud check goes back to review with a reason, and the form opens from the earlier review (D-063)" do
     sign_in_as(users(:orpheus))
-    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball.", deflation_reason: "A menu was cut.",
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball.", deflation_reason: "A menu was cut, so 6 hours.",
                                                   review_judgement: "Solid.", review_feedback: "Nice." }
     post send_back_admin_ship_path(@ship), params: { reason: " " }
     assert_response :unprocessable_entity
@@ -230,7 +232,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "textarea[name=technical_features]", "A second ball."
     assert_select "textarea[name=review_judgement]", "Solid."
     assert_select "textarea[name=review_feedback]", "Nice."
-    assert_select "textarea[name=deflation_reason]", "A menu was cut."
+    assert_select "textarea[name=deflation_reason]", "A menu was cut, so 6 hours."
   end
 
   test "the verdict form has coding and art hours, presets, a live total, and the keys (D-063)" do
@@ -478,14 +480,14 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
   test "approving stores the judgement from the form" do
     sign_in_as(users(:orpheus))
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball with its own physics.",
-                                                  deflation_reason: "A menu was cut.", review_judgement: "Solid." }
+                                                  deflation_reason: "A menu was cut, so 6 hours.", review_judgement: "Solid." }
     assert_equal "Solid.", @ship.reload.review_judgement
   end
 
   test "approving stores the note to the participant from the form (D-112)" do
     sign_in_as(users(:orpheus))
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball with its own physics.",
-                                                  deflation_reason: "A menu was cut.", review_feedback: "The second ball is a joy." }
+                                                  deflation_reason: "A menu was cut, so 6 hours.", review_feedback: "The second ball is a joy." }
     assert_redirected_to admin_ship_path(@ship)
     assert_equal "The second ball is a joy.", @ship.reload.review_feedback
   end
@@ -560,7 +562,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
     post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
-    assert_equal({ "runs" => true, "screenshot" => true, "real_name" => false }, @ship.reload.review_checklist)
+    assert_equal({ "runs" => true, "screenshot" => true, "art_cap" => true, "real_name" => false }, @ship.reload.review_checklist)
   end
 
   test "the review shows what they changed beside the commits, and the game before" do
@@ -804,9 +806,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert @ship.reload.in_review?
 
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3.5", art_hours: "1.54", technical_features: "Two-ball physics.",
-                                                  deflation_reason: "A menu was cut." }
+                                                  deflation_reason: "A menu was cut, so 5 hours." }
     assert_redirected_to admin_ship_path(@ship)
-    assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), "A menu was cut." ], [ @ship.reload.review_coding_hours, @ship.review_art_hours, @ship.deflation_reason ],
+    assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), "A menu was cut, so 5 hours." ], [ @ship.reload.review_coding_hours, @ship.review_art_hours, @ship.deflation_reason ],
                  "the art is held to its share of the coding, rounded down"
   end
 
@@ -909,9 +911,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-deflate-target=whyRequired]:not([hidden])", /Required: you approve less coding or art than the rules allow\. Say why\./
     assert_select "[data-deflate-target=whyOptional][hidden]", 1
 
-    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3", technical_features: "Two-ball physics.", deflation_reason: "A menu was cut." }
+    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "3", technical_features: "Two-ball physics.", deflation_reason: "A menu was cut, so 3 hours." }
     assert_redirected_to admin_ship_path(@ship)
-    assert_equal [ BigDecimal("3"), "#{AI_WORDS} A menu was cut." ], [ @ship.reload.review_hours, @ship.deflation_reason ]
+    assert_equal [ BigDecimal("3"), "#{AI_WORDS} A menu was cut, so 3 hours." ], [ @ship.reload.review_hours, @ship.deflation_reason ]
   end
 
   test "with nothing cut Why deflated stays hidden with no limits' words, and a reason typed anyway is not kept (D-112)" do
@@ -974,8 +976,63 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".ash__error", 1
   end
 
+  test "limits Hackatime could not say show a reason box, and the verdict needs it (D-148)" do
+    sign_in_as(users(:orpheus))
+    @ship.update_columns(ai_coding_seconds: nil, art_seconds: nil, lapse_seconds: nil)
+    get admin_ship_path(@ship)
+    assert_select "[data-override=limits] textarea[name=override_limits]"
+    assert_select "form#verdict button[data-verdict=approved]:not([disabled])"
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
+    assert_response :unprocessable_entity
+    assert_select "p[role=alert]", /Type a reason to approve anyway/
+    assert @ship.reload.in_review?
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball.",
+                                                  override_limits: "AI coding 0 hrs and art 0 hrs, read by hand." }
+    assert @ship.reload.awaiting_fraud?
+    assert_equal "AI coding 0 hrs and art 0 hrs, read by hand.", @ship.review_overrides.dig("limits", "reason")
+  end
+
+  test "a red Hackatime trust level turns Approve off, and a direct post is refused (D-148)" do
+    sign_in_as(users(:orpheus))
+    users(:ana).update!(hackatime_uid: "2001", hackatime_access_token: "token-ana")
+    Hackatime.stubbed_trust_levels = { "2001" => "red" }
+    get admin_ship_path(@ship)
+    assert_select "form#verdict button[data-verdict=approved][disabled]"
+
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
+    assert_response :unprocessable_entity
+    assert @ship.reload.in_review?
+  end
+
+  test "a repo with no commits is said in red on the page and beside Approve, and Approve stays on (D-146)" do
+    sign_in_as(users(:orpheus))
+    Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
+    get admin_ship_path(@ship)
+    assert_select ".ash__problem--coral[data-code=missing]", /no commits since/
+    assert_select ".ash__problem--coral[data-code=approve]", /no commits since/
+    assert_select "form#verdict button[data-verdict=approved]:not([disabled])"
+  end
+
+  test "the hours start can't be moved on a ship that is decided, or one another admin holds (D-148)" do
+    sign_in_as(users(:orpheus))
+    @ship.update_columns(status: "changes_needed")
+    patch hours_start_admin_ship_path(@ship), params: { hours_start_override: (Program::STARTS_AT + 1.day).utc.strftime("%Y-%m-%dT%H:%M") }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal "This ship isn't in review.", flash[:alert]
+    assert_nil projects(:ana).reload.hours_start_override
+
+    @ship.update_columns(status: "in_review")
+    Claim.acquire(@ship, "review", @heidi, force: true)
+    patch hours_start_admin_ship_path(@ship), params: { hours_start_override: (Program::STARTS_AT + 1.day).utc.strftime("%Y-%m-%dT%H:%M") }
+    assert_equal "Someone else holds this ship.", flash[:alert]
+    assert_nil projects(:ana).reload.hours_start_override
+  end
+
   test "without Hackatime's AI coding and art time the page says no cut applies" do
     sign_in_as(users(:orpheus))
+    @ship.update_columns(ai_coding_seconds: nil, art_seconds: nil, lapse_seconds: nil)
     get admin_ship_path(@ship)
     assert_select "[data-limits=unknown]", /no cut applies/
     assert_select "#admin-ship-limits dd", /unknown/
@@ -1068,6 +1125,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
   test "the Stardance check shows a banner when the repo is shipped there, and a quiet line when it can't be read" do
     sign_in_as(users(:orpheus))
+    Stardance.stubbed_status = nil
     token = ENV["STARDANCE_MCP_TOKEN"]
     ENV["STARDANCE_MCP_TOKEN"] = nil
     get admin_ship_path(@ship)
@@ -1353,23 +1411,19 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
   test "Approve is off, on the page and on a direct post, while the repo is shipped on Stardance (D-063)" do
     sign_in_as(users(:orpheus))
-    Ship::Evidence.alias_method :original_stardance_shipped?, :stardance_shipped?
-    Ship::Evidence.define_method(:stardance_shipped?) { true }
+    Stardance.stubbed_status = :shipped
 
     get admin_ship_path(@ship)
     assert_select "form#verdict button[data-verdict=approved][disabled]"
     assert_select "form#verdict button[data-verdict=changes_needed]:not([disabled])"
 
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball." }
-    assert_redirected_to admin_ship_path(@ship)
-    assert_match(/shipped on Stardance/, flash[:alert])
+    assert_response :unprocessable_entity
+    assert_match(/shipped on Stardance/, response.body)
     assert @ship.reload.in_review?
 
     post review_admin_ship_path(@ship), params: { decision: "changes_needed", review_feedback: "Ship it on Stardance instead." }
     assert @ship.reload.changes_needed?, "changes needed stays open"
-  ensure
-    Ship::Evidence.alias_method :stardance_shipped?, :original_stardance_shipped?
-    Ship::Evidence.remove_method :original_stardance_shipped?
   end
 
   # D-097, D-101: a ship of a project with an earlier approved ship. The earlier one holds 3 hrs (3 coding), made a day and a half in.
@@ -1414,7 +1468,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     make_later_ship
     sign_in_as(users(:orpheus))
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "1", art_hours: "0.5", technical_features: "A second ball.",
-                                                  deflation_reason: "Less than allowed." }
+                                                  deflation_reason: "Less than allowed, so 4.5 hours." }
     assert_redirected_to admin_ship_path(@ship)
     @ship.reload
     assert @ship.awaiting_fraud?
@@ -1440,7 +1494,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     make_later_ship
     sign_in_as(users(:orpheus))
     post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "1", art_hours: "0.5", technical_features: "A second ball.",
-                                                  deflation_reason: "Less than allowed." }
+                                                  deflation_reason: "Less than allowed, so 4.5 hours." }
     post send_back_admin_ship_path(@ship), params: { reason: "Check the art hours." }
     assert @ship.reload.in_review?
 

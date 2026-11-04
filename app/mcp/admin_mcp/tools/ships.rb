@@ -101,50 +101,6 @@ module AdminMcp::Tools::Ships
     end
   end
 
-  class ReviewShip < AdminMcp::Tool
-    writes "review_ship", "Review a ship",
-           "Gives a ship in review its verdict, once (the review page's buttons, Ship#decide!). approved holds the coding and art hours you set (each defaults to the most the limits allow and is " \
-           "clamped to it: AI coding counts at a third, art at most 30% of the total; see get_ship's limits) and needs technical_features, and a deflation_reason when you go below what the rules allow. " \
-           "Approving the most the rules allow stores exactly most_to_approve, which is the hours claimed when nothing is cut; the limits' own words for an AI or art cut are kept with your reason (D-111: every deflation has a reason). " \
-           "It then moves to the fraud check (fraud_ship): the hours are not the participant's to spend until that passes. changes_needed sends it back and needs feedback: the note the participant sees (D-049). " \
-           "rejected is final and needs judgement. banned is fraud found at review: it needs evidence, rejects the ship and bans the account. " \
-           "Nobody is told by this: the participant sees the result on the site. You can't review your own ship, or one another admin has open, or one the participant replaced by shipping again (D-109), or one with an earlier ship of the project still in its fraud check. " \
-           "Answers { decided, errors, message, ship }: when a field is missing, nothing is decided and errors says which. Read get_ship first.",
-           { ship_id: { type: "integer", description: "The ship ID." },
-             decision: { type: "string", enum: Ship::DECISIONS, description: "approved (to the fraud check), changes_needed, rejected (final), or banned (fraud: reject and ban)." },
-             coding_hours: { type: "number", minimum: 0, description: "For approved: the coding hours to approve. Defaults to the most the limits allow. On a later ship of a project (one with an earlier approval) these are the NEW coding hours since that approval (D-097)." },
-             art_hours: { type: "number", minimum: 0, description: "For approved: the art hours to approve. Defaults to the most the art hold allows. On a later ship these are the NEW art hours since the earlier approval." },
-             technical_features: { type: "string", description: "For approved: the specific technical features that explain the hours." },
-             deflation_reason: { type: "string", description: "For approved: why you approve less than the rules allow. Required when your coding or art hours are below what get_ship's limits allow." },
-             ai_coding_hours: { type: "number", minimum: 0, description: "For approved: the AI coding hours, when the code looks AI-generated (D-102). Above Hackatime's figure only (get_ship's limits), never above the coding claimed. Needs ai_reason. Leave out to keep what is set." },
-             ai_reason: { type: "string", description: "With ai_coding_hours: what looked AI-generated." },
-             feedback: { type: "string", description: "The note to the participant. Required for changes_needed, optional otherwise." },
-             judgement: { type: "string", description: "Your internal judgement. Required for rejected. It goes into the Airtable justification." },
-             evidence: { type: "string", description: "For banned: what shows the fraud." } },
-           required: %w[ship_id decision]
-
-    def self.run(args, caller)
-      ship = Ship.includes(:decided_by, project: :user).find(args[:ship_id])
-      Guard.check!(ship, "review", caller)
-      # Asked once, as opening the review page does, so the limits are known.
-      ship.fetch_hackatime_categories!
-      if args[:ai_coding_hours] && !ship.set_reviewer_ai!(args[:ai_coding_hours].to_s, args[:ai_reason])
-        return { decided: false, message: "Not decided: #{ship.errors.full_messages.to_sentence}.", errors: ship.errors.to_hash, ship: AdminMcp::Present.ship(ship.reload) }
-      end
-      decided = ship.decide!(args[:decision], by: caller.user, coding_hours: args[:coding_hours]&.to_s, art_hours: args[:art_hours]&.to_s,
-                             technical_features: args[:technical_features], deflation_reason: args[:deflation_reason],
-                             feedback: args[:feedback], judgement: args[:judgement], evidence: args[:evidence],
-                             checklist_defaults: ship.checklist_defaults(earlier: Ship::EarlierShip.for(ship)))
-      ship.claims.where(stage: "review").delete_all if decided
-      message = if decided then nil
-      elsif ship.superseded? then Ship::REPLACED_MESSAGE
-      elsif ship.errors.none? then "That one's been decided already."
-      else "Not decided: #{ship.errors.full_messages.to_sentence}."
-      end
-      { decided:, message:, errors: ship.errors.to_hash, ship: AdminMcp::Present.ship(ship.reload) }
-    end
-  end
-
   # D-139: the verdict DM for a ship decided before the bot sent them (Nudge::ChangesNeeded, Nudge::Rejected), once.
   class SendVerdictDm < AdminMcp::Tool
     writes "send_verdict_dm", "Send a ship's verdict DM",
@@ -399,39 +355,6 @@ module AdminMcp::Tools::Ships
       return { saved: false, message: "Not saved: #{ship.errors.full_messages.to_sentence}", changes: {}, ship: AdminMcp::Present.ship(ship.reload) } if changes == false
 
       { saved: true, message: (changes.empty? ? "Nothing changed." : nil), changes:, ship: AdminMcp::Present.ship(ship.reload) }
-    end
-  end
-
-  class FraudShip < AdminMcp::Tool
-    writes "fraud_ship", "Fraud-check a ship",
-           "The fraud stage of a ship that review approved (the fraud page's buttons). pass makes it approved: the hours are the participant's to spend and it goes to Airtable. " \
-           "deduct passes it with deduct_hours taken off the review's hours, and needs notes. ban rejects the ship for good and bans the account (its other ships still waiting are rejected), and needs notes: " \
-           "what shows the fraud. send_back returns it to review, with a reason. Nobody is told by this. You can't check your own ship, or one another admin has open. " \
-           "Answers { decided, errors, message, ship }. Read get_ship first.",
-           { ship_id: { type: "integer", description: "The ship ID." },
-             verdict: { type: "string", enum: Ship::FRAUD_VERDICTS + %w[send_back], description: "pass, deduct, ban, or send_back." },
-             deduct_hours: { type: "number", minimum: 0, description: "For deduct: the hours to take off." },
-             notes: { type: "string", description: "Required for deduct and ban." },
-             reason: { type: "string", description: "Required for send_back." } },
-           required: %w[ship_id verdict]
-
-    def self.run(args, caller)
-      ship = Ship.includes(:decided_by, project: :user).find(args[:ship_id])
-      Guard.check!(ship, "fraud", caller)
-      by = caller.user
-      decided = case args[:verdict]
-      when "pass" then ship.pass_fraud!(by:, notes: args[:notes])
-      when "deduct" then ship.pass_fraud!(by:, deduction: args[:deduct_hours].to_s, notes: args[:notes])
-      when "ban" then ship.awaiting_fraud? && ship.ban_for_fraud!(by:, notes: args[:notes])
-      when "send_back" then ship.send_back_to_review!(by:, reason: args[:reason])
-      else raise AdminMcp::Refused, "verdict is pass, deduct, ban or send_back."
-      end
-      ship.claims.where(stage: "fraud").delete_all if decided
-      message = if decided then nil
-      elsif ship.errors.none? then "That one isn't waiting for its fraud check."
-      else "Not decided: #{ship.errors.full_messages.to_sentence}."
-      end
-      { decided:, message:, errors: ship.errors.to_hash, ship: AdminMcp::Present.ship(ship.reload) }
     end
   end
 end

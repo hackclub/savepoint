@@ -19,6 +19,8 @@
         Changes this ship only, for review and Airtable. The project keeps its own title, links and screenshot.
       </p>
 
+      <% errors[:base].each do |message| %><p class="ash__problem ash__problem--coral" role="alert"><%= sp_icon "warning-fill" %><%= message %></p><% end %>
+
       <h3 class="sp-label ash__sub">Screenshots</h3>
       <p class="admin__muted ash__snapshot-note">
         The first is the cover. Drag one, or focus it and use the arrow keys, to move it. Click one to replace it.

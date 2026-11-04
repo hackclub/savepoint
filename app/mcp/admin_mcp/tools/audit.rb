@@ -3,7 +3,7 @@ module AdminMcp::Tools::Audit
   class AuditLog < AdminMcp::Tool
     reads "audit_log", "Read the admin log",
           "The admin MCP log, newest first: which admin called which tool with which token, and the record IDs the call named. " \
-          "No text and no emails are kept. Answers { total, events }.",
+          "No participant text and no emails are kept (edit_review_text keeps the reviewer's old and new text). Answers { total, events }.",
           { tool: { type: "string", description: "Only this tool, such as review_ship." },
             user_id: { type: "integer", description: "Only calls by this admin's user ID." },
             since: { type: "string", description: "At or after, ISO 8601, such as 2026-10-23 or 2026-10-23T17:00:00Z." },

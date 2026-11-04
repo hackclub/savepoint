@@ -1571,6 +1571,28 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert later.reload.in_review?
   end
 
+  test "an admin fixes the review text of an approved ship before Unified, not after (D-150)" do
+    @ship.update_columns(status: "approved", technical_features: "Old features.", review_judgement: "Old view.", review_hours: 7.5, approved_hours: 7.5, decided_at: Time.current, synced_at: Time.current)
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-review-text form[action=?]", review_text_admin_ship_path(@ship)
+
+    patch review_text_admin_ship_path(@ship), params: { ship: { technical_features: "New features.", review_judgement: "New view.", review_hours: "1" } }
+    assert_redirected_to admin_ship_path(@ship)
+    assert_equal "Review text saved.", flash[:notice]
+    @ship.reload
+    assert_equal [ "New features.", "New view.", 7.5 ], [ @ship.technical_features, @ship.review_judgement, @ship.review_hours ]
+    assert_nil @ship.synced_at
+
+    @ship.update_columns(in_unified: true)
+    get admin_ship_path(@ship)
+    assert_select "#admin-ship-review-text", 0
+    assert_select "#admin-ship-review-text-locked", Ship::IN_UNIFIED_MESSAGE
+    patch review_text_admin_ship_path(@ship), params: { ship: { technical_features: "Sneaky" } }
+    assert_equal Ship::IN_UNIFIED_MESSAGE, flash[:alert]
+    assert_equal "New features.", @ship.reload.technical_features
+  end
+
   private
     def sign_in_as(user)
       mock_hack_club_auth(uid: user.hca_id, slack_id: user.slack_id, email: user.email, name: user.name, first_name: user.first_name)

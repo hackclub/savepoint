@@ -34,6 +34,9 @@ class Ship < ApplicationRecord
   REVIEW_DRAFT_KEYS = %w[decision coding_hours art_hours lapse_coding_hours ai_coding_hours ai_reason technical_features deflation_reason
                          feedback judgement evidence].freeze
   REVIEW_DRAFT_MAX = 10_000
+  # D-150: the justification text an admin may fix on an approved ship until the Unified YSWS DB takes it.
+  REVIEW_TEXT_FIELDS = %w[technical_features review_judgement deflation_reason].freeze
+  IN_UNIFIED_MESSAGE = "This ship is already in the Unified YSWS DB, so its text can't change."
   # The verdicts of a fraud check (Admin::ShipsController#fraud): pass, pass with a deduction, or ban.
   FRAUD_VERDICTS = %w[pass deduct ban].freeze
   # Where a ship stands, for the admin tabs: the stored status, in the words an admin reads.
@@ -373,6 +376,33 @@ class Ship < ApplicationRecord
   end
 
   # D-143: Real name is the one tick that can still change after the verdict, because ships approved before it exists wait for it.
+  def review_text_open? = approved? && !in_unified?
+
+  # D-150: fixes the justification text of an approved ship the Unified YSWS DB has not taken. Only the three text fields change,
+  # never hours, verdicts or links. The ship is marked unsynced (AirtableSynced) so the corrected text goes out with its first send.
+  # Returns the changes ({ field => [old, new] }, empty when nothing differs), or false with the reason in errors.
+  def fix_review_text!(fields, by:)
+    typed = fields.to_h.stringify_keys.slice(*REVIEW_TEXT_FIELDS).transform_values { it.to_s.strip.presence }
+    with_lock do
+      next errors.add(:base, "Only an approved ship takes a text fix.") && false unless approved?
+      next errors.add(:base, IN_UNIFIED_MESSAGE) && false if in_unified?
+
+      changes = typed.reject { |name, value| self[name] == value }.to_h { |name, value| [ name, [ self[name], value ] ] }
+      errors.add(:technical_features, "Say which technical features explain the hours") if changes.key?("technical_features") && typed["technical_features"].nil?
+      if changes.key?("deflation_reason") && typed["deflation_reason"].nil? && claimed_hours && review_hours && review_hours < claimed_hours
+        errors.add(:deflation_reason, "Say why the hours went down from the #{Ship::Limits.hrs(claimed_hours)} claimed")
+      end
+      next false if errors.any?
+      next changes if changes.empty?
+
+      transaction do
+        update!(changes.transform_values(&:last))
+        AdminAuditEvent.create!(user: by, tool: "edit_review_text", ids: { "ship_id" => id, "changes" => changes })
+      end
+      changes
+    end
+  end
+
   def checklist_open_for?(key) = in_review? || (approved? && key.to_s == "real_name")
 
   # Saves a tick. Ticking Real name on an approved ship sends its row again, with the Unified YSWS box set from the new value.

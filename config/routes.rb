@@ -79,6 +79,7 @@ Rails.application.routes.draw do
         patch :checklist
         patch :snapshot
         patch :hours_start
+        patch :review_text
         patch :lapse_split
         patch :reviewer_ai
         post :review

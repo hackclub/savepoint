@@ -62,9 +62,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(@token, "tools/list")
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
-    assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_snapshot find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
+    assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships fraud_ship funnel get_person get_project get_ship
                     list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql review_ship save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
-    writes = %w[review_ship save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot fraud_ship send_verdict_dm mark_order_ordered decide_extension]
+    writes = %w[review_ship save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text fraud_ship send_verdict_dm mark_order_ordered decide_extension]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -604,6 +604,40 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     end
     assert_equal 1, AdminAuditEvent.where(tool: "edit_ship").count
     assert_equal 3, AdminAuditEvent.where(tool: "edit_snapshot").count
+  end
+
+  test "edit_review_text fixes the text of an approved ship before Unified, marks it unsynced and logs old and new (D-150)" do
+    ship = make_ship
+    ship.update_columns(status: "approved", technical_features: "Old features.", review_judgement: "Old view.", review_hours: 7.5, approved_hours: 7.5, decided_at: Time.current, synced_at: Time.current)
+    done = mcp_tool(@token, "edit_review_text", { ship_id: ship.id, technical_features: "New features.", judgement: "New view." })
+    assert_equal true, done["saved"]
+    ship.reload
+    assert_equal [ "New features.", "New view.", 7.5, "approved" ], [ ship.technical_features, ship.review_judgement, ship.review_hours, ship.status ]
+    assert_nil ship.synced_at, "the corrected text goes out with the first send"
+    event = AdminAuditEvent.where(tool: "edit_review_text").order(:id).last
+    assert_equal({ "technical_features" => [ "Old features.", "New features." ], "review_judgement" => [ "Old view.", "New view." ] }, event.ids["changes"])
+
+    assert_equal "Nothing changed.", mcp_tool(@token, "edit_review_text", { ship_id: ship.id, technical_features: "New features." })["message"]
+    assert_match(/Say which technical features/, mcp_tool(@token, "edit_review_text", { ship_id: ship.id, technical_features: "" })["message"])
+    assert_match(/Only the review text can change/, mcp_tool(@token, "edit_review_text", { ship_id: ship.id, coding_hours: 2 }))
+    assert_equal "New features.", ship.reload.technical_features
+  end
+
+  test "edit_review_text refuses a ship already in Unified and a ship still in review (D-150)" do
+    ship = make_ship
+    ship.update_columns(status: "approved", technical_features: "Old features.", in_unified: true, review_hours: 7.5, approved_hours: 7.5)
+    result = mcp_tool(@token, "edit_review_text", { ship_id: ship.id, technical_features: "New" })
+    assert_equal false, result["saved"]
+    assert_equal "Not saved: #{Ship::IN_UNIFIED_MESSAGE}", result["message"]
+    assert_equal "Old features.", ship.reload.technical_features
+
+    ship.update_columns(status: "in_review", in_unified: false)
+    assert_equal false, mcp_tool(@token, "edit_review_text", { ship_id: ship.id, technical_features: "New" })["saved"]
+    assert_equal "Old features.", ship.reload.technical_features
+    # a ship in review still takes a draft, as before
+    assert_equal true, mcp_tool(@token, "save_review_draft", { ship_id: ship.id, technical_features: "Drafted" })["saved"]
+    ship.update_columns(status: "approved", review_hours: 7.5, approved_hours: 7.5)
+    assert_equal false, mcp_tool(@token, "save_review_draft", { ship_id: ship.id, technical_features: "Drafted 2" })["saved"]
   end
 
   test "the D-136 tools refuse a ship that is not in review, or the admin's own, and change nothing" do

@@ -21,7 +21,12 @@
     This release is from <%= repo.release.published_at.utc.strftime("%b %-d") %>, before <%= evidence.first_commit_at ? "the first commit since Save Point began (#{evidence.first_commit_at.utc.strftime("%b %-d")})" : "this project's hours began counting (#{ship.project.hours_start.utc.strftime("%b %-d")})" %>. It can't hold this work.</p>
 <% end %>
 <% if overlap %>
-  <p class="ash__problem" data-overlap="true"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record of this person covers <%= overlap.ranges.any? ? overlap.ranges.map { |a, b| "#{a.strftime("%-m/%-d/%Y")}-#{b.strftime("%-m/%-d/%Y")}" }.to_sentence : "dates that can't be read" %>, which meets the time counted here (from <%= ship.project.hours_start.utc.strftime("%-m/%-d/%Y") %>) or can't be ruled out, so some of these hours may be counted there too. Deflate them and say so.</p>
+  <% from = ship.project.hours_start.utc.strftime("%-m/%-d/%Y") %>
+  <% if overlap.ranges.any? %>
+    <p class="ash__problem" data-overlap="dates"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record of this person covers <%= overlap.ranges.map { |a, b| "#{a.strftime("%-m/%-d/%Y")}-#{b.strftime("%-m/%-d/%Y")}" }.to_sentence %>, which overlaps the time counted here (from <%= from %>). Some of these hours may be counted there too. Deflate them and say so.</p>
+  <% else %>
+    <p class="ash__problem" data-overlap="unreadable"><%= sp_icon "warning-fill" %>The <%= overlap.program %> record of this person has no readable dates, so it may cover the time counted here (from <%= from %>). Check it, deflate any overlap, and say so.</p>
+  <% end %>
 <% end %>
 <% if ship.in_review? && !limits.known? %>
   <p class="ash__problem" data-limits="unknown"><%= sp_icon "warning-fill" %>Hackatime didn't say how much was AI coding or art, so no cut applies. Check Hackatime before you approve.</p>

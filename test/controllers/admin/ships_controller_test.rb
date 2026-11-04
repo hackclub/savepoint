@@ -1049,7 +1049,9 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     end
     sign_in_as(users(:orpheus))
     get admin_ship_path(@ship)
-    assert_select "[data-overlap]", /jame gam record of this person covers 10\/20\/2026-10\/30\/2026, which meets the time counted here/
+    from = @ship.project.hours_start.utc.strftime("%-m/%-d/%Y")
+    assert_select "[data-overlap=dates]", "The jame gam record of this person covers 10/20/2026-10/30/2026, which overlaps the time counted here (from #{from}). Some of these hours may be counted there too. Deflate them and say so."
+    assert_select "[data-overlap=unreadable]", 0
 
     approve_through_fraud(@ship, technical_features: "Two-ball physics.")
     get admin_ship_path(@ship)
@@ -1057,6 +1059,21 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-airtable", /Duplicate Justification\s*This code URL is already in the Unified YSWS DB: jame gam \(approved 10\/24\/2026, 4 hours\)/
     assert_select "#admin-ship-airtable", /Hackatime Project Name\(s\) \+ Date Range\(s\)\s*pong 10\/23\/2026-/
     assert_select "#admin-ship-airtable", { text: /Override Hours Spent Justification/, count: 0 }
+  end
+
+  test "a record of this person with no readable dates is shown as one that may cover the time" do
+    Ship::EarlierShip.token = "pat-test"
+    records = [ { fields: { "Code URL" => "https://github.com/ana/pong", "YSWS–Name" => [ "jame gam" ], "Approved At" => "2026-10-24", "Override Hours Spent" => 4,
+                                 "Email" => users(:ana).email } } ]
+    Web.adapter = lambda do |_method, url, _headers|
+      body = URI(url).host == "api.github.com" ? [].to_json : { records: }.to_json
+      Web::Response.new(status: 200, headers: {}, body:)
+    end
+    sign_in_as(users(:orpheus))
+    get admin_ship_path(@ship)
+    from = @ship.project.hours_start.utc.strftime("%-m/%-d/%Y")
+    assert_select "[data-overlap=unreadable]", "The jame gam record of this person has no readable dates, so it may cover the time counted here (from #{from}). Check it, deflate any overlap, and say so."
+    assert_select "[data-overlap=dates]", 0
   end
 
   test "the evidence panels show the hours per Hackatime project, the repo and its old release, and the participant (D-063)" do

@@ -66,6 +66,10 @@ module Airtable
         Rails.logger.warn("airtable sync: ship lookup failed, #{e.message}")
         return settle(Ship, [], ships, read_at)
       end
+      # Gate audit finding 2: a banned owner's ship that Airtable has no row for is never sent. One it has a row for goes with the box unticked.
+      unsent = ships.select { it.project.user.banned? && !existing.key?("ship-#{it.id}") }
+      settle(Ship, unsent, [], read_at)
+      ships -= unsent
       taken, fresh = ships.partition { existing.dig("ship-#{it.id}", "fields", AirtableSchema::UNIFIED_FIELD).present? }
       Ship.where(id: taken.map(&:id)).update_all(in_unified: true)
       # D-111: the row Airtable has already is read, so a deflation sentence the ship no longer has is cleared rather than left (AirtableFields.clearing_stale_deflation).

@@ -37,6 +37,38 @@ class Ship::RealNameTest < ActiveSupport::TestCase
     assert_match(/keyboard mash/, concern(last: "Aaaaa"))
   end
 
+  test "a joke or placeholder name raises a concern, but a real surname like Mao does not" do
+    assert_match(/joke or a placeholder/, concern(first: "Lol", last: "Mao"))
+    assert_match(/joke or a placeholder/, concern(first: "Test", last: "User"))
+    assert_match(/joke or a placeholder/, concern(first: "John", last: "Doe"))
+    assert_match(/joke or a placeholder/, concern(first: "Ana", last: "Lmao"))
+    assert_nil concern(first: "Wei", last: "Mao")
+    assert_nil concern(first: "Johnny", last: "Doe")
+  end
+
+  test "a Real name tick keeps the names, who ticked and when, and stops counting when the names change" do
+    reviewer = users(:orpheus)
+    @ship.tick_checklist!("real_name", true, by: reviewer)
+    @ship.reload
+    assert_equal [ "Ana", "Lovelace" ], [ @ship.real_name_first, @ship.real_name_last ]
+    assert_equal reviewer, @ship.real_name_ticked_by
+    assert_not_nil @ship.real_name_ticked_at
+    assert @ship.real_name_checked?
+    assert_not @ship.real_name_stale?
+
+    @user.update!(first_name: "Anya", last_name: "Lovelace", name: "Anya Lovelace")
+    @ship.reload
+    assert_not @ship.real_name_checked?, "the tick was for Ana"
+    assert @ship.real_name_stale?
+    assert_equal true, @ship.review_checklist["real_name"], "the tick stays as history"
+
+    @ship.tick_checklist!("real_name", true, by: reviewer)
+    assert @ship.reload.real_name_checked?
+    @ship.tick_checklist!("real_name", false, by: reviewer)
+    assert_nil @ship.reload.real_name_first
+    assert_nil @ship.real_name_ticked_by
+  end
+
   test "a name that is the Slack name or the GitHub username is a handle" do
     assert_match(/handle/, concern(first: "Pixel", last: "Ana", slack_display_name: "pixelana"))
     assert_match(/handle/, concern(last: "ana-l", slack_display_name: "x"))
@@ -52,7 +84,7 @@ class Ship::RealNameTest < ActiveSupport::TestCase
   end
 
   test "a ticked Real name does not pass for a user with no HCA last name" do
-    @ship.update!(review_checklist: { "real_name" => true })
+    @ship.tick_checklist!("real_name", true)
     assert @ship.real_name_checked?
     @user.update!(last_name: nil)
     assert_not @ship.reload.real_name_checked?

@@ -5,10 +5,13 @@ class User < ApplicationRecord
   include AirtableSynced
 
   # The columns the Airtable copy (AirtableFields.user) reads.
-  AIRTABLE_COLUMNS = %w[email name first_name last_name slack_id hca_id hackatime_uid verification_status ysws_eligible].freeze
+  AIRTABLE_COLUMNS = %w[email name first_name last_name slack_id hca_id hackatime_uid verification_status ysws_eligible banned_at].freeze
   # A submission row carries these too, and approved ships are copied only when marked, so they mark the user's ships.
-  AIRTABLE_SHIP_COLUMNS = %w[email name first_name last_name slack_display_name slack_username hackatime_uid address birthdate].freeze
+  AIRTABLE_SHIP_COLUMNS = %w[email name first_name last_name slack_display_name slack_username hackatime_uid address birthdate banned_at].freeze
   after_update -> { Ship.approved.where(project_id: Project.where(user_id: id)).update_all(synced_at: nil, updated_at: Time.current) },
+               if: -> { (saved_changes.keys & AIRTABLE_SHIP_COLUMNS).any? }
+  # Gate audit finding 15: a ship the Unified YSWS DB already took cannot be sent again, so a change to its person is marked for the admins.
+  after_update -> { Ship.approved.where(in_unified: true, project_id: Project.where(user_id: id)).update_all(changed_after_unified_at: Time.current) },
                if: -> { (saved_changes.keys & AIRTABLE_SHIP_COLUMNS).any? }
 
   has_one :project, dependent: :destroy

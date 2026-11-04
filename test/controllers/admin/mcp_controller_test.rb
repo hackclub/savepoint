@@ -412,7 +412,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
   test "set_checklist_item takes real_name, which get_ship shows with the names, and it works on an approved ship (D-143)" do
     ship = make_ship
     full = mcp_tool(@token, "get_ship", { ship_id: ship.id })
-    assert_equal({ "first_name" => ship.project.user.first_name, "last_name" => AirtableFields.names(ship.project.user).last, "concern" => nil, "ticked" => false, "ysws_eligible" => true }, full["real_name"])
+    assert_equal({ "first_name" => ship.project.user.first_name, "last_name" => AirtableFields.names(ship.project.user).last, "concern" => nil, "ticked" => false, "ysws_eligible" => true }, full["real_name"].slice("first_name", "last_name", "concern", "ticked", "ysws_eligible"))
+    assert_equal [ false, [], nil ], full["real_name"].values_at("tick_is_stale", "ticked_for", "ticked_by")
     assert_equal false, full.dig("checklist_defaults", "real_name", "ticked"), "the app never ticks it"
     assert_equal true, mcp_tool(@token, "set_checklist_item", { ship_id: ship.id, key: "real_name", checked: true })["saved"]
     assert_equal true, ship.reload.real_name_checked?

@@ -17,6 +17,9 @@ class Ship < ApplicationRecord
   # marks the project, whose approved hours come from its ships.
   AIRTABLE_COLUMNS = %w[status title description repo_url demo_url hours approved_hours hackatime_projects claimed_hours
                         technical_features deflation_reason review_judgement].freeze
+  # Gate audit finding 15: an edit after the Unified YSWS DB took the row cannot be sent, so it is marked for the admins.
+  after_update -> { update_columns(changed_after_unified_at: Time.current) }, if: -> { in_unified? && (saved_changes.keys & AIRTABLE_COLUMNS).any? }
+  belongs_to :real_name_ticked_by, class_name: "User", optional: true
   after_update -> { Project.where(id: project_id).update_all(synced_at: nil, updated_at: Time.current) }, if: -> { saved_change_to_status? || saved_change_to_approved_hours? }
   # D-098: the participant gets a DM once the fraud check passes (Nudge::Approved).
   after_update_commit -> { Nudge::Approved.queue(self) }, if: -> { saved_change_to_status?(to: "approved") }
@@ -318,22 +321,65 @@ class Ship < ApplicationRecord
   CHECKLIST_KEYS = %w[runs readme screenshot hours_fit art_cap not_double real_name].freeze
 
   # D-143: the Real name item, ticked by a reviewer or an agent, never by the app. Gates the Unified YSWS box.
-  def real_name_checked? = review_checklist["real_name"] == true && AirtableFields.names(project.user).all?(&:present?)
+  # Gate audit finding 5: the tick counts only while the names now on the user equal the names it was ticked for.
+  def real_name_checked?
+    names = AirtableFields.names(project.user)
+    review_checklist["real_name"] == true && names.all?(&:present?) && [ real_name_first, real_name_last ] == names
+  end
+
+  # The tick was made, but for other names than the ones the user has now (they signed in again and Hack Club Auth sent new ones).
+  def real_name_stale?
+    review_checklist["real_name"] == true && real_name_first.present? && [ real_name_first, real_name_last ] != AirtableFields.names(project.user)
+  end
+
+  # Gate audit findings 2, 5, 14 and the zero-hours case: why the Unified YSWS box stays unticked, in plain words. Empty when
+  # nothing holds it. Eligibility (D-147) is asked separately, because it can call Hack Club Auth.
+  def unified_holds
+    user = project.user
+    holds = []
+    holds << "The owner is banned." if user.banned?
+    if real_name_stale?
+      holds << "The Real name tick was for #{real_name_first} #{real_name_last}, and the name is now #{AirtableFields.names(user).join(" ")}. A reviewer ticks it again."
+    elsif !real_name_checked?
+      holds << "Real name is not ticked."
+    end
+    holds << "No new hours since the earlier ship." if AirtableFields.earlier_ships(self).any? && AirtableFields.new_hours(self).zero?
+    missing = missing_unified_fields
+    holds << "The record is incomplete: #{missing.to_sentence} missing." if missing.any?
+    holds
+  end
+
+  # The fields the Unified YSWS row needs that are empty, by the row's own names.
+  def missing_unified_fields
+    user = project.user
+    address = ShippingAddress.for(user)
+    first, last = AirtableFields.names(user)
+    { "First Name" => first, "Last Name" => last, "Email" => user.email, "Address (Line 1)" => address.street_address,
+      "City" => address.locality, "Country" => address.country, "Birthday" => user.birthdate, "Code URL" => repo_url,
+      "Playable URL" => demo_url }.select { |_, value| value.blank? }.keys
+  end
 
   # D-147: the Unified YSWS box needs the Real name tick and a YSWS eligible person. A person stored as not eligible is asked
   # about again (Hack Club Auth may have verified them since); one stored as eligible is not asked at every sync.
   def submit_to_unified?
     user = project.user
-    real_name_checked? && (user.ysws_eligible? || user.confirm_ysws_eligibility!)
+    unified_holds.empty? && (user.ysws_eligible? || user.confirm_ysws_eligibility!)
   end
 
   # D-143: Real name is the one tick that can still change after the verdict, because ships approved before it exists wait for it.
   def checklist_open_for?(key) = in_review? || (approved? && key.to_s == "real_name")
 
   # Saves a tick. Ticking Real name on an approved ship sends its row again, with the Unified YSWS box set from the new value.
-  def tick_checklist!(key, value)
+  # `by` is the reviewer. A Real name tick keeps the names it was made for, who ticked and when.
+  def tick_checklist!(key, value, by: nil)
     key = key.to_s
-    update!(review_checklist: review_checklist.merge(key => value == true))
+    attrs = { review_checklist: review_checklist.merge(key => value == true) }
+    if key == "real_name"
+      ticked = value == true
+      first, last = ticked ? AirtableFields.names(project.user) : [ nil, nil ]
+      attrs.merge!(real_name_first: first, real_name_last: last, real_name_ticked_by: (by if ticked), real_name_ticked_at: (Time.current if ticked))
+    end
+    update!(attrs)
     update_columns(synced_at: nil, airtable_failed_at: nil) if approved? && key == "real_name" && !in_unified?
   end
 

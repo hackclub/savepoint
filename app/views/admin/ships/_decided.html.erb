@@ -63,3 +63,23 @@
     <% end %>
   </dl>
 <% end %>
+<%# D-150: until the Unified YSWS DB takes the row, an admin can fix the text the reviewer wrote. The ship is sent again with it. %>
+<% if ship.review_text_open? && !ship.by?(current_user) %>
+  <details class="ash__disc" id="admin-ship-review-text">
+    <summary class="ash__disc-sum"><span class="ash__disc-title"><%= sp_icon "edit-2-fill" %>Fix the review text</span></summary>
+    <div class="ash__disc-body">
+      <p class="admin__muted">Changes the text only, not the hours. It goes to Airtable with the ship's first Unified send.</p>
+      <%= form_with model: ship, scope: :ship, url: review_text_admin_ship_path(ship), method: :patch, data: { turbo: false } do |form| %>
+        <div class="sp-field"><%= form.label :technical_features, "Specific technical features", class: "sp-label" %>
+          <%= form.text_area :technical_features, rows: 4, class: "sp-input ash__textarea" %></div>
+        <div class="sp-field"><%= form.label :review_judgement, "Judgement", class: "sp-label" %>
+          <%= form.text_area :review_judgement, rows: 4, class: "sp-input ash__textarea" %></div>
+        <div class="sp-field"><%= form.label :deflation_reason, "Why the hours are below what the rules allow", class: "sp-label" %>
+          <%= form.text_area :deflation_reason, rows: 3, class: "sp-input ash__textarea" %></div>
+        <%= form.button type: "submit", class: "sp-btn sp-btn--royal" do %><%= sp_icon "save-2-fill" %>Save review text<% end %>
+      <% end %>
+    </div>
+  </details>
+<% elsif ship.approved? && ship.in_unified? %>
+  <p class="admin__muted" id="admin-ship-review-text-locked"><%= Ship::IN_UNIFIED_MESSAGE %></p>
+<% end %>

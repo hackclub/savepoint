@@ -374,6 +374,34 @@ module AdminMcp::Tools::Ships
     end
   end
 
+  # D-150: the justification text of an approved ship, fixed before the Unified YSWS DB takes it (Ship#fix_review_text!).
+  class EditReviewText < AdminMcp::Tool
+    # Fields of the other tools, named so a mix-up is refused rather than ignored.
+    OTHER_KEYS = %w[decision coding_hours art_hours hours hours_start lapse_coding_hours ai_coding_hours ai_reason feedback title description changes_made repo_url demo_url key checked].freeze
+
+    writes "edit_review_text", "Fix the review text of an approved ship",
+           "Fixes the text a reviewer wrote on an APPROVED ship that is not yet in the Unified YSWS DB: technical_features, judgement (review_judgement) and deflation_reason. Send any subset: a field you leave out is kept. " \
+           "Nothing else changes: not the hours, the verdict, the checklist, the hours start or the links. Once the ship is in the Unified YSWS DB its row is never edited (D-150), so this refuses it. " \
+           "The ship is marked unsynced, so the corrected text goes out with its first Unified send. Every change is written to the admin log with the old and the new text. Tells nobody. " \
+           "For a ship in review use save_review_draft. You can't edit your own ship, or one another admin has open. Answers { saved, message, changes, ship }.",
+           { ship_id: { type: "integer", description: "The ship ID." },
+             technical_features: { type: "string", description: "The specific technical features that explain the hours. Can't be empty." },
+             judgement: { type: "string", description: "The reviewer's judgement (review_judgement). An empty string clears it." },
+             deflation_reason: { type: "string", description: "Why the hours are below what the rules allow. Can't be emptied while the hours are below the claimed." } },
+           required: %w[ship_id]
+
+    def self.run(args, caller)
+      ship = Ship.includes(:decided_by, project: :user).find(args[:ship_id])
+      Guard.check!(ship, "review", caller)
+      raise AdminMcp::Refused, "Only the review text can change here: technical_features, judgement and deflation_reason." if (args.keys.map(&:to_s) & OTHER_KEYS).any?
+
+      changes = ship.fix_review_text!({ technical_features: args[:technical_features], review_judgement: args[:judgement], deflation_reason: args[:deflation_reason] }.compact, by: caller.user)
+      return { saved: false, message: "Not saved: #{ship.errors.full_messages.to_sentence}", changes: {}, ship: AdminMcp::Present.ship(ship.reload) } if changes == false
+
+      { saved: true, message: (changes.empty? ? "Nothing changed." : nil), changes:, ship: AdminMcp::Present.ship(ship.reload) }
+    end
+  end
+
   class FraudShip < AdminMcp::Tool
     writes "fraud_ship", "Fraud-check a ship",
            "The fraud stage of a ship that review approved (the fraud page's buttons). pass makes it approved: the hours are the participant's to spend and it goes to Airtable. " \

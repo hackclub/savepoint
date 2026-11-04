@@ -13,7 +13,7 @@ class Admin::ShipsController < Admin::BaseController
   DRAFT_STALE = "This ship's draft changed since you opened the page. Reload to see it before you type more.".freeze
 
   before_action :set_ship, except: :index
-  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split reviewer_ai]
+  before_action :refuse_own_ship, only: %i[review fraud send_back hours_start lapse_split reviewer_ai review_text]
 
   def index
     @stage = params[:stage].presence_in(Ship::STAGES.keys)
@@ -94,6 +94,16 @@ class Admin::ShipsController < Admin::BaseController
     else
       load_review
       render :show, status: :unprocessable_entity
+    end
+  end
+
+  # D-150: fixes the justification text of an approved ship the Unified YSWS DB has not taken (Ship#fix_review_text!).
+  def review_text
+    changes = @ship.fix_review_text!(params.fetch(:ship, {}).permit(*Ship::REVIEW_TEXT_FIELDS), by: current_user)
+    if changes == false
+      redirect_to admin_ship_path(@ship), alert: @ship.errors.full_messages.first
+    else
+      redirect_to admin_ship_path(@ship), notice: changes.empty? ? "Nothing changed." : "Review text saved."
     end
   end
 

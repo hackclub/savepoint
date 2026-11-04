@@ -128,9 +128,11 @@ class AdminProjectsTest < ApplicationSystemTestCase
                             slack_display_name: "a-long-slack-display-name-#{index}", hackatime_uid: (4000 + index).to_s,
                             hackatime_access_token: "token-#{handle}", current_streak: index)
         prize = Prize::ALL[index * 2 % Prize::ALL.size].key
-        Project.create!(user:, idea: "A long idea about #{index} games, with a great many words in it, so that it must wrap onto several lines of the table",
+        project = Project.create!(user:, idea: "A long idea about #{index} games, with a great many words in it, so that it must wrap onto several lines of the table",
                         prize_key: prize, pace_minutes: 45, build_time: "late night", signed_on: "2026-09-30",
-                        hackatime_projects: index.even? ? LONG_HACKATIME : [ "short" ])
+                        hackatime_projects: [ "short" ])
+        # Written past the validation: a name with a comma is what this table has to survive, from before the rule.
+        project.update_columns(hackatime_projects: LONG_HACKATIME) if index.even?
         user.streak_activities.create!(activity_date: Program::DATES.begin, coded_seconds: (index + 1) * 3000)
       end
       seed_states

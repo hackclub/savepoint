@@ -340,9 +340,21 @@ class ShopControllerTest < ActionDispatch::IntegrationTest
   test "a good claim by fetch answers with where to go" do
     approve(hours: Prize.find("micro").hours)
     sign_in_orpheus
-    post shop_order_path, params: { order: { prize_key: "micro" }, address: HQ_ADDRESS }, as: :json
+    post shop_order_path, params: { order: { prize_key: "micro" }, address: HQ_ADDRESS_WITH_PHONE }, as: :json
     assert_response :success
     assert_equal({ "redirect" => shop_path }, response.parsed_body)
+  end
+
+  test "a posted prize without a phone is refused under the phone field, and a missing postal code under its own (D-148)" do
+    approve(hours: Prize.find("micro").hours)
+    sign_in_orpheus
+    post shop_order_path, params: { order: { prize_key: "micro" }, address: HQ_ADDRESS }, as: :json
+    assert_response :unprocessable_content
+    assert_equal({ "phone_number" => "Add a phone number for the carrier." }, response.parsed_body["fields"])
+
+    post shop_order_path, params: { order: { prize_key: "micro" }, address: HQ_ADDRESS_WITH_PHONE.except("postal_code") }, as: :json
+    assert_equal({ "postal_code" => "Add the postal code." }, response.parsed_body["fields"])
+    assert_equal 0, @project.orders.count
   end
 
   test "a malformed address parameter is just a missing address" do

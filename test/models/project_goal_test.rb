@@ -47,7 +47,7 @@ class ProjectGoalTest < ActiveSupport::TestCase
 
   test "once you've claimed the goal there's nothing to claim, so no popup" do
     approve(@goal.hours + 20)
-    @project.reload.orders.create!(prize_key: "u2c")
+    @project.reload.orders.create!(prize_key: "u2c", address: HQ_ADDRESS_WITH_PHONE)
 
     assert @project.reload.goal_claimed?
     assert_not @project.goal_reached?
@@ -60,7 +60,7 @@ class ProjectGoalTest < ActiveSupport::TestCase
     assert_operator @project.upsell_prize.hours, :>=, @goal.hours
 
     approve(100)
-    @project.reload.orders.create!(prize_key: dearer.key)
+    @project.reload.orders.create!(prize_key: dearer.key, address: HQ_ADDRESS_WITH_PHONE)
     after = Prize::ALL.select { |prize| prize.cost > @goal.cost && prize != dearer }.min_by(&:cost)
     assert_equal after, @project.reload.upsell_prize
 

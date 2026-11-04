@@ -68,7 +68,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
 
   test "copies orders to their own table" do
     approved_ship(approved_hours: 100)
-    order = @orpheus.reload.orders.create!(prize_key: @orpheus.prize_key)
+    order = @orpheus.reload.orders.create!(prize_key: @orpheus.prize_key, address: HQ_ADDRESS_WITH_PHONE)
     Airtable::SyncJob.perform_now
     row = @fake.rows("Orders").find { it["save_point_id"] == "order-#{order.id}" }
     assert_not row.key?("Email"), "the project id leads to the user"
@@ -235,7 +235,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
 
   test "every field a row writes exists in the schema" do
     ship = approved_ship(approved_hours: 100)
-    order = @orpheus.reload.orders.create!(prize_key: @orpheus.prize_key)
+    order = @orpheus.reload.orders.create!(prize_key: @orpheus.prize_key, address: HQ_ADDRESS_WITH_PHONE)
     assert_empty AirtableFields.user(ship.project.user).keys - AirtableSchema.field_names(:users)
     assert_empty AirtableFields.project(@orpheus).keys - AirtableSchema.field_names(:projects)
     assert_empty AirtableFields.order(order).keys - AirtableSchema.field_names(:orders)

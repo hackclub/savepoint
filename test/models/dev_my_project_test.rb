@@ -88,7 +88,7 @@ class DevMyProjectTest < ActiveSupport::TestCase
 
   test "resetting orders lets you claim again, and resetting the popup shows it again" do
     @mine.set_approved!(@project.hours_needed)
-    @project.reload.orders.create!(prize_key: "u2c")
+    @project.reload.orders.create!(prize_key: "u2c", address: HQ_ADDRESS_WITH_PHONE)
     @project.goal_reached_seen!
 
     @mine.reset_orders!

@@ -38,7 +38,7 @@ module AdminMcp::Tools::Ships
     reads "get_ship", "Get one ship",
           "A ship in full, as the review page shows it: who shipped it, what they submitted (title, description, what they changed, repository, playable link), " \
           "the hours Hackatime counted and the handbook's limits on them (AI coding and art time, the most to approve, the reason for a cut), the repository's commits since Save Point began, " \
-          "the evidence the page shows beside it (seconds per linked Hackatime project at ship time and now, the repository's facts and latest release with a flag when it predates Save Point, the Lapse sessions and art share, the participant's identity and Hackatime trust level, accounts with the same repo or Slack account, the Stardance check, and the Telescreen and Lapse review links), " \
+          "the evidence the page shows beside it (seconds per linked Hackatime project at ship time and now, the repository's facts and latest release with a flag when it predates Save Point, the Lapse sessions and art share, the participant's identity and Hackatime trust level, accounts with the same repo or Slack account, and the Telescreen and Lapse review links), " \
           "the earlier ship in the Unified YSWS DB (with a warning when its record was approved after Save Point began), the project's other ships, and the verdict. " \
           "The verdict holds review_feedback (the note the participant sees), review_judgement (the reviewer's internal note) and review_checklist (the ticks, frozen at the decision), " \
           "the review's coding and art hours, the fraud check (fraud_status, deduction, notes), who held each, and the send_backs (a ship that waited for its fraud check and went back to review). " \

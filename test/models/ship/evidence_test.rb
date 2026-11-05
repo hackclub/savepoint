@@ -11,12 +11,9 @@ class Ship::EvidenceTest < ActiveSupport::TestCase
                                    hackatime_projects: [ "Gloobls", "Halloween Game" ], screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"),
                                    screenshot_shows_game: true)
     @ship.update_columns(created_at: Program::STARTS_AT + 1.day)
-    @stardance_token = ENV["STARDANCE_MCP_TOKEN"]
-    Stardance.stubbed_status = nil
   end
 
   teardown do
-    ENV["STARDANCE_MCP_TOKEN"] = @stardance_token
     Web.adapter = nil
     restore_project_seconds
   end
@@ -128,12 +125,5 @@ class Ship::EvidenceTest < ActiveSupport::TestCase
     assert_nil Ship::Evidence.new(@ship).trust_level
   ensure
     Hackatime.stubbed_trust_levels = {}
-  end
-
-  test "the Stardance answer reaches the predicate part of the verdict reads" do
-    ENV["STARDANCE_MCP_TOKEN"] = nil
-    evidence = Ship::Evidence.new(@ship)
-    assert evidence.stardance.unknown?
-    assert_not evidence.stardance_shipped?
   end
 end

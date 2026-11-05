@@ -17,8 +17,6 @@ module ActiveSupport
     # stubbed and forgot to put back. A class's own setup runs after this, so the stubs it sets still apply.
     setup { HackatimeStubs.reset }
 
-    # A verdict doesn't ask the Stardance MCP (D-148: an unreadable Stardance needs a reason to approve). A test of the check sets nil.
-    setup { Stardance.stubbed_status = :clear }
 
     # Add more helper methods to be used by all tests here...
   end

@@ -61,7 +61,7 @@ module AdminMcp::Present
 
   # D-063: the review page's evidence panels (Ship::Evidence), as get_ship answers them.
   def evidence(evidence, limits)
-    hackatime, repo, lapses, stardance, user = evidence.hackatime, evidence.repo, evidence.lapses, evidence.stardance, evidence.user
+    hackatime, repo, lapses, user = evidence.hackatime, evidence.repo, evidence.lapses, evidence.user
     release = repo.release
     art_share = (limits.art * 100 / limits.claimed).round(1).to_f if limits.art_known? && limits.claimed.positive?
     {
@@ -78,7 +78,6 @@ module AdminMcp::Present
                      ysws_eligible: user.ysws_eligible?, hackatime_uid: user.hackatime_uid, hackatime_trust_level: evidence.trust_level,
                      other_ships: evidence.other_ships.map { { id: it.id, title: it.title, status: it.status, hours: it.hours.to_f } } },
       same_repo_or_person: evidence.duplicates.map { { user_id: it.user.id, name: it.user.name, reason: it.reason } },
-      stardance: { status: stardance.status, project_ids: stardance.ids },
       links: { telescreen: evidence.telescreen_url, lapse_review: evidence.lapse_review_url }
     }
   end

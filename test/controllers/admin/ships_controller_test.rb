@@ -1141,35 +1141,12 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#admin-ship-duplicates", 0
   end
 
-  test "the Stardance check shows a banner when the repo is shipped there, and a quiet line when it can't be read" do
+  test "the review page has no Stardance check, line or reason box (D-153)" do
     sign_in_as(users(:orpheus))
-    Stardance.stubbed_status = nil
-    token = ENV["STARDANCE_MCP_TOKEN"]
-    ENV["STARDANCE_MCP_TOKEN"] = nil
-    get admin_ship_path(@ship)
-    assert_select "[data-stardance=unknown]", /Could not check Stardance \(no STARDANCE_MCP_TOKEN set\)/
-    assert_select "[data-stardance=shipped]", 0
-
-    ENV["STARDANCE_MCP_TOKEN"] = "token-test"
-    Web.adapter = lambda do |_method, _url, _headers, body = nil|
-      next Web::Response.new(status: 200, headers: {}, body: "[]") unless body # the repo's page, not Stardance
-
-      message = JSON.parse(body)
-      next Web::Response.new(status: 202, headers: {}, body: "") unless message["id"]
-
-      text = case message.dig("params", "name")
-      when "query" then "Query ID: q\nTotal rows: 1\nColumns: repo, project_id"
-      when "get_rows" then "Rows 1-1 of 1:\n\nrepo | project_id\n----\n#{"https://github.com/ana/pong".unpack1("H*")} | 74"
-      end
-      result = message["method"] == "initialize" ? { protocolVersion: "2025-06-18" } : { content: [ { type: "text", text: } ] }
-      Web::Response.new(status: 200, headers: {}, body: { jsonrpc: "2.0", id: message["id"], result: }.to_json)
-    end
     get admin_ship_path(@ship)
     assert_response :success
-    assert_select "[data-stardance=shipped]", /shipped on Stardance.*Approve is off/m
-    assert_select "[data-stardance=shipped] a[href='https://stardance.hackclub.com/projects/74']"
-  ensure
-    ENV["STARDANCE_MCP_TOKEN"] = token
+    assert_select "[data-stardance]", 0
+    assert_no_match(/Stardance could not be checked|Could not check Stardance/, response.body)
   end
 
   # Claims (D-063).
@@ -1425,23 +1402,6 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     @ship.update_columns(status: "awaiting_fraud", fraud_status: "pending", review_hours: 5)
     post fraud_admin_ship_path(@ship), params: { verdict: "pass", queue: 1 }
     assert_redirected_to admin_fraud_path
-  end
-
-  test "Approve is off, on the page and on a direct post, while the repo is shipped on Stardance (D-063)" do
-    sign_in_as(users(:orpheus))
-    Stardance.stubbed_status = :shipped
-
-    get admin_ship_path(@ship)
-    assert_select "form#verdict button[data-verdict=approved][disabled]"
-    assert_select "form#verdict button[data-verdict=changes_needed]:not([disabled])"
-
-    post review_admin_ship_path(@ship), params: { decision: "approved", coding_hours: "6", technical_features: "A second ball." }
-    assert_response :unprocessable_entity
-    assert_match(/shipped on Stardance/, response.body)
-    assert @ship.reload.in_review?
-
-    post review_admin_ship_path(@ship), params: { decision: "changes_needed", review_feedback: "Ship it on Stardance instead." }
-    assert @ship.reload.changes_needed?, "changes needed stays open"
   end
 
   # D-097, D-101: a ship of a project with an earlier approved ship. The earlier one holds 3 hrs (3 coding), made a day and a half in.

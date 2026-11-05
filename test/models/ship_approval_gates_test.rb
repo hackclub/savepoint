@@ -1,7 +1,7 @@
 require "test_helper"
 
 # D-148: the gates on an approval live in Ship#decide!, so the review page and every other caller share them. A blocker no reason
-# lifts (a repo Stardance reviews, a red Hackatime trust level) refuses. The others (Stardance unreadable, limits unknown, another
+# lifts (a red Hackatime trust level) refuses. The others (limits unknown, another
 # program's overlap, a second account) refuse until the reviewer types a reason, which is kept with the ship.
 class ShipApprovalGatesTest < ActiveSupport::TestCase
   setup do
@@ -19,23 +19,11 @@ class ShipApprovalGatesTest < ActiveSupport::TestCase
 
   def approve(**more) = @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", **more)
 
-  test "a repo Stardance reviews refuses an approval, and no reason lifts it (finding 4)" do
-    Stardance.stubbed_status = :shipped
-    assert_not approve(overrides: { "stardance" => "It is fine." })
-    assert_includes @ship.errors[:base], "This repo is shipped on Stardance, so Stardance reviews it. Approve is off."
-    assert @ship.reload.in_review?
-    assert @ship.decide!("changes_needed", by: @reviewer, feedback: "Ship it on Stardance."), "the other verdicts stay open"
-  end
-
-  test "a Stardance that cannot be read refuses an approval until a reason is typed, and the reason is kept (finding 4)" do
-    Stardance.stubbed_status = :unknown
-    assert_not approve
-    assert_includes @ship.errors[:base], "Stardance could not be checked. Type a reason to approve anyway."
-
-    assert approve(overrides: { "stardance" => "  Checked its page by hand.  " })
-    kept = @ship.reload.review_overrides["stardance"]
-    assert_equal [ "Checked its page by hand.", @reviewer.id ], [ kept["reason"], kept["by"] ]
-    assert kept["at"].present?
+  test "there is no Stardance check: an approval needs no reason for it, and an old stored Stardance reason does no harm (D-153)" do
+    assert_empty @ship.approval_blockers(frozen: {}).map(&:key) - %w[limits]
+    @ship.update_columns(review_overrides: { "stardance" => { "reason" => "Checked by hand.", "by" => @reviewer.id, "at" => Time.current.iso8601 } })
+    assert approve, @ship.errors.full_messages.inspect
+    assert @ship.reload.awaiting_fraud?
   end
 
   test "a red Hackatime trust level refuses an approval and a fraud pass, and blocks shipping (finding 6)" do

@@ -234,10 +234,69 @@ class NudgeApprovedTest < ActiveSupport::TestCase
   end
 
   test "every approved arm has copy, a button and a GIF" do
-    %w[approved_short approved_reached approved_no_goal].each do |arm|
+    %w[approved_short approved_reached approved_no_goal approved_verify].each do |arm|
       assert Nudge::Copy::FIXED.key?(arm)
       assert Nudge::Copy::LINKS.key?(arm)
       assert SlackGifs::GIFS.key?("nudge.#{arm}")
     end
+  end
+
+  # D-154: what Hack Club Auth says about them right now, for the length of the block.
+  def with_hca(answer)
+    original = HackClubAuth.method(:identity)
+    HackClubAuth.define_singleton_method(:identity) { |_user| answer.is_a?(Exception) ? raise(answer) : answer }
+    yield
+  ensure
+    HackClubAuth.define_singleton_method(:identity, original)
+  end
+
+  test "D-154: someone who isn't verified gets the version that asks them to verify" do
+    @user.update!(ysws_eligible: false)
+    ship = approve!(new_ship(2.5))
+    nudge = with_hca("ysws_eligible" => false, "verification_status" => "needs_submission") { deliver(ship) }
+
+    assert nudge.delivered
+    assert_equal "approved_verify", nudge.arm
+    text = @sent.sole.second
+    assert_includes text, "2.5 hours"
+    assert_includes text, "identity verification at auth.hackclub.com"
+    assert_equal [ "verify your identity", :verify ], Nudge::Copy.link_for(nudge.arm)
+    assert_equal "https://auth.hackclub.com", nudge.destination_url
+  end
+
+  test "D-154: the reviewer's note still follows the verify version" do
+    @user.update!(ysws_eligible: false)
+    ship = approve_with_message!("Nice game!")
+    with_hca("ysws_eligible" => false) { deliver(ship) }
+    assert_equal "> Nice game!", @sent.sole.second.lines(chomp: true).last
+  end
+
+  test "D-154: someone who is verified gets the usual DM, unchanged" do
+    ship = approve!(new_ship(2.5))
+    nudge = with_hca("ysws_eligible" => true, "verification_status" => "verified") { deliver(ship) }
+
+    assert_equal "approved_short", nudge.arm
+    assert_not_includes @sent.sole.second, "identity verification"
+    assert_equal [ "see the shop", :shop ], Nudge::Copy.link_for(nudge.arm)
+  end
+
+  test "D-154: someone stored as not eligible whom Hack Club Auth now says is eligible gets the usual DM" do
+    @user.update!(ysws_eligible: false)
+    ship = approve!(new_ship(2.5))
+    nudge = with_hca("ysws_eligible" => true, "verification_status" => "verified") { deliver(ship) }
+
+    assert_equal "approved_short", nudge.arm
+    assert_not_includes @sent.sole.second, "identity verification"
+    assert @user.reload.ysws_eligible?
+  end
+
+  test "D-154: when Hack Club Auth can't be asked, the stored value decides" do
+    @user.update!(ysws_eligible: false)
+    nudge = with_hca(HackClubAuth::Unavailable.new("down")) { deliver(approve!(new_ship(2.5))) }
+    assert_equal "approved_verify", nudge.arm
+
+    @user.update!(ysws_eligible: true)
+    nudge = with_hca(HackClubAuth::Unavailable.new("down")) { deliver(approve!(new_ship(3)), zone.local(2026, 10, 26, 12)) }
+    assert_equal "approved_short", nudge.arm
   end
 end

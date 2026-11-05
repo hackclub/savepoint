@@ -3,13 +3,18 @@
 # to what the other DMs keep to: nothing to admins or to someone who stopped the bot, and quiet hours or anything the bot said
 # within Nudge::MESSAGE_GAP make it wait rather than drop. Unlike the others it still sends after Program::ENDS_AT, because
 # reviews go on after the end. D-112: when the reviewer wrote a message to the participant with the verdict (review_feedback), the
-# DM carries it after its usual line (Nudge::Copy.with_reviewer_note).
+# DM carries it after its usual line (Nudge::Copy.with_reviewer_note). D-154: someone who isn't YSWS eligible gets a separate
+# version (VERIFY) that says their time was approved and that they must finish identity verification to get their prize. It asks
+# Hack Club Auth fresh (User#confirm_ysws_eligibility!), so someone who verified since gets the usual DM; when Hack Club Auth
+# can't be asked, the eligibility stored at their last sign-in stands.
 module Nudge::Approved
   KIND = "approved"
   # Goal not reached yet, goal reached, and no goal to speak of (none picked, or already claimed).
   SHORT = "approved_short"
   REACHED = "approved_reached"
   NO_GOAL = "approved_no_goal"
+  # Approved, but not YSWS eligible yet (D-154).
+  VERIFY = "approved_verify"
 
   def self.queue(ship)
     NudgeApprovedJob.perform_later(ship.id)
@@ -25,7 +30,8 @@ module Nudge::Approved
       later = Nudge::Context.new(user, now).cheer_waits_until
       return later if later
 
-      nudge = user.nudges.new(kind: KIND, arm: arm_for(ship.project), ship_id: ship.id, propensity: 1.0)
+      arm = user.confirm_ysws_eligibility! ? arm_for(ship.project) : VERIFY
+      nudge = user.nudges.new(kind: KIND, arm:, ship_id: ship.id, propensity: 1.0)
       nudge.deliver!(vars(ship), note: ship.review_feedback)
       nudge
     end

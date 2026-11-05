@@ -142,3 +142,4 @@ nudge.ship_prompt: *celebration
 nudge.approved_short: *celebration
 nudge.approved_reached: *celebration
 nudge.approved_no_goal: *celebration
+nudge.approved_verify: *celebration

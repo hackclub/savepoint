@@ -241,6 +241,7 @@ class Nudge < ApplicationRecord
     when :leaderboard then "#{Rails.configuration.x.app_url}/leaderboard"
     when :hackatime_site then ApplicationController.helpers.hackatime_url
     when :onboarding then "#{Rails.configuration.x.app_url}/start"
+    when :verify then "https://auth.hackclub.com"
     when :shop then "#{Rails.configuration.x.app_url}/shop"
     when :ship then "#{Rails.configuration.x.app_url}/project/ship"
     else "#{Rails.configuration.x.app_url}/project" # Linking Hackatime, picking your project and adding a repo are on the project page too.

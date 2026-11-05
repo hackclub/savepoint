@@ -104,6 +104,12 @@ module Nudge::Copy
       "approved! you have %{approved} %{approved_word} to spend in the shop :yay:",
       "%{added} %{added_word} approved! that's %{approved} %{approved_word} to spend in the shop now :)"
     ],
+    # D-154: approved, but the owner isn't YSWS eligible (Nudge::Approved): their time counts, and they need identity verification
+    # at Hack Club Auth before they can claim a prize.
+    "approved_verify" => [
+      "your ship is approved!! you have %{approved} %{approved_word} now. to get your prize, finish identity verification at auth.hackclub.com, then claim it in the shop :)",
+      "approved! your %{approved} %{approved_word} count, but you need to finish identity verification at auth.hackclub.com before you can claim a prize. do that, then head to the shop :yay:"
+    ],
     # D-096: five hours or more since their last ship (Nudge::ShipPrompt). %{since} is "since your last ship", or
     # "and haven't shipped yet" before a first ship.
     "ship_prompt" => [
@@ -180,6 +186,7 @@ module Nudge::Copy
     "approved_short" => [ "see the shop", :shop ],
     "approved_reached" => [ "claim your prize", :shop ],
     "approved_no_goal" => [ "open the shop", :shop ],
+    "approved_verify" => [ "verify your identity", :verify ],
     "first_session" => [ "see your progress", :project ],
     "halfway" => [ "see your progress", :project ],
     "done" => [ "claim your prize", :project ],

@@ -586,8 +586,16 @@ class Project < ApplicationRecord
     @hours_logged = nil if refresh
     @hours_logged ||= begin
       refresh_hours if refresh
-      user.hours_in(Program::FIRST_STREAK_DATE..)
+      user.hours_in(Program::FIRST_STREAK_DATE..hours_last_day)
     end
+  end
+
+  # D-155: a project with an admin-set ship window (ship_until) counts only time from before the public end once that
+  # end has passed: the streak day the end falls on, in the person's zone, is the last one. nil (no limit) for everyone else.
+  def hours_last_day
+    return unless ship_until && Time.current > Program::ENDS_AT
+
+    StreakActivity.streak_date_for(Program::ENDS_AT, user.timezone)
   end
 
   # D-065: Hackatime time counts from the later of Save Point's start and your sign-up, unless a reviewer set a start on
@@ -740,9 +748,10 @@ class Project < ApplicationRecord
     [ latest.reviewed_at + CHANGES_NEEDED_WINDOW, Program::ENDS_AT ].max
   end
 
-  # The last moment this person may ship: the cutoff (Program::ENDS_AT), or their Changes needed deadline (D-140) when it runs later.
+  # The last moment this person may ship: the cutoff (Program::ENDS_AT), or their Changes needed deadline (D-140) or the
+  # private window an admin set (ship_until, D-155) when it runs later.
   def ship_closes_at
-    [ ship_cutoff, changes_needed_until ].compact.max
+    [ ship_cutoff, changes_needed_until, ship_until ].compact.max
   end
 
   # Until then, unless an admin banned the account or rejected the newest ship for good (D-063).

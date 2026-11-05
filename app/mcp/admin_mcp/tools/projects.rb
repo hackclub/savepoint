@@ -47,4 +47,48 @@ module AdminMcp::Tools::Projects
       )
     end
   end
+
+  # D-155: a private ship window for one project. No DM, no post: the admin tells the person.
+  class SetShipUntil < AdminMcp::Tool
+    writes "set_ship_until", "Give one project a private ship window",
+           "Gives one project a private window to ship after the public end (D-155): the project may ship until ship_until, and only Hackatime time from before the public end (Program::ENDS_AT) counts on that ship. " \
+           "Send user_id or project_id, and ship_until as a UTC date and time like 2026-11-06T21:00, or null to clear it. It never shortens the public end or a Changes needed window, and an unset project is unchanged. " \
+           "Sends no DM and posts nothing: tell the person yourself. Answers { project_id, user_id, ship_until, ship_closes_at }.",
+           { user_id: { type: "integer", description: "The participant's user ID. Use this or project_id." },
+             project_id: { type: "integer", description: "The project ID. Use this or user_id." },
+             ship_until: { type: %w[string null], description: "A UTC date and time, or null to clear the window." } },
+           required: %w[ship_until]
+
+    def self.audit_extra(args)
+      project = find_project(args)
+      project ? { "project_id" => project.id } : {}
+    rescue StandardError
+      {}
+    end
+
+    def self.run(args, _caller)
+      raise AdminMcp::Refused, "Send ship_until: a UTC date and time, or null to clear it." unless args.key?(:ship_until)
+
+      project = find_project(args) || raise(AdminMcp::Refused, "Send user_id or project_id of a project that exists.")
+      value = args[:ship_until].nil? ? nil : parse_time(args[:ship_until])
+      raise AdminMcp::Refused, "Send ship_until as a UTC date and time like 2026-11-06T21:00, or null." if value == :invalid
+
+      project.update!(ship_until: value)
+      { project_id: project.id, user_id: project.user_id, ship_until: project.ship_until, ship_closes_at: project.ship_closes_at }
+    end
+
+    def self.find_project(args)
+      if args[:project_id] then Project.find_by(id: args[:project_id])
+      elsif args[:user_id] then Project.find_by(user_id: args[:user_id])
+      end
+    end
+
+    def self.parse_time(text)
+      return :invalid if text.blank?
+
+      Time.find_zone!("UTC").parse(text.to_s) || :invalid
+    rescue ArgumentError
+      :invalid
+    end
+  end
 end

@@ -344,6 +344,51 @@ class ProjectDeadlineTest < ActiveSupport::TestCase
     assert_not project.may_ship?(now: Program::SHOP_CLOSES_AT - 1.minute), "D-138: the open shop does not reopen shipping"
   end
 
+  test "a private ship window (D-155) lets one project ship after the end and leaves everyone else alone" do
+    project = projects(:orpheus)
+    window = Program::ENDS_AT + 24.hours
+    assert_nil project.ship_until
+    assert_equal Program::ENDS_AT, project.ship_closes_at
+    assert_not project.may_ship?(now: Program::ENDS_AT + 1.hour), "no window, no shipping after the end"
+
+    project.update!(ship_until: window)
+    assert_equal window, project.ship_closes_at
+    assert project.may_ship?(now: Program::ENDS_AT + 1.hour)
+    assert project.may_ship?(now: window)
+    assert_not project.may_ship?(now: window + 1.second)
+
+    project.update!(ship_until: Program::ENDS_AT - 1.day)
+    assert_equal Program::ENDS_AT, project.ship_closes_at, "a window never shortens the public end"
+    project.update!(ship_until: nil)
+    assert_equal Program::ENDS_AT, project.ship_closes_at
+  end
+
+  test "with a ship window only time before the end counts, and without one nothing changes (D-155)" do
+    project = projects(:ana)
+    user = project.user
+    user.update!(timezone: "America/New_York")
+    Hackatime.stubbed_users = { "token-ana" => 99 }
+    link_hackatime(user)
+    project.update!(hackatime_projects: [ "pong" ])
+    last_day = StreakActivity.streak_date_for(Program::ENDS_AT, user.timezone)
+    user.streak_activities.create!(activity_date: last_day - 1, coded_seconds: 3 * 3600)
+    user.streak_activities.create!(activity_date: last_day + 1, coded_seconds: 2 * 3600) # logged after the end
+
+    travel_to(Program::ENDS_AT + 2.hours) do
+      assert_nil project.hours_last_day
+      assert_equal 5.0, project.hours_logged, "no window: the open-ended count is kept"
+      assert_equal 5.0, Project.find(project.id).hours_logged
+
+      project.update!(ship_until: Program::ENDS_AT + 24.hours)
+      assert_equal last_day, project.hours_last_day
+      assert_equal 3.0, Project.find(project.id).hours_logged, "the window counts only time from before the end"
+    end
+
+    travel_to(Program::ENDS_AT - 2.hours) do
+      assert_nil project.hours_last_day, "before the end nothing is capped"
+    end
+  end
+
   test "nobody can ask for more time any more" do
     project = projects(:orpheus)
     link_hackatime(users(:orpheus))

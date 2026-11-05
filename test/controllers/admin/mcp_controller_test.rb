@@ -63,8 +63,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
     assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai], tools.keys.sort
-    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension]
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until], tools.keys.sort
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension set_ship_until]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -459,6 +459,25 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
       end
     end
     assert_includes AdminAuditEvent.where(tool: "set_hours_start").map(&:ids), { "ship_id" => ship.id, "project_id" => project.id }
+  end
+
+  test "set_ship_until sets and clears a private ship window, logs the project, and sends nothing (D-155)" do
+    project = projects(:ana)
+    window = "2026-11-06T04:00"
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      done = mcp_tool(@token, "set_ship_until", { user_id: project.user_id, ship_until: window })
+      assert_equal project.id, done["project_id"]
+      assert_equal Time.utc(2026, 11, 6, 4), project.reload.ship_until
+      assert_equal Time.utc(2026, 11, 6, 4), project.ship_closes_at
+
+      mcp_tool(@token, "set_ship_until", { project_id: project.id, ship_until: "nonsense" })
+      assert mcp_error?
+      assert_equal Time.utc(2026, 11, 6, 4), project.reload.ship_until
+
+      mcp_tool(@token, "set_ship_until", { project_id: project.id, ship_until: nil })
+      assert_nil project.reload.ship_until
+    end
+    assert_includes AdminAuditEvent.where(tool: "set_ship_until").map(&:ids), { "user_id" => project.user_id, "project_id" => project.id }
   end
 
   test "send_verdict_dm sends the verdict DM once, returns its text, and can leave the note out (D-139)" do

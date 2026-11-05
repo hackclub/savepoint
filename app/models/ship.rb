@@ -171,7 +171,13 @@ class Ship < ApplicationRecord
   def counted_hours
     return 0 unless project&.user
 
-    project.user.hours_in(Program::FIRST_STREAK_DATE..(created_at || Time.current).to_date).to_d.clamp(0, hours)
+    last_day = [ (created_at || Time.current).to_date, project.hours_last_day ].compact.min
+    project.user.hours_in(Program::FIRST_STREAK_DATE..last_day).to_d.clamp(0, hours)
+  end
+
+  # D-155: where this ship's Hackatime time stops: now, or the public end for a project with a private ship window (ship_until).
+  def hours_end
+    project.ship_until && Time.current > Program::ENDS_AT ? Program::ENDS_AT : Time.current
   end
 
   # D-063: the seconds on each linked Hackatime project from the hours start (D-065) to now, kept as hackatime_seconds when the
@@ -180,7 +186,7 @@ class Ship < ApplicationRecord
     user = project&.user
     return unless user&.hackatime_linked? && hackatime_projects.any?
 
-    self.hackatime_seconds = Hackatime.project_seconds(user, hackatime_projects, project.hours_start..Time.current)
+    self.hackatime_seconds = Hackatime.project_seconds(user, hackatime_projects, project.hours_start..hours_end)
   rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable
     nil
   end
@@ -441,7 +447,7 @@ class Ship < ApplicationRecord
     user = project&.user
     return unless user&.hackatime_linked?
 
-    window = { from: project.hours_start, to: created_at.utc }
+    window = { from: project.hours_start, to: [ created_at.utc, hours_end ].min }
     ai = Hackatime.category_seconds(user, hackatime_projects, AI_CODING_CATEGORY, **window)
     art_parts = ART_CATEGORIES.map { |category| Hackatime.category_seconds(user, hackatime_projects, category, **window) }
     art = art_parts.sum unless art_parts.any?(&:nil?) # one unknown part leaves the art time unknown

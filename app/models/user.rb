@@ -187,7 +187,9 @@ class User < ApplicationRecord
   # Name, email, Slack (display name or ID) or Hack Club ID, any part of it, for the admin's list of users.
   def self.search(query)
     pattern = "%#{sanitize_sql_like(query)}%"
-    where("name ILIKE :q OR email ILIKE :q OR slack_display_name ILIKE :q OR slack_id ILIKE :q OR hca_id ILIKE :q", q: pattern)
+    # An all-digit query also matches a Hackatime user ID exactly.
+    where("name ILIKE :q OR email ILIKE :q OR slack_display_name ILIKE :q OR slack_id ILIKE :q OR hca_id ILIKE :q OR hackatime_uid = :uid",
+          q: pattern, uid: (query.to_s if query.to_s.match?(/\A\d+\z/)))
   end
 
   # A new user also gets the UTM tags their browser first saw (D-043); someone who's signed in before keeps theirs.

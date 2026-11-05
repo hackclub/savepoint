@@ -13,7 +13,8 @@ module AdminMcp::Present
   # A row of the people page.
   def person(user)
     project = user.project
-    { **user_ref(user), hca_id: user.hca_id, slack_id: user.slack_id, admin: user.listed_admin?, current_streak: user.current_streak,
+    { **user_ref(user), hca_id: user.hca_id, slack_id: user.slack_id, hackatime_uid: user.hackatime_uid,
+      hackatime_trust_level: user.hackatime_trust_level.presence, admin: user.listed_admin?, current_streak: user.current_streak,
       signed_up_at: user.created_at, hours_synced_at: user.streak_synced_at, timezone: user.timezone,
       project: (project_brief(project) if project) }
   end

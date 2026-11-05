@@ -202,6 +202,29 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Not found: User/, mcp_tool(@token, "get_person", { user_id: 0 }))
   end
 
+  test "find_people and get_person show the Hackatime ID and trust level, and find_people matches an exact ID" do
+    users(:ana).update_columns(hackatime_uid: "424242", hackatime_trust_level: "red")
+    ana = mcp_tool(@token, "find_people", { query: "424242" })
+    assert_equal [ users(:ana).id ], ana["people"].map { it["id"] }
+    assert_equal [ "424242", "red" ], ana["people"].first.values_at("hackatime_uid", "hackatime_trust_level")
+    assert_equal 0, mcp_tool(@token, "find_people", { query: "4242" })["total"]
+    assert_nil mcp_tool(@token, "get_person", { user_id: users(:orpheus).id })["hackatime_trust_level"]
+  end
+
+  test "get_person refresh_trust_level asks Hackatime and returns the fresh level" do
+    ana = users(:ana)
+    ana.update_columns(hackatime_uid: "424242", hackatime_access_token: "tok", hackatime_trust_level: "green")
+    Hackatime.stubbed_trust_levels = { "424242" => "red" }
+    assert_equal "green", mcp_tool(@token, "get_person", { user_id: ana.id })["hackatime_trust_level"]
+    assert_equal "red", mcp_tool(@token, "get_person", { user_id: ana.id, refresh_trust_level: true })["hackatime_trust_level"]
+    assert_equal "red", ana.reload.hackatime_trust_level
+
+    Hackatime.stubbed_trust_levels = { "424242" => :unavailable }
+    assert_match(/Could not refresh the trust level/, mcp_tool(@token, "get_person", { user_id: ana.id, refresh_trust_level: true }))
+  ensure
+    Hackatime.stubbed_trust_levels = {}
+  end
+
   test "find_projects and get_project show what the Projects page shows" do
     projects = mcp_tool(@token, "find_projects", { query: "pong" })
     assert_equal 1, projects["total"]

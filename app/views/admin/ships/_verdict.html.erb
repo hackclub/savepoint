@@ -31,8 +31,7 @@
 <% art_now = params[:art_hours].presence || draft["art_hours"].presence || (earlier_art ? [ earlier_art, art_top ].min : art_top) %>
 <% art_max_now = prior ? [ limits.art_max_for(prior_coding + coding_now.to_d) - prior_art, 0 ].max : limits.art_max_for(coding_now.to_d) %>
 <% format = Ship::Limits.method(:format) %>
-<%# D-063 item 9: when the repo is shipped on Stardance, Stardance reviews it, so Approve is off (the evidence panel says why). %>
-<%# D-148: a blocker no reason lifts (Stardance reviews the repo, trust is red) turns Approve off. The others ask for a typed reason below. %>
+<%# D-148: a blocker no reason lifts (trust is red) turns Approve off. The others ask for a typed reason below. %>
 <% blockers = @blockers.to_a %>
 <% approve_off = blockers.any? { !it.override } %>
 <% code_problem = @evidence&.no_code_in_git %>

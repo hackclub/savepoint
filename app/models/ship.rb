@@ -464,7 +464,7 @@ class Ship < ApplicationRecord
   # - banned: fraud found at review. Needs the evidence, and bans the account.
   #
   # D-148: an approval also passes the gates (#approval_blockers). `overrides` holds the reasons that lift the ones a reason can lift,
-  # by key ("stardance", "limits", "double", "duplicate"). Whoever decides, web page or job, goes through here.
+  # by key ("limits", "double", "duplicate"). Whoever decides, web page or job, goes through here.
   def decide!(decision, by:, coding_hours: nil, art_hours: nil, technical_features: nil, deflation_reason: nil, feedback: nil,
                 judgement: nil, evidence: nil, checklist_defaults: {}, overrides: {})
     return false unless DECISIONS.include?(decision)
@@ -512,21 +512,15 @@ class Ship < ApplicationRecord
 
   # D-148: a gate on approving. override is true when a typed reason lifts it, false when nothing does.
   Blocker = Data.define(:key, :message, :override)
-  OVERRIDE_KEYS = %w[stardance limits double duplicate].freeze
+  OVERRIDE_KEYS = %w[limits double duplicate].freeze
 
   # D-148: what stands in the way of approving this ship, whoever presses it (web page, job). `frozen` is the checklist as the verdict
   # would store it (the app's ticks under the reviewer's). The checklist itself still never blocks (D-049); only these do:
-  # a red Hackatime trust level (D-148), a repo Stardance reviews or can't be checked (D-063), limits Hackatime couldn't say (D-030),
+  # a red Hackatime trust level (D-148), limits Hackatime couldn't say (D-030),
   # an overlap with another program (D-110), and a second account on the same repo or person (D-148).
   def approval_blockers(frozen:, evidence: Ship::Evidence.new(self), limits: self.limits(counted_hours))
     list = []
     list << Blocker.new("trust", "Hackatime's trust level for this person is red, so they can't be approved.", false) if evidence.trust_level == "red"
-    stardance = evidence.stardance
-    if stardance.shipped?
-      list << Blocker.new("stardance", "This repo is shipped on Stardance, so Stardance reviews it. Approve is off.", false)
-    elsif stardance.unknown?
-      list << Blocker.new("stardance", "Stardance could not be checked.", true)
-    end
     list << Blocker.new("limits", "Hackatime did not say how much was AI coding or art, so no cut applies.", true) unless limits.known?
     list << Blocker.new("double", "The Unified YSWS DB has an earlier record of this person covering time after this project's hours began counting.", true) if frozen["not_double"] == false
     if (duplicate = evidence.duplicates.first)

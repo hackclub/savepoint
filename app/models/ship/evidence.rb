@@ -1,6 +1,6 @@
 # What a reviewer checks a ship's claim against, beside the ship (D-063): the hours on each linked Hackatime project, the
 # repository's facts and latest release, the Lapse sessions, who shipped it, the other accounts with the same repo or the
-# same Slack account, and whether Stardance already has the repo. Each part is looked up when asked for and kept, and a
+# same Slack account. Each part is looked up when asked for and kept, and a
 # failing service leaves a plain message in place of its part (Admin::ShipsController, AdminMcp get_ship). Nothing here is stored.
 class Ship::Evidence
   CACHE_FOR = 5.minutes
@@ -97,13 +97,6 @@ class Ship::Evidence
   end
 
   def duplicates = same_repo + same_person
-
-  # D-063: the Stardance check. Part of the verdict form reads stardance_shipped? to turn Approve off.
-  def stardance
-    @stardance ||= Stardance.check(ship)
-  end
-
-  def stardance_shipped? = stardance.shipped?
 
   private
     def load_hackatime

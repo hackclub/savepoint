@@ -235,7 +235,6 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
 
   test "find_ships and get_ship show what the review page shows, and nothing is asked of the network but GitHub" do
     ship = make_ship
-    Stardance.stubbed_status = nil
     Web.adapter = ->(_method, _url, _headers) { Web::Response.new(status: 200, headers: {}, body: "[]") }
 
     ships = mcp_tool(@token, "find_ships")
@@ -261,7 +260,6 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     # D-063: the evidence panels, each with its own status when a service can't say.
     assert_match(/haven't linked Hackatime/, full.dig("evidence", "hackatime_projects", "problem"))
     assert_equal "error", full.dig("evidence", "repo", "status"), "the stubbed answer isn't a repository"
-    assert_equal "unknown", full.dig("evidence", "stardance", "status")
     assert_equal "ana@hackclub.com", full.dig("evidence", "participant", "email")
     assert_equal "https://telescreen.hackclub.com/workbench/lapse", full.dig("evidence", "links", "lapse_review"), "no Hackatime id, so the bare workbench"
     assert_equal "https://telescreen.hackclub.com/workbench/hackatime/overview", full.dig("evidence", "links", "telescreen")

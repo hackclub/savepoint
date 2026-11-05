@@ -39,7 +39,7 @@ class Admin::ShipsController < Admin::BaseController
     return stale unless @ship.in_review?
     return taken if Claim.held_by_other?(@ship, "review", current_user)
 
-    # D-063 item 9, D-148: the gates on Approve (Stardance, trust, limits, overlap, a second account) are Ship#decide!'s, so every path shares them.
+    # D-063 item 9, D-148: the gates on Approve (trust, limits, overlap, a second account) are Ship#decide!'s, so every path shares them.
     earlier = Ship::EarlierShip.for(@ship)
     decided = @ship.decide!(params[:decision].to_s, by: current_user, coding_hours: params[:coding_hours], art_hours: params[:art_hours],
                             technical_features: params[:technical_features], deflation_reason: params[:deflation_reason],

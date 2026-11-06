@@ -11,7 +11,15 @@ export default class extends Controller {
     this.#count()
     const token = document.querySelector("meta[name=csrf-token]")?.content
     const body = new URLSearchParams({ key: event.target.name, value: event.target.checked ? "1" : "0" })
-    fetch(this.urlValue, { method: "PATCH", body, headers: { "X-CSRF-Token": token } })
+    const box = event.target
+    fetch(this.urlValue, { method: "PATCH", body, headers: { "X-CSRF-Token": token, Accept: "application/json" } }).then(async (response) => {
+      if (response.ok) return
+      // D-152: a refused tick (Real name with a missing or initial name) goes back, with the reason.
+      const answer = await response.json().catch(() => ({}))
+      box.checked = !box.checked
+      this.#count()
+      if (answer.error) window.alert(answer.error)
+    })
   }
 
   #count() {

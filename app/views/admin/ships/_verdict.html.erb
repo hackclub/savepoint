@@ -33,7 +33,8 @@
 <% format = Ship::Limits.method(:format) %>
 <%# D-148: a blocker no reason lifts (trust is red) turns Approve off. The others ask for a typed reason below. %>
 <% blockers = @blockers.to_a %>
-<% approve_off = blockers.any? { !it.override } %>
+<%# D-152: an unticked Real name only shows its message. The tick saves without redrawing this page, so the button stays on and the verdict itself refuses. %>
+<% approve_off = blockers.any? { !it.override && it.key != "real_name" } %>
 <% code_problem = @evidence&.no_code_in_git %>
 
 <%# D-112: "Why deflated" shows whenever the hours to approve fall below the hours claimed, the test approve_review makes (claimed > total,
@@ -156,6 +157,9 @@
     <%# D-146: the checklist never blocks, but a repo with no commits is said in red where Approve is pressed. %>
     <% if code_problem %>
       <p class="ash__problem ash__problem--coral" data-code="approve"><%= sp_icon "warning-fill" %><%= code_problem %></p>
+    <% end %>
+    <% blockers.reject(&:override).each do |blocker| %>
+      <p class="ash__problem ash__problem--coral" data-blocker="<%= blocker.key %>"><%= sp_icon "warning-fill" %><%= blocker.message %></p>
     <% end %>
     <% blockers.select(&:override).each do |blocker| %>
       <div class="sp-field" data-override="<%= blocker.key %>">

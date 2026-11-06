@@ -66,7 +66,7 @@ end
 gem "inline_svg", "~> 1.10"
 
 # Sign-in with Hack Club Auth (OpenID Connect)
-gem "omniauth", "~> 2.1"
+gem "omniauth", "~> 2.3"
 gem "omniauth-rails_csrf_protection", "~> 2.0"
 gem "omniauth_openid_connect", "~> 0.8"
 # Linking Hackatime (OAuth2) to read your projects and hours, even when your stats are private

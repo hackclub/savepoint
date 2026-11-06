@@ -52,6 +52,7 @@ module Airtable
       return if rows.empty?
       done, failed = push(table, rows, prefix, &fields)
       settle(rows.first.class, done, failed, read_at)
+      done
     end
 
     # Only approved ships cross, only when marked unsynced, and never a row the Unified YSWS DB has taken.
@@ -73,7 +74,14 @@ module Airtable
       taken, fresh = ships.partition { existing.dig("ship-#{it.id}", "fields", AirtableSchema::UNIFIED_FIELD).present? }
       Ship.where(id: taken.map(&:id)).update_all(in_unified: true)
       # D-111: the row Airtable has already is read, so a deflation sentence the ship no longer has is cleared rather than left (AirtableFields.clearing_stale_deflation).
-      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) { AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: it.submit_to_unified?), existing["ship-#{it.id}"]) }
+      # D-150: the box value is captured as sent, because submit_to_unified? can call Hack Club Auth.
+      boxes = {}
+      done = sync(scope, @ship_table, "ship-", read_at:, rows: fresh) do
+        boxes[it.id] = it.submit_to_unified?
+        AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: boxes[it.id]), existing["ship-#{it.id}"])
+      end
+      # D-150: a row sent with the Unified box true is never edited afterwards, even before Unified writes its Record ID back.
+      Ship.where(id: Array(done).select { boxes[it.id] }.map(&:id)).update_all(in_unified: true)
     end
 
     # Upserts the rows. Returns [rows done, rows failed]. A failed batch is tried one row at a time.

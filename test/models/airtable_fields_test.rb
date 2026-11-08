@@ -246,6 +246,50 @@ class AirtableFieldsTest < ActiveSupport::TestCase
     assert_not AirtableFields.ship(first).key?("Optional - Override Duplicate Justification"), "the first ship has nothing before it"
   end
 
+  # D-156: a teammate's Save Point ship on the same repo, approved and taken by the Unified YSWS DB (or not yet).
+  def teammate_ship(in_unified: true, unified_status: nil)
+    ship = travel_to(Program::STARTS_AT + 2.days) do
+      projects(:ana).ships.create!(title: "Beat Sheet", description: "A rhythm game where every beat is a cell lighting up in time.",
+                                   repo_url: REPO, demo_url: "https://example.com/play", hackatime_projects: [ "rhythm-game" ], hours: 5,
+                                   screenshot: Rack::Test::UploadedFile.new(file_fixture("screenshot.png"), "image/png"), screenshot_shows_game: true)
+    end
+    ship.update_columns(approved_columns(5).merge(in_unified:, unified_status:, decided_at: Time.utc(2026, 10, 26, 12)))
+    ship
+  end
+
+  test "D-156: a teammate's Save Point record in Unified fills the note, with no name or email" do
+    teammate_ship
+    text = AirtableFields.ship(first_ship)["Optional - Override Duplicate Justification"]
+    assert_equal "This code URL is also in the Unified YSWS DB for a teammate on the same repo (Save Point (approved 10/26/2026)). " \
+                 "This record is a different person and claims only their own Hackatime time, 10/23/2026-10/25/2026.", text
+    assert_no_match(/Ana|Lovelace|@/, text)
+  end
+
+  test "D-156: a Save Point teammate the Unified YSWS DB has not taken writes nothing" do
+    teammate_ship(in_unified: false)
+    assert_not AirtableFields.ship(first_ship).key?("Optional - Override Duplicate Justification")
+  end
+
+  test "D-156: the sync's copy of the automation status counts as taken" do
+    teammate_ship(in_unified: false, unified_status: "2–Submitted")
+    assert_match "a teammate on the same repo (Save Point (approved 10/26/2026))", AirtableFields.ship(first_ship)["Optional - Override Duplicate Justification"]
+  end
+
+  test "D-156: another program's record of someone else is a teammate's, one with no person is not" do
+    @unified = [ unified_record("Sleepover", "2026-10-31", 3, email: "friend@example.com"), unified_record("jame gam", "2026-10-20", 4) ]
+    text = AirtableFields.ship(first_ship)["Optional - Override Duplicate Justification"]
+    assert_match "a teammate on the same repo (Sleepover (approved 10/31/2026, 3 hours)). This record is a different person", text
+    assert_no_match "friend@example.com", text
+    assert_equal 1, text.scan("a teammate on the same repo").size
+  end
+
+  test "D-156: a same-person record keeps its D-149 text and the teammate sentence follows it" do
+    @unified = [ unified_record("Sleepover", "2026-10-31", nil, email: @project.user.email, range: "10/22/2026-10/24/2026") ]
+    teammate_ship
+    text = AirtableFields.ship(first_ship)["Optional - Override Duplicate Justification"]
+    assert_match "The Sleepover record covers 10/22/2026-10/24/2026, which overlaps the time counted here (10/23/2026-10/25/2026). This code URL is also in the Unified YSWS DB for a teammate on the same repo (Save Point (approved 10/26/2026)).", text
+  end
+
   test "an update with a new code URL is no duplicate, but its hours still start after the earlier ship" do
     first_ship
     row = AirtableFields.ship(approved(at: Program::STARTS_AT + 5.days, hours: 15, repo: "https://github.com/orpheus/beat-sheet-2"))

@@ -26,5 +26,10 @@
     <% elsif !ship.pending? %>
       <small class="admin__muted"><%= ship.decided_by&.first_name.presence || "someone" %> · <%= ship.decided_at.strftime("%b %-d") %></small>
     <% end %>
+    <% if ship.approved? %>
+      <%# The Unified YSWS DB's side, from what the Airtable sync stored (Ship#unified_state). %>
+      <% state, label, detail = ship.unified_state %>
+      <small class="pg-admin-ships__unified" data-unified="<%= state %>" title="<%= detail || label %>"><%= label %></small>
+    <% end %>
   </td>
 </tr>

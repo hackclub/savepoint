@@ -364,6 +364,24 @@ class Ship < ApplicationRecord
     holds
   end
 
+  # The Unified YSWS DB has this ship: it took the row (in_unified), or the Airtable row's "Automation - Status" reads
+  # "2–Submitted" (the sync copies it into unified_status).
+  def sent_to_unified? = in_unified? || unified_status.to_s.start_with?("2")
+
+  # Where an approved ship stands on its way to the Unified YSWS DB, from stored data only (the sync keeps it, no Airtable call).
+  # Returns [key, label, detail]: key is sent, held, error, processing or not_synced; detail is the full text for a hover.
+  def unified_state
+    return [ "sent", "Sent to Unified", nil ] if sent_to_unified?
+
+    holds = unified_holds
+    return [ "held", "Held: #{holds.first.delete_suffix(".")}", holds.join(" ") ] if holds.any?
+    return [ "error", "Error: #{unified_error.squish.truncate(60)}", unified_error ] if unified_error.present?
+    return [ "error", "Error: sync to Airtable failed", "The sync to Airtable failed and tries again within the hour." ] if airtable_failed_at && synced_at.nil?
+    return [ "processing", "Processing", unified_status.presence ] if synced_at
+
+    [ "not_synced", "Not synced yet", nil ]
+  end
+
   # The fields the Unified YSWS row needs that are empty, by the row's own names.
   def missing_unified_fields
     user = project.user

@@ -253,6 +253,33 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
     assert_empty @fake.rows(SUBMISSIONS), "a taken ship is not looked at again"
   end
 
+  test "D-156: the sync copies the automation's status and error onto a sent ship, for the admin list" do
+    ship = approved_ship
+    ship.update_columns(airtable_record_id: "recX", synced_at: Time.current)
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "recX", "fields" => { "Automation - Status" => "1–Error", "Automation - Error" => "Possible duplicate of recABC." } } }
+    Airtable::SyncJob.perform_now
+    ship.reload
+    assert_equal "1–Error", ship.unified_status
+    assert_equal "Possible duplicate of recABC.", ship.unified_error
+    assert ship.unified_checked_at
+    assert_empty @fake.rows(SUBMISSIONS), "reading the status sends nothing"
+  end
+
+  test "D-156: a row the automation turned away goes out unticked first and ticked on the next tick, so the automation runs again" do
+    ship = approved_ship
+    ship.update_columns(real_name_first: "Orpheus", real_name_last: "the Dino", review_checklist: { "real_name" => true })
+    assert ship.submit_to_unified?
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "recX", "fields" => { AirtableFields::SUBMIT_TO_UNIFIED_FIELD => true, "Automation - Error" => "Possible duplicate of recABC." } } }
+    Airtable::SyncJob.perform_now
+    assert_equal false, @fake.rows(SUBMISSIONS).last[AirtableFields::SUBMIT_TO_UNIFIED_FIELD]
+    assert_nil ship.reload.synced_at, "still unsynced, so the next tick sends it again"
+
+    @fake.existing = { "ship-#{ship.id}" => { "id" => "recX", "fields" => { "Automation - Error" => "Possible duplicate of recABC." } } }
+    Airtable::SyncJob.perform_now
+    assert_equal true, @fake.rows(SUBMISSIONS).last[AirtableFields::SUBMIT_TO_UNIFIED_FIELD]
+    assert ship.reload.synced_at
+  end
+
   test "a ship goes once and is not sent again until it changes, and its screenshot goes only the first time" do
     ENV["APP_URL"] = "https://savepoint.hackclub.com"
     ship = approved_ship

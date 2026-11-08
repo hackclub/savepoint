@@ -5,6 +5,9 @@
 module AirtableSchema
   ID_FIELD = "save_point_id"
   UNIFIED_FIELD = "Automation - YSWS Record ID"
+  # What the Unified automation writes back (checked 2026-11-08): a formula such as "2–Submitted", and the error text.
+  STATUS_FIELD = "Automation - Status"
+  ERROR_FIELD = "Automation - Error"
 
   DATETIME = { dateFormat: { name: "iso" }, timeFormat: { name: "24hour" }, timeZone: "utc" }.freeze
   DATE = { dateFormat: { name: "iso" } }.freeze

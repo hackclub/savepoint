@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_08_190100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -334,6 +334,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_210000) do
     t.datetime "real_name_ticked_at"
     t.datetime "changed_after_unified_at"
     t.jsonb "review_overrides", default: {}, null: false
+    t.string "unified_status"
+    t.text "unified_error"
+    t.datetime "unified_checked_at"
     t.index ["decided_by_id"], name: "index_ships_on_decided_by_id"
     t.index ["fraud_reviewer_id"], name: "index_ships_on_fraud_reviewer_id"
     t.index ["project_id"], name: "index_ships_on_project_id"

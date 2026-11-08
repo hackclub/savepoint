@@ -56,6 +56,7 @@ module Airtable
 
     # Only approved ships cross, only when marked unsynced, and never a row the Unified YSWS DB has taken.
     def sync_ships
+      refresh_unified_status
       read_at = Time.current
       scope = Ship.approved.where(in_unified: false, synced_at: nil).includes(:screenshot_attachment, project: :user)
       ships = stale(due(scope))
@@ -72,8 +73,34 @@ module Airtable
       ships -= unsent
       taken, fresh = ships.partition { existing.dig("ship-#{it.id}", "fields", AirtableSchema::UNIFIED_FIELD).present? }
       Ship.where(id: taken.map(&:id)).update_all(in_unified: true)
+      fresh.each { store_unified_status(it, existing["ship-#{it.id}"]) }
+      # D-156: a row the Unified automation turned away (an error, with the box still ticked) only runs again when the box is ticked
+      # anew. It goes out unticked this tick and stays unsynced, so the next tick ticks it.
+      reticked = fresh.select { existing.dig("ship-#{it.id}", "fields", AirtableFields::SUBMIT_TO_UNIFIED_FIELD) && existing.dig("ship-#{it.id}", "fields", AirtableSchema::ERROR_FIELD).present? }
       # D-111: the row Airtable has already is read, so a deflation sentence the ship no longer has is cleared rather than left (AirtableFields.clearing_stale_deflation).
-      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) { AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: it.submit_to_unified?), existing["ship-#{it.id}"]) }
+      sync(scope, @ship_table, "ship-", read_at:, rows: fresh) do
+        AirtableFields.clearing_stale_deflation(AirtableFields.ship(it, submit_to_unified: it.submit_to_unified? && reticked.exclude?(it)), existing["ship-#{it.id}"])
+      end
+      Ship.where(id: reticked.map(&:id)).update_all(synced_at: nil)
+    end
+
+    # What the Airtable rows say about the Unified automation, for the admin ships list (Ship#unified_state). A row already sent and
+    # waiting on the automation (or in an error) is not read by the send above, so the oldest-read ones are read here, 20 a tick.
+    def refresh_unified_status
+      ships = Ship.approved.where(in_unified: false).where.not(airtable_record_id: nil)
+                  .order(Arel.sql("ships.unified_checked_at ASC NULLS FIRST")).limit(20).to_a
+      return if ships.empty?
+
+      found = @client.find_by(@ship_table, ID, ships.map { "ship-#{it.id}" })
+      ships.each { store_unified_status(it, found["ship-#{it.id}"]) }
+    rescue AirtableClient::Error => e
+      Rails.logger.warn("airtable sync: unified status not read, #{e.message}")
+    end
+
+    def store_unified_status(ship, record)
+      fields = record&.dig("fields").to_h
+      ship.update_columns(unified_status: fields[AirtableSchema::STATUS_FIELD].presence, unified_error: fields[AirtableSchema::ERROR_FIELD].presence,
+                          unified_checked_at: Time.current)
     end
 
     # Upserts the rows. Returns [rows done, rows failed]. A failed batch is tried one row at a time.

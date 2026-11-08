@@ -93,6 +93,45 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr##{dom_id(@ship)} [data-decision=approved]", /Approved.*Orpheus/m
   end
 
+  test "an approved ship shows where it stands with the Unified YSWS DB, from what the sync stored" do
+    @ship.update_columns(approved_columns(7.5, decided_at: Time.current, decided_by_id: users(:orpheus).id))
+    sign_in_as(users(:orpheus))
+    badge = "tr##{dom_id(@ship)} .pg-admin-ships__unified"
+
+    get admin_ships_path
+    assert_select badge, text: "Held: Real name is not ticked"
+    assert_select "#{badge}[data-unified=held]"
+    assert_select "#{badge}[title*='Real name is not ticked.']"
+
+    @ship.update_columns(in_unified: true)
+    get admin_ships_path
+    assert_select "#{badge}[data-unified=sent]", "Sent to Unified"
+
+    @ship.update_columns(in_unified: false, unified_status: "2–Submitted")
+    get admin_ships_path
+    assert_select "#{badge}[data-unified=sent]", "Sent to Unified"
+  end
+
+  test "Ship#unified_state names each state" do
+    ship = @ship
+    ship.update_columns(approved_columns(7.5))
+    ship.define_singleton_method(:unified_holds) { [] }
+    assert_equal [ "not_synced", "Not synced yet", nil ], ship.unified_state
+    ship.synced_at = Time.current
+    assert_equal [ "processing", "Processing", nil ], ship.unified_state
+    ship.unified_error = "Possible duplicate of recABC. Fill 'Optional - Override Duplicate Justification' to override."
+    key, label, detail = ship.unified_state
+    assert_equal "error", key
+    assert_match(/\AError: Possible duplicate of recABC/, label)
+    assert_match "to override.", detail
+    ship.synced_at = nil
+    ship.unified_error = nil
+    ship.airtable_failed_at = Time.current
+    assert_equal "error", ship.unified_state.first
+    ship.in_unified = true
+    assert_equal "sent", ship.unified_state.first
+  end
+
   test "the ships page has a tab for each stage, with its count, and a tab narrows the list" do
     sign_in_as(users(:orpheus))
     done = projects(:orpheus).ships.create!(@ship.attributes.slice("title", "description", "repo_url", "demo_url").merge(hours: 3, screenshot: screenshot_upload,

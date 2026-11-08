@@ -30,6 +30,9 @@ class Ship::EarlierShip
         (hackatime_id.present? && user.hackatime_uid.present? && hackatime_id.to_s == user.hackatime_uid.to_s)
     end
 
+    # D-156: a record that names someone who is not this user: a teammate on the same repo. One that names nobody is not known to be.
+    def other_person?(user) = (email.present? || hackatime_id.present?) && !same_person?(user)
+
     # Whether the dates the record covers meet from..to: true, false, or nil when no range is readable (never guessed, D-144).
     def overlaps?(from, to)
       return if ranges.empty?

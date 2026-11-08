@@ -360,7 +360,31 @@ module AirtableFields
                "(#{same.map { "#{us_date(it.created_at.utc.to_date)}, #{hours_text(cumulative_hours(it))} since Save Point began" }.join("; ")})."
       parts << "This record claims only the #{hours_text(new_hours(s, window))} since then, #{date_range(s, window)}."
     end
-    parts.join(" ").presence
+    parts << teammate_text(s, others, window)
+    parts.compact.join(" ").presence
+  end
+
+  # D-156: Unified's submit automation turns a row away when its code URL is on a record already, unless this field holds text.
+  # A teammate on the same repo is common practice and goes through as is, so the sync writes the sentence itself. It names the
+  # program and the approval date of each record, never the other person.
+  def teammate_text(s, others, window)
+    user = s.project.user
+    records = others.select { it.other_person?(user) }.map { record_text(it) }
+    records += teammate_ships(s).map { "Save Point (approved #{us_date((it.decided_at || it.updated_at).utc.to_date)})" }
+    return if records.empty?
+
+    "This code URL is also in the Unified YSWS DB for a teammate on the same repo (#{records.join("; ")}). " \
+      "This record is a different person and claims only their own Hackatime time, #{date_range(s, window)}."
+  end
+
+  # Approved Save Point ships of other accounts on the same repo that the Unified YSWS DB has taken, one per project.
+  def teammate_ships(s)
+    key = Ship::EarlierShip.normalize(s.repo_url)
+    path = key.split("/", 2).last.to_s
+    return [] unless path.include?("/")
+
+    Ship.approved.joins(:project).where.not(projects: { user_id: s.project.user_id }).where("ships.repo_url ILIKE ?", "%#{Ship.sanitize_sql_like(path)}%")
+        .order(:decided_at, :id).select { Ship::EarlierShip.normalize(it.repo_url) == key && it.sent_to_unified? }.uniq(&:project_id)
   end
 
   # D-149: what dates a record covers and whether they meet the time counted here (start to the ship), said plainly. Never a guess:

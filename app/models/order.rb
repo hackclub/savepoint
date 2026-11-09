@@ -25,7 +25,7 @@ class Order < ApplicationRecord
   validates :status, inclusion: { in: STATUSES }
   validates :prize_key, inclusion: { in: Prize::CLAIMABLE.map(&:key) }
   # The free stickers can be claimed up to Reward::STICKER_PACKS_MAX times, once for each pack earned (stickers_earned).
-  validates :prize_key, uniqueness: { scope: :project_id, message: "is one you've bought already" }, allow_nil: true, unless: :stickers?
+  validates :prize_key, uniqueness: { scope: :project_id, conditions: -> { where.not(status: "cancelled") }, message: "is one you've bought already" }, allow_nil: true, unless: :stickers?
   validate :shop_open, :not_banned, on: :create
   validate :stickers_earned, :covered_by_approved_hours, :addressed, :deliverable, :old_enough, :has_email, on: :create
 
@@ -87,6 +87,9 @@ class Order < ApplicationRecord
   end
 
   def cancelled? = status == "cancelled"
+
+  # Saved and not cancelled: an order that holds its prize and its hours.
+  def live? = persisted? && !cancelled?
 
   # A waiting order is cancelled: the row stays, off the hours spent, so the hours come back. Under the row lock, so two
   # cancels at once cancel it once. Answers false, changing nothing, when it is no longer waiting.
@@ -202,7 +205,7 @@ class Order < ApplicationRecord
       return unless stickers? && project
 
       user = project.user
-      claimed = project.orders.where(prize_key: Prize::STICKERS.key).where.not(id:).count
+      claimed = project.orders.where(prize_key: Prize::STICKERS.key).where.not(id:).where.not(status: "cancelled").count
       earned = Reward.sticker_packs_earned(user)
       if earned.zero? then errors.add(:prize_key, "isn't one you've earned")
       elsif claimed >= [ earned, Reward::STICKER_PACKS_MAX ].min then errors.add(:prize_key, "is one you've bought already")

@@ -3,6 +3,9 @@ require "test_helper"
 # The goal prize: when your approved hours reach it (the earned-it popup, shown once per goal), the next prize up to
 # offer, and what claiming a cheaper prize leaves of your hours.
 class ProjectGoalTest < ActiveSupport::TestCase
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   setup do
     @project = projects(:orpheus)
     @project.update!(prize_key: "u2c") # 8BitDo Ultimate 2C

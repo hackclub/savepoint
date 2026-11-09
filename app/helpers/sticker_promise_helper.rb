@@ -15,7 +15,7 @@ module StickerPromiseHelper
 
     if user.sticker_packs_unclaimed.positive?
       { kind: :earned }
-    elsif project.orders.any? { |order| order.persisted? && order.prize_key == Prize::STICKERS.key }
+    elsif project.orders.any? { |order| order.live? && order.prize_key == Prize::STICKERS.key }
       { kind: :claimed }
     elsif now < user.created_at + Reward::STICKERS_WINDOW
       sticker_counting_state(user, project)

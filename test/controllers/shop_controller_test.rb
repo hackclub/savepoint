@@ -1,6 +1,9 @@
 require "test_helper"
 
 class ShopControllerTest < ActionDispatch::IntegrationTest
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   include ActiveJob::TestHelper
 
   setup do
@@ -95,6 +98,25 @@ class ShopControllerTest < ActionDispatch::IntegrationTest
     assert_select "#shop-micro .order-sheet__status", /In the queue to be ordered/
     assert_select ".shop__keeper", 0
     assert_select ".shop__stat--ship .shop__stat-value", "1 hrs"
+  end
+
+  test "a cancelled order puts its prize back on the shelf, and it can be claimed again" do
+    micro = Prize.find("micro")
+    approve(hours: micro.hours)
+    sign_in_orpheus
+    post shop_order_path, params: { order: { prize_key: "micro" } }
+    assert @project.orders.last.cancel!
+
+    get shop_path
+    assert_response :success
+    assert_select "#shop-micro[data-state=ready] form[action=?]", shop_order_path
+
+    assert_difference -> { @project.orders.count }, 1 do
+      post shop_order_path, params: { order: { prize_key: "micro" } }
+    end
+    assert_equal %w[cancelled waiting], @project.orders.order(:id).pluck(:status)
+    get shop_path
+    assert_select "#shop-micro[data-state=claimed] .shop-prize__status", /in the queue/
   end
 
   test "the shop page has no parcel name field: it sits in each claimable prize's sheet, prefilled" do

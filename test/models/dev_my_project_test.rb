@@ -2,6 +2,9 @@ require "test_helper"
 
 # /dev's controls on your own project (Dev::MyProject), and the fake Hackatime hours they pin.
 class DevMyProjectTest < ActiveSupport::TestCase
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   setup do
     @user = users(:orpheus)
     @project = projects(:orpheus)

@@ -9,7 +9,8 @@ class BuddyInvitesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Ana|Lovelace/, response.body, "never their real name")
     assert_select ".buddy-card__title", "pong"
     assert_select ".buddy-invited__reward", count: 0
-    assert_no_match(/Kartikey|handheld|small rewards/, response.body)
+    # The old buddy reward copy is gone. The footer credits Kartikey for Wrong Tool, so leave it out of this check.
+    assert_no_match(/Kartikey|handheld|small rewards/, response.body.sub(%r{<footer.*</footer>}m, ""))
     assert_select "button", "Pair up"
   end
 

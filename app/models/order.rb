@@ -165,7 +165,7 @@ class Order < ApplicationRecord
 
     # D-138: claiming ends when the shop closes (Program::SHOP_CLOSES_AT), a week after hours and shipping.
     def shop_open
-      errors.add(:base, "The shop is closed.") unless Program.shop_open?
+      errors.add(:base, "The shop is closed.") unless project ? project.shop_open? : Program.shop_open?
     end
 
     # A prize's hours, and where it goes, as they are now.

@@ -43,7 +43,7 @@
         <p class="sp-toast sp-toast--coral shop__notice" role="alert"><span class="sp-toast__icon" aria-hidden="true"><%= sp_icon "warning-fill" %></span><span><%= flash[:shop_error] %></span></p>
       <% end %>
 
-      <% if (closing = shop_closing_note) %>
+      <% if (closing = shop_closing_note(@project)) %>
         <p class="sp-help prize-note shop__note"><%= sp_icon "information-fill" %><%= closing %></p>
       <% end %>
 

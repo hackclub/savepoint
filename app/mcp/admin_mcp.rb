@@ -29,7 +29,7 @@ module AdminMcp
   # Every tool, for the server to offer.
   def self.tools
     [ Tools::Overview::AdminSummary, Tools::People::FindPeople, Tools::People::GetPerson,
-      Tools::Projects::FindProjects, Tools::Projects::GetProject, Tools::Projects::SetShipUntil, Tools::Projects::CreditShopHours,
+      Tools::Projects::FindProjects, Tools::Projects::GetProject, Tools::Projects::SetShipUntil, Tools::Projects::CreditShopHours, Tools::Projects::SetShopUntil,
       Tools::Ships::FindShips, Tools::Ships::GetShip, Tools::Ships::SaveReviewDraft,
       Tools::Ships::SetLapseCoding, Tools::Ships::SetReviewerAi, Tools::Ships::SetChecklistItem, Tools::Ships::SetHoursStart, Tools::Ships::EditSnapshot, Tools::Ships::EditReviewText,
       Tools::Ships::SendVerdictDm,

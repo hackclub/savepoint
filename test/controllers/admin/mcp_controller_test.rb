@@ -63,8 +63,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
     assert_equal %w[admin_summary audit_log credit_shop_hours decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until], tools.keys.sort
-    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension set_ship_until credit_shop_hours]
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until set_shop_until], tools.keys.sort
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension set_ship_until credit_shop_hours set_shop_until]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -506,6 +506,29 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     end
     assert_includes AdminAuditEvent.where(tool: "credit_shop_hours").map(&:ids),
                     { "user_id" => project.user_id, "project_id" => project.id, "old_credit" => 0.0, "new_credit" => 0.04 }
+  end
+
+  test "set_shop_until sets and clears a per-person shop close, needs a reason, logs old and new, sends nothing (D-158)" do
+    project = projects(:ana)
+    later = "2026-11-10T21:00"
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      mcp_tool(@token, "set_shop_until", { project_id: project.id, until: later })
+      assert mcp_error?, "a reason is needed"
+      done = mcp_tool(@token, "set_shop_until", { user_id: project.user_id, until: later, reason: "Approved late" })
+      assert_equal project.id, done["project_id"]
+      assert_equal Time.utc(2026, 11, 10, 21), project.reload.shop_closes_at
+      assert_equal "Approved late", project.shop_until_reason
+
+      mcp_tool(@token, "set_shop_until", { project_id: project.id, until: "nonsense", reason: "x" })
+      assert mcp_error?
+      mcp_tool(@token, "set_shop_until", { project_id: project.id, until: "2026-11-01T00:00", reason: "x" })
+      assert_equal Program::SHOP_CLOSES_AT, project.reload.shop_closes_at, "an earlier time never shortens the public close"
+
+      mcp_tool(@token, "set_shop_until", { project_id: project.id, until: nil })
+      assert_nil project.reload.shop_until
+    end
+    assert_includes AdminAuditEvent.where(tool: "set_shop_until").map(&:ids),
+                    { "user_id" => project.user_id, "project_id" => project.id, "old_shop_until" => nil, "new_shop_until" => later }
   end
 
   test "send_verdict_dm sends the verdict DM once, returns its text, and can leave the note out (D-139)" do

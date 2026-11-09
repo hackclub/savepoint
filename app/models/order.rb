@@ -129,7 +129,7 @@ class Order < ApplicationRecord
       if stickers?
         raise Blocked, "They haven't earned these stickers." if Reward.sticker_packs_earned(user).zero?
         raise Blocked, "Hack Club stickers aren't available on this account." unless user.sticker_eligible?
-      elsif project.hours_approved < project.orders.where.not(id:).where.not(status: "cancelled").sum(:hours).to_f + hours.to_f
+      elsif project.hours_approved + project.shop_hours_credit.to_f < project.orders.where.not(id:).where.not(status: "cancelled").sum(:hours).to_f + hours.to_f
         raise Blocked, "Their approved hours no longer cover this prize."
       end
     end

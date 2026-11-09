@@ -273,8 +273,10 @@ class Project < ApplicationRecord
     orders.where.not(status: "cancelled").sum(:hours).to_f
   end
 
+  # D-157: an admin's shop credit (shop_hours_credit) adds to what can be spent. It is not an approved hour and never
+  # reaches a ship, Unified or Airtable.
   def hours_to_spend
-    [ (hours_approved - hours_spent).round(2), 0 ].max
+    [ (hours_approved + shop_hours_credit.to_f - hours_spent).round(2), 0 ].max
   end
 
   # The hours you've logged that haven't been spent: what's working towards the next thing.

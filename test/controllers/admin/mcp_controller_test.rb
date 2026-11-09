@@ -62,9 +62,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(@token, "tools/list")
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
-    assert_equal %w[admin_summary audit_log decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
+    assert_equal %w[admin_summary audit_log credit_shop_hours decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
                     list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until], tools.keys.sort
-    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension set_ship_until]
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension set_ship_until credit_shop_hours]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -478,6 +478,34 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
       assert_nil project.reload.ship_until
     end
     assert_includes AdminAuditEvent.where(tool: "set_ship_until").map(&:ids), { "user_id" => project.user_id, "project_id" => project.id }
+  end
+
+  test "credit_shop_hours adds to what can be spent, validates, caps, and logs old and new (D-157)" do
+    project = projects(:ana)
+    before_approved = project.hours_approved
+    before_spend = project.hours_to_spend
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      done = mcp_tool(@token, "credit_shop_hours", { user_id: project.user_id, hours: 0.04, reason: "Only 0.04 short" })
+      assert_equal 0.04, done["shop_hours_credit"]
+      assert_in_delta before_spend + 0.04, project.reload.hours_to_spend, 0.001
+      assert_equal before_approved, project.hours_approved
+      assert_equal "Only 0.04 short", project.shop_hours_credit_reason
+      assert_equal @record.user.id, project.shop_hours_credit_by_id
+
+      [ { hours: 0, reason: "x" }, { hours: -1, reason: "x" }, { hours: 2.5, reason: "x" }, { hours: 1, reason: " " } ].each do |bad|
+        mcp_tool(@token, "credit_shop_hours", { project_id: project.id }.merge(bad))
+        assert mcp_error?, bad.inspect
+      end
+      assert_equal 0.04, project.reload.shop_hours_credit.to_f
+
+      mcp_tool(@token, "credit_shop_hours", { project_id: project.id, hours: 2, reason: "a" })
+      mcp_tool(@token, "credit_shop_hours", { project_id: project.id, hours: 2, reason: "b" })
+      mcp_tool(@token, "credit_shop_hours", { project_id: project.id, hours: 2, reason: "c" })
+      assert mcp_error?
+      assert_equal 4.04, project.reload.shop_hours_credit.to_f
+    end
+    assert_includes AdminAuditEvent.where(tool: "credit_shop_hours").map(&:ids),
+                    { "user_id" => project.user_id, "project_id" => project.id, "old_credit" => 0.0, "new_credit" => 0.04 }
   end
 
   test "send_verdict_dm sends the verdict DM once, returns its text, and can leave the note out (D-139)" do

@@ -37,4 +37,30 @@ module AdminMcp::Tools::Orders
       { ordered: false, message: e.message, order: AdminMcp::Present.order(order.reload) }
     end
   end
+
+  # An admin cancels a waiting order so the hours come back. No DM: the admin tells the person.
+  class CancelOrder < AdminMcp::Tool
+    writes "cancel_order", "Cancel a waiting order",
+           "Cancels a waiting prize order so its hours come back to the participant to spend again (a cancelled order is off the hours spent). " \
+           "Only a waiting order can be cancelled: an ordered or already cancelled one is refused and nothing changes. A reason is required and goes in the admin log. " \
+           "Sends no DM and posts nothing: tell the person yourself. Answers { order_id, status, project_id, hours_to_spend }.",
+           { order_id: { type: "integer", description: "The order ID, from list_orders." },
+             reason: { type: "string", description: "Why, in a sentence. Saved in the admin log." } },
+           required: %w[order_id reason]
+
+    def self.audit_extra(args)
+      { "reason" => args[:reason].to_s.strip.first(500) }
+    end
+
+    def self.run(args, _caller)
+      reason = args[:reason].to_s.strip
+      raise AdminMcp::Refused, "Send a reason." if reason.blank?
+
+      order = Order.find(args[:order_id])
+      raise AdminMcp::Refused, "Order #{order.id} is #{order.status}, so it can't be cancelled. Only a waiting order can be." unless order.cancel!
+
+      project = order.project.reload
+      { order_id: order.id, status: order.status, project_id: project.id, hours_to_spend: project.hours_to_spend }
+    end
+  end
 end

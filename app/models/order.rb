@@ -88,9 +88,20 @@ class Order < ApplicationRecord
 
   def cancelled? = status == "cancelled"
 
-  # A banned person's waiting order is cancelled with the ban (User#ban!, D-148). The row stays, off the hours spent.
+  # A waiting order is cancelled: the row stays, off the hours spent, so the hours come back. Under the row lock, so two
+  # cancels at once cancel it once. Answers false, changing nothing, when it is no longer waiting.
+  def cancel!
+    with_lock do
+      next false unless waiting?
+
+      update!(status: "cancelled")
+      true
+    end
+  end
+
+  # A banned person's waiting order is cancelled with the ban (User#ban!, D-148).
   def cancel_for_ban!
-    with_lock { update!(status: "cancelled") if waiting? }
+    cancel!
   end
 
   # The free stickers HQ sends through Theseus (D-067).

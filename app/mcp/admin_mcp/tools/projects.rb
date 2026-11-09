@@ -36,6 +36,8 @@ module AdminMcp::Tools::Projects
       seconds = StreakActivity.where(user_id: user.id, activity_date: Program::FIRST_STREAK_DATE..).sum(:coded_seconds)
       AdminMcp::Present.project(project, seconds:).merge(
         hours_logged: project.hours_logged.to_f, hours_approved: project.hours_approved, hours_to_spend: project.hours_to_spend,
+        shop_hours_credit: project.shop_hours_credit.to_f, shop_hours_credit_reason: project.shop_hours_credit_reason,
+        shop_hours_credit_by: (User.find_by(id: project.shop_hours_credit_by_id)&.name if project.shop_hours_credit_by_id),
         day_number: project.day_number, finish_on: project.finish_on, deadline: project.deadline, timezone: UserTimezone.name(user.timezone),
         hackatime_seen_count: project.hackatime_seen_count, hackatime_seen_hours: project.hackatime_seen_seconds&.then { (it / 3600.0).round(1) },
         hackatime_seen_at: project.hackatime_seen_at, hours_synced_at: user.streak_synced_at, repo_later: project.repo_later, has_screenshot: project.screenshot.attached?,
@@ -89,6 +91,53 @@ module AdminMcp::Tools::Projects
       Time.find_zone!("UTC").parse(text.to_s) || :invalid
     rescue ArgumentError
       :invalid
+    end
+  end
+
+  # D-157: shop hours for one person. It adds to what they can spend and changes no ship, approved hours or Unified row.
+  class CreditShopHours < AdminMcp::Tool
+    MAX_PER_CALL = 2.0
+    MAX_TOTAL = 5.0
+
+    writes "credit_shop_hours", "Credit shop hours to one project",
+           "Adds hours to what one person can spend in the shop (D-157). It changes no ship, no approved hours, no Hackatime hours and nothing sent to Airtable or the Unified YSWS DB. " \
+           "Send user_id or project_id, hours (more than 0, at most #{MAX_PER_CALL} a call, #{MAX_TOTAL} in all for the project) and a reason. The hours add to any earlier credit. " \
+           "Sends no DM and posts nothing: tell the person yourself. The audit row holds the old and new credit. Answers { project_id, user_id, shop_hours_credit, hours_to_spend }.",
+           { user_id: { type: "integer", description: "The participant's user ID. Use this or project_id." },
+             project_id: { type: "integer", description: "The project ID. Use this or user_id." },
+             hours: { type: "number", description: "Hours to add, above 0 and at most #{MAX_PER_CALL}." },
+             reason: { type: "string", description: "Why, in a sentence. Saved on the project." } },
+           required: %w[hours reason]
+
+    def self.audit_extra(args)
+      project = find_project(args)
+      return {} unless project
+
+      old = project.shop_hours_credit.to_f
+      { "project_id" => project.id, "old_credit" => old, "new_credit" => (old + args[:hours].to_f).round(2) }
+    rescue StandardError
+      {}
+    end
+
+    def self.run(args, caller)
+      project = find_project(args) || raise(AdminMcp::Refused, "Send user_id or project_id of a project that exists.")
+      hours = args[:hours]
+      raise AdminMcp::Refused, "Send hours as a number above 0 and at most #{MAX_PER_CALL}." unless hours.is_a?(Numeric) && hours.positive? && hours <= MAX_PER_CALL
+      raise AdminMcp::Refused, "Send a reason." if args[:reason].to_s.strip.blank?
+
+      project.with_lock do
+        total = (project.shop_hours_credit.to_f + hours).round(2)
+        raise AdminMcp::Refused, "That would make #{total} credited hours; the most is #{MAX_TOTAL}." if total > MAX_TOTAL
+
+        project.update!(shop_hours_credit: total, shop_hours_credit_reason: args[:reason].to_s.strip, shop_hours_credit_by_id: caller.user.id)
+      end
+      { project_id: project.id, user_id: project.user_id, shop_hours_credit: project.shop_hours_credit.to_f, hours_to_spend: project.hours_to_spend }
+    end
+
+    def self.find_project(args)
+      if args[:project_id] then Project.find_by(id: args[:project_id])
+      elsif args[:user_id] then Project.find_by(user_id: args[:user_id])
+      end
     end
   end
 end

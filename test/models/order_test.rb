@@ -37,6 +37,22 @@ class OrderTest < ActiveSupport::TestCase
     assert_equal 1, @project.reload.hours_to_spend
   end
 
+  test "a shop credit adds to what can be spent, so a claim works at exactly the prize hours (D-157)" do
+    micro = Prize.find("micro")
+    approve(hours: micro.hours - 0.04)
+    assert_not buy_prize("micro").persisted?, "0.04 short"
+
+    @project.update!(shop_hours_credit: 0.04)
+    assert_equal micro.hours, @project.reload.hours_to_spend
+    assert_in_delta micro.hours - 0.04, @project.hours_approved, 0.0001
+    order = buy_prize("micro")
+    assert order.persisted?
+    assert_equal 0, @project.reload.hours_to_spend
+    assert_equal 0.04, @project.shop_hours_credit.to_f
+    order.update_column(:status, "waiting")
+    order.send(:check_dispatchable!) # raises Blocked unless approved hours plus the credit cover it
+  end
+
   test "buying tells the admins what to order" do
     approve(hours: Prize.find("micro").hours)
     buy_prize("micro").then { |order| OrderNotifier.claimed(order) }

@@ -62,9 +62,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(@token, "tools/list")
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
-    assert_equal %w[admin_summary audit_log credit_shop_hours decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
+    assert_equal %w[admin_summary audit_log cancel_order credit_shop_hours decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
                     list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until set_shop_until], tools.keys.sort
-    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered decide_extension set_ship_until credit_shop_hours set_shop_until]
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered cancel_order decide_extension set_ship_until credit_shop_hours set_shop_until]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -806,6 +806,38 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
   ensure
     Web.adapter = nil
     ENV.delete("THESEUS_API_KEY")
+  end
+
+  test "cancel_order refunds a waiting order's hours, refuses ordered and cancelled ones, and lets them claim another prize" do
+    project = projects(:ana)
+    order = make_order("micro", "waiting")
+    assert_equal 0, project.reload.hours_to_spend
+
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      mcp_tool(@token, "cancel_order", { order_id: order.id })
+      assert mcp_error?, "a reason is needed"
+      assert order.reload.waiting?
+
+      result = mcp_tool(@token, "cancel_order", { order_id: order.id, reason: "Wants a different prize" })
+      assert_equal({ "order_id" => order.id, "status" => "cancelled", "project_id" => project.id, "hours_to_spend" => 6.5 }, result)
+      assert order.reload.cancelled?
+    end
+    assert_equal({ "order_id" => order.id, "reason" => "Wants a different prize" }, AdminAuditEvent.where(tool: "cancel_order").last.ids)
+
+    mcp_tool(@token, "cancel_order", { order_id: order.id, reason: "again" })
+    assert mcp_error?, "already cancelled"
+
+    other = project.orders.new(prize_key: "aseprite", address: HQ_ADDRESS_WITH_PHONE)
+    assert other.save, other.errors.full_messages.to_sentence
+    assert other.waiting?
+  end
+
+  test "cancel_order refuses an ordered order and changes nothing" do
+    order = make_order("micro", "ordered")
+    mcp_tool(@token, "cancel_order", { order_id: order.id, reason: "x" })
+    assert mcp_error?
+    assert order.reload.ordered?
+    assert_equal 0, projects(:ana).reload.hours_to_spend
   end
 
   test "decide_extension decides once, and the bot DMs them" do

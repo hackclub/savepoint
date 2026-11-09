@@ -2,6 +2,9 @@ require "test_helper"
 
 # The free stickers' card on the project page (D-051). Fixtures are stamped at the real clock, so every test pins created_at.
 class StickerPromiseHelperTest < ActionView::TestCase
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   setup do
     @user = users(:orpheus)
     @user.update_column(:created_at, Time.utc(2026, 10, 25, 10))

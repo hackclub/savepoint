@@ -1,6 +1,9 @@
 require "test_helper"
 
 class OrderTest < ActiveSupport::TestCase
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   include ActiveJob::TestHelper
 
   setup do
@@ -295,6 +298,9 @@ end
 # under the project's row lock, so only one is saved. Threads each need their own database connection, so nothing here rolls
 # back by itself: the test removes what it made.
 class OrderConcurrencyTest < ActiveSupport::TestCase
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   self.use_transactional_tests = false
 
   # Holds a claim between its check and its insert until the other one has also checked (or a second has passed, which is

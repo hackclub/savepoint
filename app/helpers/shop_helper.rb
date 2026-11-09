@@ -4,9 +4,9 @@
 module ShopHelper
   CLAIMED_TAGS = { "waiting" => "in the queue", "ordered" => "ordered" }.freeze
 
-  # Your order for a prize, if you've claimed it.
+  # Your order for a prize, if you've claimed it. A cancelled order doesn't count: the prize is back on the shelf.
   def shop_order_for(project, prize)
-    project.orders.find { |order| order.persisted? && order.prize_key == prize.key }
+    project.orders.find { |order| order.live? && order.prize_key == prize.key }
   end
 
   # Where a card is: claimed (you've an order for it), ready (your approved hours cover it: claim it) or locked (they

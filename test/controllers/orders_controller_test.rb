@@ -2,6 +2,9 @@ require "test_helper"
 
 # POST /shop/order: the claim itself. The shop's page around it is in ShopControllerTest.
 class OrdersControllerTest < ActionDispatch::IntegrationTest
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   include ActiveJob::TestHelper
 
   setup do

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_09_171000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_09_210050) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -197,7 +197,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_09_171000) do
     t.datetime "airtable_failed_at"
     t.string "theseus_letter_id"
     t.index ["ordered_by_id"], name: "index_orders_on_ordered_by_id"
-    t.index ["project_id", "prize_key"], name: "index_orders_on_project_id_and_prize_key", unique: true, where: "((prize_key)::text <> 'stickers'::text)"
+    t.index ["project_id", "prize_key"], name: "index_orders_on_project_id_and_prize_key", unique: true, where: "(((prize_key)::text <> 'stickers'::text) AND ((status)::text <> 'cancelled'::text))"
   end
 
   create_table "pairs", force: :cascade do |t|

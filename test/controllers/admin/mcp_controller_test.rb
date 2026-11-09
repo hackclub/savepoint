@@ -809,6 +809,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "cancel_order refunds a waiting order's hours, refuses ordered and cancelled ones, and lets them claim another prize" do
+    travel_to Time.utc(2026, 11, 9, 12) # the claim at the end needs the shop open
     project = projects(:ana)
     order = make_order("micro", "waiting")
     assert_equal 0, project.reload.hours_to_spend

@@ -286,7 +286,7 @@ class Project < ApplicationRecord
 
   # You've claimed the prize you're aiming for already.
   def goal_claimed?
-    chosen_prize.present? && orders.any? { |order| order.persisted? && order.prize_key == prize_key }
+    chosen_prize.present? && orders.any? { |order| order.live? && order.prize_key == prize_key }
   end
 
   # Your approved hours to spend cover your goal, and you haven't claimed it: it's yours to claim.
@@ -307,7 +307,7 @@ class Project < ApplicationRecord
   # Nothing when your goal is the dearest.
   def upsell_prize
     goal = chosen_prize or return
-    claimed = orders.select(&:persisted?).filter_map(&:prize_key)
+    claimed = orders.select(&:live?).filter_map(&:prize_key)
     Prize::ALL.select { |prize| prize.cost > goal.cost && claimed.exclude?(prize.key) }.min_by { |prize| [ prize.cost, prize.hours ] }
   end
 

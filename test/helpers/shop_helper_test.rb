@@ -1,6 +1,9 @@
 require "test_helper"
 
 class ShopHelperTest < ActionView::TestCase
+  # The shop closed at Program::SHOP_CLOSES_AT. These tests claim prizes, so they run on the last shop day.
+  setup { travel_to Time.utc(2026, 11, 9, 12) }
+
   include ProjectsHelper
 
   test "the shelf is every prize, fewest hours first, with a project's goal marked and no state without one" do

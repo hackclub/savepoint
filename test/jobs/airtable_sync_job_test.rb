@@ -67,6 +67,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
   end
 
   test "copies orders to their own table" do
+    travel_to Time.utc(2026, 11, 9, 12) # it claims a prize, so the shop must be open
     approved_ship(approved_hours: 100)
     order = @orpheus.reload.orders.create!(prize_key: @orpheus.prize_key, address: HQ_ADDRESS_WITH_PHONE)
     Airtable::SyncJob.perform_now
@@ -234,6 +235,7 @@ class AirtableSyncJobTest < ActiveSupport::TestCase
   end
 
   test "every field a row writes exists in the schema" do
+    travel_to Time.utc(2026, 11, 9, 12) # it claims a prize, so the shop must be open
     ship = approved_ship(approved_hours: 100)
     order = @orpheus.reload.orders.create!(prize_key: @orpheus.prize_key, address: HQ_ADDRESS_WITH_PHONE)
     assert_empty AirtableFields.user(ship.project.user).keys - AirtableSchema.field_names(:users)

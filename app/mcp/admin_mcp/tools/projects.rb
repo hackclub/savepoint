@@ -38,6 +38,7 @@ module AdminMcp::Tools::Projects
         hours_logged: project.hours_logged.to_f, hours_approved: project.hours_approved, hours_to_spend: project.hours_to_spend,
         shop_hours_credit: project.shop_hours_credit.to_f, shop_hours_credit_reason: project.shop_hours_credit_reason,
         shop_hours_credit_by: (User.find_by(id: project.shop_hours_credit_by_id)&.name if project.shop_hours_credit_by_id),
+        shop_until: project.shop_until, shop_until_reason: project.shop_until_reason, shop_closes_at: project.shop_closes_at,
         day_number: project.day_number, finish_on: project.finish_on, deadline: project.deadline, timezone: UserTimezone.name(user.timezone),
         hackatime_seen_count: project.hackatime_seen_count, hackatime_seen_hours: project.hackatime_seen_seconds&.then { (it / 3600.0).round(1) },
         hackatime_seen_at: project.hackatime_seen_at, hours_synced_at: user.streak_synced_at, repo_later: project.repo_later, has_screenshot: project.screenshot.attached?,
@@ -91,6 +92,42 @@ module AdminMcp::Tools::Projects
       Time.find_zone!("UTC").parse(text.to_s) || :invalid
     rescue ArgumentError
       :invalid
+    end
+  end
+
+  # D-158: a later shop close for one project. No DM, no post: the admin tells the person.
+  class SetShopUntil < AdminMcp::Tool
+    writes "set_shop_until", "Extend the shop for one project",
+           "Gives one project a later shop close than the public one (Program::SHOP_CLOSES_AT, D-138): they can claim prizes with their spendable hours until `until` (D-158). " \
+           "Send user_id or project_id, `until` as a UTC date and time like 2026-11-10T21:00 or null to clear it, and a reason. It never shortens the public close, and everyone else's shop is unchanged. " \
+           "Sends no DM and posts nothing: tell the person yourself. Answers { project_id, user_id, shop_until, shop_closes_at }.",
+           { user_id: { type: "integer", description: "The participant's user ID. Use this or project_id." },
+             project_id: { type: "integer", description: "The project ID. Use this or user_id." },
+             until: { type: %w[string null], description: "A UTC date and time, or null to clear the extension." },
+             reason: { type: "string", description: "Why, in a sentence. Saved on the project. Not needed to clear." } },
+           required: %w[until]
+
+    def self.audit_extra(args)
+      project = SetShipUntil.find_project(args)
+      project ? { "project_id" => project.id, "old_shop_until" => project.shop_until&.iso8601, "new_shop_until" => args[:until].to_s.presence } : {}
+    rescue StandardError
+      {}
+    end
+
+    def self.run(args, _caller)
+      raise AdminMcp::Refused, "Send until: a UTC date and time, or null to clear it." unless args.key?(:until)
+
+      project = SetShipUntil.find_project(args) || raise(AdminMcp::Refused, "Send user_id or project_id of a project that exists.")
+      if args[:until].nil?
+        project.update!(shop_until: nil, shop_until_reason: nil)
+      else
+        value = SetShipUntil.parse_time(args[:until])
+        raise AdminMcp::Refused, "Send until as a UTC date and time like 2026-11-10T21:00, or null." if value == :invalid
+        raise AdminMcp::Refused, "Send a reason." if args[:reason].to_s.strip.blank?
+
+        project.update!(shop_until: value, shop_until_reason: args[:reason].to_s.strip)
+      end
+      { project_id: project.id, user_id: project.user_id, shop_until: project.shop_until, shop_closes_at: project.shop_closes_at }
     end
   end
 

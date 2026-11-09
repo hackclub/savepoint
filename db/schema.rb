@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_09_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_09_171000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -255,6 +255,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_09_170000) do
     t.decimal "shop_hours_credit", precision: 6, scale: 2, default: "0.0", null: false
     t.text "shop_hours_credit_reason"
     t.bigint "shop_hours_credit_by_id"
+    t.datetime "shop_until"
+    t.text "shop_until_reason"
     t.index ["buddy_code"], name: "index_projects_on_buddy_code", unique: true
     t.index ["user_id"], name: "index_projects_on_user_id", unique: true
   end

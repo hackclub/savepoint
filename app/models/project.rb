@@ -291,7 +291,7 @@ class Project < ApplicationRecord
 
   # Your approved hours to spend cover your goal, and you haven't claimed it: it's yours to claim.
   def goal_reached?
-    Program.shop_open? && chosen_prize.present? && !goal_claimed? && hours_to_spend >= hours_needed
+    shop_open? && chosen_prize.present? && !goal_claimed? && hours_to_spend >= hours_needed
   end
 
   # The "you've earned it" popup shows once per goal: when goal_reached? and it wasn't shown for this goal yet.
@@ -755,6 +755,14 @@ class Project < ApplicationRecord
   def ship_closes_at
     [ ship_cutoff, changes_needed_until, ship_until ].compact.max
   end
+
+  # D-158: the last moment this person may claim in the shop: the public close (Program::SHOP_CLOSES_AT, D-138), or the
+  # later one an admin set for them (shop_until).
+  def shop_closes_at
+    [ Program::SHOP_CLOSES_AT, shop_until ].compact.max
+  end
+
+  def shop_open?(now = Time.current) = now < shop_closes_at
 
   # Until then, unless an admin banned the account or rejected the newest ship for good (D-063).
   def may_ship?(now: Time.current)

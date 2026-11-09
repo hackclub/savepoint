@@ -108,6 +108,32 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "D-158: a person with a shop extension can claim after the public close, until their own, and others cannot" do
+    approve(@project, hours: 7)
+    sign_in_orpheus
+    @project.update!(shop_until: Program::SHOP_CLOSES_AT + 1.day)
+
+    travel_to(Program::SHOP_CLOSES_AT + 1.hour) do
+      assert @project.shop_open?
+      get shop_path
+      assert_select ".shop__note", /The shop is open until/
+      assert_difference -> { @project.orders.count }, 1 do
+        post shop_order_path, params: { order: { prize_key: "micro" } }
+      end
+    end
+
+    travel_to(Program::SHOP_CLOSES_AT + 1.day + 1.minute) do
+      assert_not @project.shop_open?
+      assert_no_difference -> { @project.orders.count } do
+        post shop_order_path, params: { order: { prize_key: "aseprite" } }
+      end
+      assert_equal "The shop is closed.", flash[:shop_error]
+    end
+
+    assert Project.new.shop_open?(Program::SHOP_CLOSES_AT - 1.minute)
+    assert_not Project.new.shop_open?(Program::SHOP_CLOSES_AT + 1.minute), "no extension: the public close"
+  end
+
   test "hours waiting for their fraud check can't be spent, and a banned account can't claim (D-063, D-113)" do
     ship = approve(@project, hours: 7)
     ship.update_columns(status: "awaiting_fraud", fraud_status: "pending", approved_hours: nil, review_hours: 7)

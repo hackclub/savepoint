@@ -102,6 +102,18 @@ class Order < ApplicationRecord
     end
   end
 
+  # An ordered order goes back to waiting, for when the shop cancelled it after it was marked ordered. It still counts as
+  # spent, so the hours stay. When it was ordered, who ordered it and the Theseus letter are cleared. Under the row lock.
+  # Answers false, changing nothing, when it is not ordered.
+  def reopen!
+    with_lock do
+      next false unless ordered?
+
+      update!(status: "waiting", ordered_at: nil, ordered_by: nil, theseus_letter_id: nil)
+      true
+    end
+  end
+
   # A banned person's waiting order is cancelled with the ban (User#ban!, D-148).
   def cancel_for_ban!
     cancel!

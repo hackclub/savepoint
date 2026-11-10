@@ -63,4 +63,30 @@ module AdminMcp::Tools::Orders
       { order_id: order.id, status: order.status, project_id: project.id, hours_to_spend: project.hours_to_spend }
     end
   end
+
+  # An ordered order the shop cancelled goes back to waiting, to be bought again. Hours stay spent. No DM.
+  class ReopenOrder < AdminMcp::Tool
+    writes "reopen_order", "Put an ordered order back to waiting",
+           "Puts an ordered prize order back to waiting, for when the shop cancelled it after it was marked ordered, so it shows on the Orders page to buy again. " \
+           "Clears who ordered it, when, and its Theseus letter ID. The hours stay spent (it is not cancelled). " \
+           "Only an ordered order can be reopened: a waiting or cancelled one is refused and nothing changes. A reason is required and goes in the admin log. " \
+           "Sends no DM and posts nothing. Answers { order_id, status, project_id, prize_key }.",
+           { order_id: { type: "integer", description: "The order ID, from list_orders." },
+             reason: { type: "string", description: "Why, in a sentence. Saved in the admin log." } },
+           required: %w[order_id reason]
+
+    def self.audit_extra(args)
+      { "reason" => args[:reason].to_s.strip.first(500) }
+    end
+
+    def self.run(args, _caller)
+      reason = args[:reason].to_s.strip
+      raise AdminMcp::Refused, "Send a reason." if reason.blank?
+
+      order = Order.find(args[:order_id])
+      raise AdminMcp::Refused, "Order #{order.id} is #{order.status}, so it can't be reopened. Only an ordered order can be." unless order.reopen!
+
+      { order_id: order.id, status: order.status, project_id: order.project_id, prize_key: order.prize_key }
+    end
+  end
 end

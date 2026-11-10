@@ -63,8 +63,8 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
     assert_equal %w[admin_summary audit_log cancel_order credit_shop_hours decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
-                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until set_shop_until], tools.keys.sort
-    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered cancel_order decide_extension set_ship_until credit_shop_hours set_shop_until]
+                    list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql reopen_order save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until set_shop_until], tools.keys.sort
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered cancel_order reopen_order decide_extension set_ship_until credit_shop_hours set_shop_until]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -839,6 +839,43 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert mcp_error?
     assert order.reload.ordered?
     assert_equal 0, projects(:ana).reload.hours_to_spend
+  end
+
+  test "reopen_order puts an ordered order back to waiting, clears who ordered it, and keeps the hours spent" do
+    travel_to Time.utc(2026, 11, 9, 12)
+    project = projects(:ana)
+    order = make_order("micro", "ordered")
+    order.update!(ordered_at: Time.current, ordered_by: users(:orpheus), theseus_letter_id: "ltr_x")
+    spent = project.reload.hours_to_spend
+
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      mcp_tool(@token, "reopen_order", { order_id: order.id })
+      assert mcp_error?, "a reason is needed"
+      assert order.reload.ordered?
+
+      result = mcp_tool(@token, "reopen_order", { order_id: order.id, reason: "Roblox cancelled it" })
+      assert_equal({ "order_id" => order.id, "status" => "waiting", "project_id" => project.id, "prize_key" => order.prize_key }, result)
+    end
+    order.reload
+    assert order.waiting?
+    assert_nil order.ordered_at
+    assert_nil order.ordered_by_id
+    assert_nil order.theseus_letter_id
+    assert_equal spent, project.reload.hours_to_spend
+    assert_equal({ "order_id" => order.id, "reason" => "Roblox cancelled it" }, AdminAuditEvent.where(tool: "reopen_order").last.ids)
+  end
+
+  test "reopen_order refuses waiting and cancelled orders and changes nothing" do
+    travel_to Time.utc(2026, 11, 9, 12)
+    waiting = make_order("micro", "waiting")
+    mcp_tool(@token, "reopen_order", { order_id: waiting.id, reason: "x" })
+    assert mcp_error?
+    assert waiting.reload.waiting?
+
+    waiting.cancel!
+    mcp_tool(@token, "reopen_order", { order_id: waiting.id, reason: "x" })
+    assert mcp_error?
+    assert waiting.reload.cancelled?
   end
 
   test "decide_extension decides once, and the bot DMs them" do

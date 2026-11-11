@@ -13,6 +13,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
       # D-148: unknown limits need a typed reason to approve, so these ships start with the AI and art time read as none.
       @ship.update_columns(ai_coding_seconds: 0, art_seconds: 0, lapse_seconds: 0)
     end
+    @ship.tick_checklist!("real_name", true, by: users(:ana)) # D-152: an approval needs Real name ticked
     @heidi = User.create!(hca_id: "ident!heidi", email: "heidi@hackclub.com", name: "Heidi Hakkuun", first_name: "Heidi", slack_id: "U0HEIDI")
   end
 
@@ -550,7 +551,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     assert_response :no_content
     patch checklist_admin_ship_path(@ship), params: { key: "readme", value: "1" }
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "0" }
-    assert_equal({ "runs" => false, "readme" => true }, @ship.reload.review_checklist)
+    assert_equal({ "real_name" => true, "runs" => false, "readme" => true }, @ship.reload.review_checklist)
 
     get admin_ship_path(@ship)
     assert_select "input[name=readme][checked]"
@@ -565,6 +566,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
 
   test "the checklist shows the name as it goes to Airtable, never auto-ticked, and Real name still saves after approval (D-143)" do
     sign_in_as(users(:orpheus))
+    @ship.update_columns(review_checklist: {}, real_name_first: nil, real_name_last: nil, real_name_ticked_by_id: nil, real_name_ticked_at: nil)
     get admin_ship_path(@ship)
     assert_select "label:has(input[name=real_name]) span", /Real name: first “Ana”, last “Lovelace”/
     assert_select "input[name=real_name][checked]", 0
@@ -601,7 +603,41 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(users(:orpheus))
     patch checklist_admin_ship_path(@ship), params: { key: "runs", value: "1" }
     post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
-    assert_equal({ "runs" => true, "screenshot" => true, "art_cap" => true, "real_name" => false }, @ship.reload.review_checklist)
+    assert_equal({ "runs" => true, "screenshot" => true, "art_cap" => true, "real_name" => true }, @ship.reload.review_checklist)
+  end
+
+  test "Real name can't be ticked on the page while a name is missing or an initial, and Approve says why and refuses a direct post (D-152)" do
+    sign_in_as(users(:orpheus))
+    @ship.update_columns(review_checklist: {}, real_name_first: nil, real_name_last: nil, real_name_ticked_by_id: nil, real_name_ticked_at: nil)
+    users(:ana).update_columns(last_name: "L.")
+    initial = "Approve needs a full first and last name with Real name ticked. Their last name is an initial (L.), so they need to enter their full name in Hack Club Auth and sign in again."
+
+    patch checklist_admin_ship_path(@ship), params: { key: "real_name", value: "1" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "Real name can't be ticked yet. Their last name is an initial (L.), so they need to enter their full name in Hack Club Auth and sign in again.", response.parsed_body["error"]
+    assert_not @ship.reload.review_checklist["real_name"]
+
+    get admin_ship_path(@ship)
+    assert_select "p[data-blocker=name]", text: initial
+    assert_select "button[data-decision=approved][disabled], .ash__verdict-btn[disabled]"
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball.", override_name: "Fine." }
+    assert_response :unprocessable_entity
+    assert @ship.reload.in_review?
+
+    users(:ana).update_columns(last_name: "Lovelace")
+    get admin_ship_path(@ship)
+    assert_select "p[data-blocker=real_name]", text: "Tick Real name first."
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
+    assert_response :unprocessable_entity
+    assert @ship.reload.in_review?
+
+    patch checklist_admin_ship_path(@ship), params: { key: "real_name", value: "1" }
+    assert_response :no_content
+    get admin_ship_path(@ship)
+    assert_select "p[data-blocker]", 0
+    post review_admin_ship_path(@ship), params: { decision: "approved", technical_features: "A second ball." }
+    assert_response :redirect
+    assert @ship.reload.awaiting_fraud?
   end
 
   test "the review shows what they changed beside the commits, and the game before" do
@@ -975,6 +1011,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
                                                   deflation_reason: "Most of it is one pasted file." }
     post send_back_admin_ship_path(@ship), params: { reason: "Check the AI hours." }
     assert @ship.reload.in_review?
+    @ship.tick_checklist!("real_name", true, by: users(:ana))
 
     get admin_ship_path(@ship)
     assert_select "textarea[name=deflation_reason]", "Most of it is one pasted file."
@@ -1626,7 +1663,7 @@ class Admin::ShipsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a ship behind an earlier one in its fraud check is not offered to a reviewer, and its verdict waits" do
-    @ship.decide!("approved", by: @heidi, technical_features: "A second ball.")
+    ticked(@ship).decide!("approved", by: @heidi, technical_features: "A second ball.")
     assert @ship.reload.awaiting_fraud?
     later = projects(:ana).ship!(title: "Pong 2", description: "Two paddles, one ball, and every frame is a sprite.", changes_made: "More.",
                                  repo_url: "https://github.com/ana/pong", demo_url: "https://example.com/pong", screenshot_shows_game: true,

@@ -17,7 +17,7 @@ class ShipApprovalGatesTest < ActiveSupport::TestCase
 
   teardown { Web.adapter = nil }
 
-  def approve(**more) = @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", **more)
+  def approve(**more) = ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", **more)
 
   test "there is no Stardance check: an approval needs no reason for it, and an old stored Stardance reason does no harm (D-153)" do
     assert_empty @ship.approval_blockers(frozen: {}).map(&:key) - %w[limits]
@@ -57,6 +57,76 @@ class ShipApprovalGatesTest < ActiveSupport::TestCase
 
     assert approve(overrides: { "limits" => "AI coding 0 hrs and art 0 hrs, read by hand from Telescreen." })
     assert_match(/AI coding 0 hrs/, @ship.reload.review_overrides["limits"]["reason"])
+  end
+
+  # D-152: the Unified YSWS DB needs a full first and last name, so an approval needs both and Real name ticked. No reason lifts it.
+  NAME_HEAD = "Approve needs a full first and last name with Real name ticked."
+
+  test "a missing last name refuses an approval and the tick, and no reason lifts it (D-152)" do
+    @project.user.update_columns(last_name: nil)
+    message = "#{NAME_HEAD} Their last name is missing, so they need to sign in to Hack Club Auth again."
+    assert_not @ship.tick_checklist!("real_name", true, by: @reviewer)
+    assert_equal [ "Real name can't be ticked yet. Their last name is missing, so they need to sign in to Hack Club Auth again." ], @ship.errors[:base]
+    assert_not @ship.reload.review_checklist.key?("real_name")
+
+    assert_not @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", overrides: { "name" => "It is fine.", "real_name" => "Ticked by hand." })
+    assert_equal [ message ], @ship.errors[:base]
+    assert_equal [ message ], @ship.approval_blockers(frozen: {}).map(&:message)
+    assert_not @ship.approval_blockers(frozen: {}).first.override
+    assert @ship.reload.in_review?
+  end
+
+  test "an initial for the last name, with or without a dot, refuses like a missing one (D-152)" do
+    [ "D", "D." ].each do |initial|
+      @project.user.update_columns(last_name: initial)
+      message = "#{NAME_HEAD} Their last name is an initial (#{initial}), so they need to enter their full name in Hack Club Auth and sign in again."
+      assert_not @ship.tick_checklist!("real_name", true, by: @reviewer), initial
+      assert_not approve(overrides: { "name" => "Their name is Salvador D." }), initial
+      assert_equal [ message ], @ship.errors[:base], initial
+      assert @ship.reload.in_review?
+    end
+  end
+
+  test "a first name that is missing or an initial refuses too (D-152)" do
+    @project.user.update_columns(first_name: "O")
+    assert_not approve
+    assert_equal [ "#{NAME_HEAD} Their first name is an initial (O), so they need to enter their full name in Hack Club Auth and sign in again." ], @ship.errors[:base]
+    @project.user.update_columns(first_name: nil)
+    assert_not approve
+    assert_equal [ "#{NAME_HEAD} Their first name is missing, so they need to sign in to Hack Club Auth again." ], @ship.errors[:base]
+  end
+
+  test "a full name that is not ticked refuses an approval, and no reason lifts it (D-152)" do
+    assert_not @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", overrides: { "real_name" => "Looks real." })
+    assert_equal [ "Tick Real name first." ], @ship.errors[:base]
+    assert_not @ship.approval_blockers(frozen: {}).first.override
+    assert @ship.reload.in_review?
+
+    assert @ship.tick_checklist!("real_name", true, by: @reviewer)
+    assert_empty @ship.approval_blockers(frozen: {}).select { %w[name real_name].include?(it.key) }
+    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+  end
+
+  test "a tick made for another name no longer counts (D-152)" do
+    @ship.tick_checklist!("real_name", true, by: @reviewer)
+    @project.user.update_columns(last_name: "Other")
+    assert_not @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert_equal [ "Tick Real name first." ], @ship.errors[:base]
+  end
+
+  test "unticking Real name is always allowed, and the other verdicts do not need a name (D-152)" do
+    @ship.tick_checklist!("real_name", true, by: @reviewer)
+    @project.user.update_columns(last_name: nil)
+    assert @ship.tick_checklist!("real_name", false, by: @reviewer)
+    assert @ship.decide!("changes_needed", by: @reviewer, feedback: "Add a README.")
+  end
+
+  test "a ship already approved keeps its verdict when the name later has a problem (D-152)" do
+    assert approve
+    @project.user.update_columns(last_name: "D")
+    assert @ship.reload.awaiting_fraud?
+    assert @ship.pass_fraud!(by: users(:orpheus)), @ship.errors.full_messages.to_sentence
+    assert @ship.reload.approved?
   end
 
   test "a linked Hackatime project name with a comma is refused at link time (finding 8)" do

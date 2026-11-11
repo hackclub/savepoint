@@ -173,8 +173,9 @@ class Admin::ShipsController < Admin::BaseController
     return head(:unprocessable_entity) unless Ship::CHECKLIST_KEYS.include?(key) && @ship.checklist_open_for?(key)
     return head(:forbidden) if @ship.by?(current_user)
 
-    @ship.tick_checklist!(key, params[:value] == "1", by: current_user)
-    head :no_content
+    return head(:no_content) if @ship.tick_checklist!(key, params[:value] == "1", by: current_user)
+
+    render json: { error: @ship.errors.full_messages.to_sentence }, status: :unprocessable_entity
   end
 
   private

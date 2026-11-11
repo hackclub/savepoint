@@ -15,7 +15,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "approving a review moves the ship to its fraud check, and its hours are not spendable yet" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
     @ship.reload
     assert @ship.awaiting_fraud?
     assert_not @ship.approved?
@@ -36,22 +36,22 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
 
   test "coding goes to the AI cap, art to the hold on the approved coding, and below them a reason is due" do
     ship = @ship
-    assert ship.decide!("approved", by: @reviewer, coding_hours: "9", art_hours: "5", technical_features: "A rhythm grid.")
+    assert ticked(ship).decide!("approved", by: @reviewer, coding_hours: "9", art_hours: "5", technical_features: "A rhythm grid.")
     assert_equal [ BigDecimal("4"), BigDecimal("1.71") ], [ ship.review_coding_hours, ship.review_art_hours ], "whatever is typed is held to the limits"
 
     ship.update_columns(status: "changes_needed") # a later ship waits for an earlier one in its fraud check (D-109)
     other = ship_now
     other.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
-    assert_not other.decide!("approved", by: @reviewer, coding_hours: "2", technical_features: "A rhythm grid.")
+    assert_not ticked(other).decide!("approved", by: @reviewer, coding_hours: "2", technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], other.errors[:deflation_reason]
-    assert other.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut, so 2.85 hours.")
+    assert ticked(other).decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut, so 2.85 hours.")
     assert_equal [ BigDecimal("2"), BigDecimal("0.85") ], [ other.review_coding_hours, other.review_art_hours ], "art held at 30% of the new total"
     assert_match(/A menu was cut, so 2.85 hours\.\z/, other.deflation_reason)
   end
 
   test "a ship with no art hours approves coding alone" do
     @ship.update_columns(art_seconds: 0)
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_equal [ BigDecimal("8"), BigDecimal("0"), BigDecimal("8") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
   end
 
@@ -59,7 +59,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   # coding and art were each rounded down on their own. Approving the most the rules allow now stores the 5.3 claimed.
   test "approving the most the rules allow stores the hours claimed with no reason, and the fraud check passes them whole (D-111)" do
     @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     @ship.reload
     assert_equal [ BigDecimal("5.3"), BigDecimal("5.3") ], [ @ship.claimed_hours, @ship.review_hours ]
     assert_equal [ BigDecimal("3.76"), BigDecimal("1.54") ], [ @ship.review_coding_hours, @ship.review_art_hours ], "the hundredth the round-down lost is art's"
@@ -84,7 +84,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
       most = Ship::Limits.new(claimed:, ai_coding_seconds: ai, art_seconds: art).most
       label = [ claimed, ai, art ].inspect
 
-      assert @ship.reload.decide!("approved", by: @reviewer, technical_features: "A rhythm grid."), "#{label}: #{@ship.errors.full_messages.to_sentence}"
+      assert ticked(@ship.reload).decide!("approved", by: @reviewer, technical_features: "A rhythm grid."), "#{label}: #{@ship.errors.full_messages.to_sentence}"
       @ship.reload
       assert_equal claimed, @ship.claimed_hours, label
       assert_equal most, @ship.review_hours, label
@@ -105,11 +105,11 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
 
   test "a figure well below the most needs a reason, and then the ship stores that figure (D-111)" do
     @ship.update_columns(hours: 5.3, ai_coding_seconds: 0, art_seconds: 5542)
-    assert_not @ship.decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.")
+    assert_not ticked(@ship).decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], @ship.errors[:deflation_reason]
     assert @ship.reload.in_review?
 
-    assert @ship.decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut, so 5 hours.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, coding_hours: "3.5", technical_features: "A rhythm grid.", deflation_reason: "A menu was cut, so 5 hours.")
     @ship.reload
     assert_equal [ BigDecimal("3.5"), BigDecimal("1.5"), BigDecimal("5") ], [ @ship.review_coding_hours, @ship.review_art_hours, @ship.review_hours ]
     assert_equal "A menu was cut, so 5 hours.", @ship.deflation_reason, "the limits cut nothing, so only the reviewer's words"
@@ -121,7 +121,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     @ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
     limits = @ship.limits(@ship.counted_hours)
     assert_equal BigDecimal("18.6"), limits.most
-    assert @ship.decide!("approved", by: @reviewer, coding_hours: "17.3", art_hours: "1.27", technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, coding_hours: "17.3", art_hours: "1.27", technical_features: "A rhythm grid.")
     @ship.reload
     assert_equal BigDecimal("18.6"), @ship.review_hours
     assert_nil @ship.deflation_reason
@@ -130,14 +130,14 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   test "a gap of 0.1 hours still needs a reason" do
     @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: (8.6 * 3600).to_i)
     @ship.update_columns(hours: 18.6, ai_coding_seconds: 0, art_seconds: (1.2733 * 3600).round)
-    assert_not @ship.decide!("approved", by: @reviewer, coding_hours: "17.3", art_hours: "1.17", technical_features: "A rhythm grid.")
+    assert_not ticked(@ship).decide!("approved", by: @reviewer, coding_hours: "17.3", art_hours: "1.17", technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], @ship.errors[:deflation_reason]
   end
 
   test "hours that went down with no words to say why can't be approved, even when no figure was typed below the limits (D-111)" do
     nothing_to_say = Struct.new(:claimed, :reason) { def approve(*) = [ BigDecimal("2"), BigDecimal("2"), false ]; def known? = true; def most = BigDecimal("5.3") }.new(BigDecimal("5.3"), nil)
     @ship.define_singleton_method(:limits) { |*| nothing_to_say }
-    assert_not @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert_not ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_equal [ "Say why you approve fewer than the 5.3 hrs claimed" ], @ship.errors[:deflation_reason]
     assert @ship.reload.in_review?
     assert_nil @ship.review_hours
@@ -145,7 +145,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
 
   test "a reason given when nothing was cut is not kept" do
     @ship.update_columns(art_seconds: 0, ai_coding_seconds: 0)
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", deflation_reason: "Nothing to say.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", deflation_reason: "Nothing to say.")
     assert_nil @ship.reload.deflation_reason
     assert_equal 10, @ship.review_hours
   end
@@ -195,7 +195,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
 
   test "a fraud check passes, and only then is the ship approved with hours to spend" do
     assert_not @ship.pass_fraud!(by: @reviewer), "not reviewed yet"
-    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
 
     assert @ship.pass_fraud!(by: users(:orpheus))
     @ship.reload
@@ -210,7 +210,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "a deduction takes hours off the review's, and needs notes" do
-    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_not @ship.pass_fraud!(by: @reviewer, deduction: "1.5")
     assert_equal [ "Say why you deduct hours" ], @ship.errors[:fraud_notes]
     assert @ship.reload.awaiting_fraud?
@@ -222,13 +222,13 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
 
     other = ship_now
     other.update_columns(ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600)
-    other.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    ticked(other).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     other.pass_fraud!(by: @reviewer, deduction: "99", notes: "None of it.")
     assert_equal BigDecimal("4.21"), other.reload.approved_hours, "a deduction takes only the new hours: the earlier approval stands (D-097)"
   end
 
   test "a ban at the fraud check rejects the ship for good and bans the account" do
-    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_not @ship.ban_for_fraud!(by: @reviewer, notes: " ")
     assert @ship.reload.awaiting_fraud?
 
@@ -250,7 +250,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "a ban at the fraud check drops the message written under Approve, for the default" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", feedback: "Loved the boss fight!")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", feedback: "Loved the boss fight!")
     assert_equal "Loved the boss fight!", @ship.reload.review_feedback
 
     assert @ship.ban_for_fraud!(by: @reviewer, notes: "Same game as another account.")
@@ -259,7 +259,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "banning the account rejects a ship at its fraud check without the message written under Approve" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", feedback: "Loved the boss fight!")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", feedback: "Loved the boss fight!")
 
     @project.user.ban!("Fraud.", by: @reviewer)
 
@@ -272,7 +272,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   test "a ship waiting for its fraud check goes back to review with a reason, and the page refills from the earlier review" do
     assert_not @ship.send_back_to_review!(by: @reviewer, reason: "x"), "only a ship that waits for the fraud check"
     @ship.update!(review_checklist: { "runs" => true })
-    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+    ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
 
     assert_not @ship.send_back_to_review!(by: users(:orpheus), reason: " ")
     assert_equal [ "Say why it goes back to review" ], @ship.errors[:base]
@@ -291,7 +291,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal [ "Ana", 4.0, 1.71, 5.71, "A rhythm grid.", "Solid.", "Nice." ],
                  earlier.values_at("reviewer", "coding_hours", "art_hours", "hours", "technical_features", "judgement", "feedback")
 
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid, again.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid, again.")
     assert @ship.reload.awaiting_fraud?, "reviewed again"
   end
 
@@ -343,7 +343,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     open_page = Ship.find(@ship.id)
     @project.ship!(shipping_params)
 
-    assert_not open_page.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert_not ticked(open_page).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     assert_equal [ Ship::REPLACED_MESSAGE ], open_page.errors[:base]
     assert_not open_page.decide!("changes_needed", by: @reviewer, feedback: "More.")
     assert_not open_page.decide!("banned", by: @reviewer, evidence: "Copied.")
@@ -354,7 +354,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "a ship a reviewer already approved at review is not replaced, and the new ship waits for its fraud check" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
     travel 1.hour
     second = ship_again(14)
@@ -365,13 +365,13 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal second, @project.reload.latest_standing_ship
     assert_equal @ship, second.waiting_on_earlier
     assert_not_includes Ship.reviewable, second, "not in the review queue until the first is checked"
-    assert_not second.decide!("approved", by: @reviewer, technical_features: "More levels.")
+    assert_not ticked(second).decide!("approved", by: @reviewer, technical_features: "More levels.")
     assert_equal [ Ship::WAITING_ON_EARLIER_MESSAGE ], second.errors[:base]
     assert second.reload.in_review?
   end
 
   test "hours count once: the second ship's review starts from the first ship's approval, not from the start" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
     travel 1.hour
     second = ship_again(14)
@@ -382,7 +382,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert_equal 5.71, @project.reload.hours_approved
     assert_equal @ship, second.reload.earlier_approval.ship
     assert_includes Ship.reviewable, second
-    assert second.decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "More levels.", deflation_reason: "Some of it is repeat work, so 7.71 hours.")
+    assert ticked(second).decide!("approved", by: @reviewer, coding_hours: "2", art_hours: "0", technical_features: "More levels.", deflation_reason: "Some of it is repeat work, so 7.71 hours.")
     assert second.pass_fraud!(by: @reviewer)
 
     new_hours = second.reload.approved_hours - @ship.approved_hours
@@ -393,7 +393,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   # D-097, D-111: the later ship's hours are cumulative, so approving the most on the new hours reaches the most on the whole
   # project, and the cut the limits make on it is named.
   test "a later ship approving the most reaches the most on the whole project, with the limits' words for the cut (D-111)" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
     travel 1.hour
     second = ship_again(14)
@@ -401,7 +401,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
     assert @ship.reload.pass_fraud!(by: @reviewer)
     most = Ship::Limits.new(claimed: 14, ai_coding_seconds: 3 * 3600, art_seconds: 4 * 3600).most
 
-    assert second.decide!("approved", by: @reviewer, technical_features: "More levels.")
+    assert ticked(second).decide!("approved", by: @reviewer, technical_features: "More levels.")
     second.reload
     assert_equal [ BigDecimal("14"), most ], [ second.claimed_hours, second.review_hours ]
     assert_equal second.review_coding_hours + second.review_art_hours, second.review_hours
@@ -412,16 +412,16 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "a later ship approving below the most needs a reason, and a later ship with nothing cut needs none (D-111)" do
-    assert @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
+    assert ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.")
     @project.user.streak_activities.create!(activity_date: (Program::STARTS_AT + 2.days).to_date, coded_seconds: 4 * 3600)
     travel 1.hour
     second = ship_again(14)
     second.update_columns(ai_coding_seconds: 0, art_seconds: 0)
     assert @ship.reload.pass_fraud!(by: @reviewer)
 
-    assert_not second.decide!("approved", by: @reviewer, coding_hours: "3", technical_features: "More levels.")
+    assert_not ticked(second).decide!("approved", by: @reviewer, coding_hours: "3", technical_features: "More levels.")
     assert_equal [ "Say why you approve fewer hours than the rules allow" ], second.errors[:deflation_reason]
-    assert second.decide!("approved", by: @reviewer, technical_features: "More levels.")
+    assert ticked(second).decide!("approved", by: @reviewer, technical_features: "More levels.")
     assert_equal [ BigDecimal("14"), BigDecimal("14") ], [ second.reload.claimed_hours, second.review_hours ]
     assert_nil second.deflation_reason
   end
@@ -436,7 +436,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "fraud actions take the row lock: a stale copy can't pass or ban a ship that went back to review (D-148)" do
-    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+    ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
     stale = Ship.find(@ship.id)
     assert Ship.find(@ship.id).send_back_to_review!(by: users(:orpheus), reason: "Art hours look high.")
 
@@ -447,7 +447,7 @@ class ShipReviewStagesTest < ActiveSupport::TestCase
   end
 
   test "a banned owner's ship can't pass its fraud check (D-148)" do
-    @ship.decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
+    ticked(@ship).decide!("approved", by: @reviewer, technical_features: "A rhythm grid.", judgement: "Solid.", feedback: "Nice.")
     @project.user.update_columns(banned_at: Time.current)
     assert_not @ship.pass_fraud!(by: @reviewer)
     assert_equal [ "This account is banned." ], @ship.errors[:base]

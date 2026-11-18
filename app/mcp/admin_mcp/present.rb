@@ -89,18 +89,27 @@ module AdminMcp::Present
       most_to_approve: limits.most.to_f, cut: limits.cut?, reason: limits.reason }
   end
 
-  # A row of the orders page. The address and phone are what the page shows next to a prize to order, so a waiting order has
-  # them and an ordered one does not (it's posted).
+  # A row of the orders page. Every order carries the address it ships to (D-024: the order stores it), as the page shows it,
+  # whatever its status. ship_to splits it into fields. Addresses belong to teenagers, so only these admin tools return them
+  # and the audit row keeps tool and IDs only.
   def order(order)
     user = order.project.user
     row = { id: order.id, project_id: order.project_id, user: user_ref(user), prize: order.configuration, prize_key: order.prize_key,
             kind: order.prize_item&.kind, hours: order.hours.to_f, status: order.status, claimed_at: order.created_at,
             ordered_by: order.ordered_by&.first_name, ordered_at: order.ordered_at, theseus_letter_id: order.theseus_letter_id }
-    return row unless order.waiting?
+    row.merge(ship_to(order))
+  end
 
-    phone = order.address.is_a?(Hash) ? order.address["phone_number"] : nil
-    row.merge(recipient: order.recipient_name.presence || user.name.presence || user.public_name,
-              address: user.address_lines(order.address), phone: phone.presence)
+  # The recipient, address and phone of one order: `address` is the page's text, `ship_to` the same in fields.
+  def ship_to(order)
+    user = order.project.user
+    fields = order.address.is_a?(Hash) ? order.address : {}
+    { recipient: order.recipient_name.presence || user.name.presence || user.public_name,
+      address: user.address_lines(order.address), phone: fields["phone_number"].presence,
+      ship_to: { name: order.recipient_name.presence || user.name.presence || user.public_name,
+                 street: fields["street_address"].presence, street_2: fields["street_address_2"].presence, city: fields["locality"].presence,
+                 state: fields["region"].presence, postcode: fields["postal_code"].presence, country: fields["country"].presence,
+                 phone: fields["phone_number"].presence } }
   end
 
   def extension(extension)

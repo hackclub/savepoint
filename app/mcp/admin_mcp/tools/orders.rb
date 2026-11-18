@@ -2,8 +2,9 @@ module AdminMcp::Tools::Orders
   # The Orders page: prizes claimed with approved hours, waiting to be ordered first.
   class ListOrders < AdminMcp::Tool
     reads "list_orders", "List prize orders",
-          "Every prize claimed with approved hours: who, what, the hours, and when. Waiting orders come with the recipient, address and phone to order to " \
-          "(as the Orders page shows), oldest first. Ordered ones show who ordered them, newest first. Answers { total, orders }.",
+          "Every prize claimed with approved hours: who, what, the hours, and when. Each order, waiting or ordered, comes with the address it ships to " \
+          "(D-024: the order stores it): recipient, address (the Orders page's text), ship_to (name, street, street_2, city, state, postcode, country, phone) and phone. " \
+          "This is the place to find a participant's address; Theseus and get_person's profile hold none. Waiting ones come oldest first, ordered ones show who ordered them, newest first. Answers { total, orders }.",
           { status: { type: "string", enum: %w[waiting ordered all], description: "Default waiting." }, **AdminMcp::Tool::PAGE }
 
     def self.run(args, _caller)

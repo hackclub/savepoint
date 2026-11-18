@@ -738,7 +738,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "list_orders shows the address only for the ones to order" do
+  test "list_orders and get_person show the address on every order" do
     waiting = make_order("micro", "waiting")
     ordered = make_order("u2c", "ordered", ordered_by: users(:orpheus))
 
@@ -749,8 +749,18 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
 
     all = mcp_tool(@token, "list_orders", { status: "all" })["orders"]
     assert_equal [ waiting.id, ordered.id ], all.map { it["id"] }
-    assert_not all.last.key?("address")
+    assert_match(/15 Falls Rd/, all.last["address"])
     assert_equal "Orpheus", all.last["ordered_by"]
+    ship_to = all.last["ship_to"]
+    assert_equal "Ana Lovelace", ship_to["name"]
+    assert_equal HQ_ADDRESS["street_address"], ship_to["street"]
+    assert_equal HQ_ADDRESS["locality"], ship_to["city"]
+    assert_equal HQ_ADDRESS["country"], ship_to["country"]
+
+    person = mcp_tool(@token, "get_person", { user_id: users(:ana).id })
+    assert_equal [ waiting.id, ordered.id ].sort, person["orders"].map { it["id"] }.sort
+    assert(person["orders"].all? { it["address"].to_s.match?(/15 Falls Rd/) && it["ship_to"]["street"] })
+    assert_no_match(/15 Falls Rd/, AdminAuditEvent.last.to_json)
   end
 
   test "list_extensions and the numbers tools answer" do

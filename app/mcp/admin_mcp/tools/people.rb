@@ -19,7 +19,7 @@ module AdminMcp::Tools::People
   # One person, with what the people and project pages show about them.
   class GetPerson < AdminMcp::Tool
     reads "get_person", "Get one person",
-          "One person: the People page's row, plus their project's ID, their ships (ID, status, hours), orders and extension, and whether " \
+          "One person: the People page's row, plus their project's ID, their ships (ID, status, hours), orders (each with the address it ships to and its phone) and extension, and whether " \
           "they stopped the bot's Slack messages or a DM failed. hackatime_trust_level \"red\" means banned on Hackatime (null when unknown). " \
           "With refresh_trust_level true it asks Hackatime afresh first and stores the answer.",
           { user_id: { type: "integer", description: "The user ID." },
@@ -39,7 +39,7 @@ module AdminMcp::Tools::People
       AdminMcp::Present.person(user).merge(
         slack_stopped_at: user.slack_muted_at, slack_dm_failed_at: user.slack_dm_failed_at,
         ships: (project&.ships&.sort_by(&:created_at)&.reverse || []).map { { id: it.id, status: it.status, hours: it.hours.to_f, shipped_at: it.created_at } },
-        orders: (project&.orders || []).map { { id: it.id, prize: it.configuration, status: it.status, hours: it.hours.to_f } },
+        orders: (project&.orders || []).map { { id: it.id, prize: it.configuration, status: it.status, hours: it.hours.to_f }.merge(AdminMcp::Present.ship_to(it)) },
         extension: (AdminMcp::Present.extension(project.extension) if project&.extension)
       )
     end

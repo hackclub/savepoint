@@ -96,6 +96,7 @@ module AdminMcp::Present
     user = order.project.user
     row = { id: order.id, project_id: order.project_id, user: user_ref(user), prize: order.configuration, prize_key: order.prize_key,
             kind: order.prize_item&.kind, hours: order.hours.to_f, status: order.status, claimed_at: order.created_at,
+<<<<<<< Updated upstream
             ordered_by: order.ordered_by&.first_name, ordered_at: order.ordered_at, theseus_letter_id: order.theseus_letter_id }
     row.merge(ship_to(order))
   end
@@ -110,6 +111,14 @@ module AdminMcp::Present
                  street: fields["street_address"].presence, street_2: fields["street_address_2"].presence, city: fields["locality"].presence,
                  state: fields["region"].presence, postcode: fields["postal_code"].presence, country: fields["country"].presence,
                  phone: fields["phone_number"].presence } }
+=======
+            ordered_by: order.ordered_by&.first_name, ordered_at: order.ordered_at, theseus_letter_id: order.theseus_letter_id,
+            recipient: order.recipient_name.presence || user.name.presence || user.public_name }
+    return row unless order.waiting?
+
+    phone = order.address.is_a?(Hash) ? order.address["phone_number"] : nil
+    row.merge(address: user.address_lines(order.address), phone: phone.presence)
+>>>>>>> Stashed changes
   end
 
   def extension(extension)

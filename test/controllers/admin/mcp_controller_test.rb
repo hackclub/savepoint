@@ -740,7 +740,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
 
   test "list_orders and get_person show the address on every order" do
     waiting = make_order("micro", "waiting")
-    ordered = make_order("u2c", "ordered", ordered_by: users(:orpheus))
+    ordered = make_order("u2c", "ordered", ordered_by: users(:orpheus), ordered_at: Time.zone.parse("2026-11-20 15:00"))
 
     orders = mcp_tool(@token, "list_orders")["orders"]
     assert_equal [ waiting.id ], orders.map { it["id"] }
@@ -751,6 +751,7 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ waiting.id, ordered.id ], all.map { it["id"] }
     assert_match(/15 Falls Rd/, all.last["address"])
     assert_equal "Orpheus", all.last["ordered_by"]
+<<<<<<< Updated upstream
     ship_to = all.last["ship_to"]
     assert_equal "Ana Lovelace", ship_to["name"]
     assert_equal HQ_ADDRESS["street_address"], ship_to["street"]
@@ -761,6 +762,10 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ waiting.id, ordered.id ].sort, person["orders"].map { it["id"] }.sort
     assert(person["orders"].all? { it["address"].to_s.match?(/15 Falls Rd/) && it["ship_to"]["street"] })
     assert_no_match(/15 Falls Rd/, AdminAuditEvent.last.to_json)
+=======
+    assert_equal ordered.recipient_name.presence || users(:ana).name, all.last["recipient"]
+    assert_not_nil all.last["ordered_at"], "the ship date, to match a shipping mail"
+>>>>>>> Stashed changes
   end
 
   test "list_extensions and the numbers tools answer" do

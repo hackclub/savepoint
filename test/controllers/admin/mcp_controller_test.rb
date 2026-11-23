@@ -62,9 +62,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(@token, "tools/list")
     tools = response.parsed_body.dig("result", "tools").index_by { it["name"] }
 
-    assert_equal %w[admin_summary audit_log cancel_order credit_shop_hours decide_extension describe_schema edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
+    assert_equal %w[admin_summary audit_log cancel_order credit_shop_hours decide_extension describe_schema dm_person edit_review_text edit_snapshot find_people find_projects find_ships funnel get_person get_project get_ship
                     list_extensions list_orders mark_order_ordered metrics nudges public_stats query_sql reopen_order save_review_draft send_verdict_dm set_checklist_item set_hours_start set_lapse_coding set_reviewer_ai set_ship_until set_shop_until], tools.keys.sort
-    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered cancel_order reopen_order decide_extension set_ship_until credit_shop_hours set_shop_until]
+    writes = %w[save_review_draft set_lapse_coding set_reviewer_ai set_checklist_item set_hours_start edit_snapshot edit_review_text send_verdict_dm mark_order_ordered cancel_order reopen_order decide_extension dm_person set_ship_until credit_shop_hours set_shop_until]
     writes.each do |name|
       assert tools[name]["description"].start_with?("Changes real data: confirm with the human first."), name
       assert_equal false, tools[name].dig("annotations", "readOnlyHint")
@@ -886,6 +886,30 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
     mcp_tool(@token, "reopen_order", { order_id: waiting.id, reason: "x" })
     assert mcp_error?
     assert waiting.reload.cancelled?
+  end
+
+  test "dm_person queues the bot's DM with the exact text, and refuses a stopped, banned, admin or Slack-less person" do
+    user = users(:ana)
+    user.update!(slack_id: "U0ANA", slack_muted_at: nil, banned_at: nil)
+    assert_enqueued_with(job: SlackMessageJob, args: [ "U0ANA", "Hi Ana" ]) do
+      result = mcp_tool(@token, "dm_person", { user_id: user.id, text: " Hi Ana " })
+      assert_equal({ "sent" => true, "user_id" => user.id, "text" => "Hi Ana" }, result)
+    end
+    assert_equal "Hi Ana", AdminAuditEvent.where(tool: "dm_person").last.ids["text"]
+
+    assert_no_enqueued_jobs only: SlackMessageJob do
+      user.update!(slack_muted_at: Time.current)
+      mcp_tool(@token, "dm_person", { user_id: user.id, text: "x" })
+      assert mcp_error?
+      user.update!(slack_muted_at: nil, banned_at: Time.current)
+      mcp_tool(@token, "dm_person", { user_id: user.id, text: "x" })
+      assert mcp_error?
+      user.update!(banned_at: nil, slack_id: nil)
+      mcp_tool(@token, "dm_person", { user_id: user.id, text: "x" })
+      assert mcp_error?
+      mcp_tool(@token, "dm_person", { user_id: user.id, text: " " })
+      assert mcp_error?
+    end
   end
 
   test "decide_extension decides once, and the bot DMs them" do

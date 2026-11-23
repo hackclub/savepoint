@@ -8,6 +8,18 @@ module RetryNodeGone
 end
 Capybara::Selenium::Driver.prepend(RetryNodeGone)
 
+# Capybara's reset clears cookies and local storage with Storage.clearDataForOrigin and origin "*", which Chrome 158 refuses
+# ("* is not a valid URL"), so every test errored in teardown. Clear the app server's own origin instead when Chrome says so.
+module ClearTheServerOriginWhenWildcardIsRefused
+  def execute_cdp(cmd, **params)
+    super
+  rescue Selenium::WebDriver::Error::InvalidArgumentError
+    raise unless cmd == "Storage.clearDataForOrigin" && params[:origin] == "*"
+    super(cmd, **params, origin: Capybara.current_session.server.base_url)
+  end
+end
+Capybara::Selenium::Driver::ChromeDriver.prepend(ClearTheServerOriginWhenWildcardIsRefused)
+
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   # Muted: the pomodoro plays lofi and the bot cheers, out loud on whoever's running the tests.
   SCREEN_SIZE = [ 1400, 1400 ].freeze

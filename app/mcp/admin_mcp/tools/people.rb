@@ -51,7 +51,7 @@ module AdminMcp::Tools::People
     writes "dm_person", "DM a participant as the Save Point bot",
            "Sends one participant a Slack DM from the Save Point bot, with the exact text you give. Refuses a participant who stopped the bot's messages (slack_stopped_at set), a banned account, " \
            "an admin's own account, and someone with no Slack ID: nothing is sent and nothing changes. Sent through the bot's usual queue, so it is noted as the bot's latest DM to them. " \
-           "The text is saved in the admin log. Answers { sent: true, user_id, text }.",
+           "Quiet hours and the gap after another DM do not apply, and a recent failed DM does not stop it (an explicit admin send). The first 500 characters of the text are saved in the admin log. Answers { sent: true, user_id, text }.",
            { user_id: { type: "integer", description: "The user ID, from find_people." },
              text: { type: "string", description: "The message, exactly as the participant will see it. Slack formatting (mrkdwn) applies. Up to 3000 characters." } },
            required: %w[user_id text]

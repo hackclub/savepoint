@@ -44,4 +44,36 @@ module AdminMcp::Tools::People
       )
     end
   end
+
+  # A free-text DM from the bot, for when an admin needs to tell one person something no other tool sends. It honours
+  # what the other DMs honour: a banned or stopped account, an admin's own, or someone not on Slack gets nothing (D-113).
+  class DmPerson < AdminMcp::Tool
+    writes "dm_person", "DM a participant as the Save Point bot",
+           "Sends one participant a Slack DM from the Save Point bot, with the exact text you give. Refuses a participant who stopped the bot's messages (slack_stopped_at set), a banned account, " \
+           "an admin's own account, and someone with no Slack ID: nothing is sent and nothing changes. Sent through the bot's usual queue, so it is noted as the bot's latest DM to them. " \
+           "Quiet hours and the gap after another DM do not apply, and a recent failed DM does not stop it (an explicit admin send). The first 500 characters of the text are saved in the admin log. Answers { sent: true, user_id, text }.",
+           { user_id: { type: "integer", description: "The user ID, from find_people." },
+             text: { type: "string", description: "The message, exactly as the participant will see it. Slack formatting (mrkdwn) applies. Up to 3000 characters." } },
+           required: %w[user_id text]
+
+    def self.audit_extra(args)
+      { "text" => args[:text].to_s.strip.first(500) }
+    end
+
+    def self.run(args, _caller)
+      text = args[:text].to_s.strip
+      raise AdminMcp::Refused, "Send the text to DM." if text.blank?
+      raise AdminMcp::Refused, "That message is over 3000 characters." if text.length > 3000
+
+      user = User.find(args[:user_id])
+      raise AdminMcp::Refused, "That is an admin's own account." if user.listed_admin?
+      raise AdminMcp::Refused, "That account is banned, and gets no DMs." if user.banned?
+      raise AdminMcp::Refused, "They stopped the bot's messages (slack_stopped_at #{user.slack_muted_at.iso8601}), so nothing was sent." if user.slack_muted_at.present?
+      raise AdminMcp::Refused, "They have no Slack ID, so the bot can't DM them." if user.slack_id.blank?
+
+      user.slack_dmed!
+      SlackMessageJob.perform_later(user.slack_id, text)
+      { sent: true, user_id: user.id, text: }
+    end
+  end
 end

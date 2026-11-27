@@ -31,8 +31,12 @@ module AdminMcp::Tools::People
       if args[:refresh_trust_level]
         begin
           Hackatime.refresh_trust_level!(user)
-        rescue Hackatime::NotLinked, Hackatime::Expired, Hackatime::Unavailable => error
-          raise AdminMcp::Refused, "Could not refresh the trust level: #{error.class.name.demodulize} #{error.message}".strip
+        rescue Hackatime::NotLinked
+          raise AdminMcp::Refused, "Could not refresh the trust level: they have not linked Hackatime. The stored level (#{user.hackatime_trust_level.presence || "unknown"}) is unchanged."
+        rescue Hackatime::Expired
+          raise AdminMcp::Refused, "Could not refresh the trust level: Hackatime no longer accepts the key they linked with, so they must link Hackatime again. The stored level (#{user.hackatime_trust_level.presence || "unknown"}) is unchanged."
+        rescue Hackatime::Unavailable => error
+          raise AdminMcp::Refused, "Could not refresh the trust level: Hackatime could not be reached (#{error.message}). The stored level (#{user.hackatime_trust_level.presence || "unknown"}) is unchanged."
         end
       end
       project = user.project

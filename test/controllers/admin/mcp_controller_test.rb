@@ -221,6 +221,9 @@ class Admin::McpControllerTest < ActionDispatch::IntegrationTest
 
     Hackatime.stubbed_trust_levels = { "424242" => :unavailable }
     assert_match(/Could not refresh the trust level/, mcp_tool(@token, "get_person", { user_id: ana.id, refresh_trust_level: true }))
+
+    Hackatime.stubbed_trust_levels = { "424242" => :expired }
+    assert_match(/Hackatime no longer accepts the key.*must link Hackatime again/, mcp_tool(@token, "get_person", { user_id: ana.id, refresh_trust_level: true }))
   ensure
     Hackatime.stubbed_trust_levels = {}
   end

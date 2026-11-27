@@ -31,7 +31,7 @@ module Hackatime
   # Tests may set { Hackatime user ID => { project name => repo link } } for repo_urls (:unavailable acts out a failure;
   # a user it doesn't name has no repo links).
   # Tests may set { Hackatime user ID => "red" } for the trust level a stats answer carries (:unavailable acts out a failure;
-  # a user it doesn't name has no trust level in the answer).
+  # :expired acts out a key Hackatime no longer accepts; a user it doesn't name has no trust level in the answer).
   mattr_accessor :stubbed_users, :stubbed_projects, :stubbed_spans, :stubbed_all_projects, :stubbed_category_seconds,
                  :stubbed_trust_levels, :stubbed_repo_urls
 
@@ -278,6 +278,7 @@ module Hackatime
     if stubbed_trust_levels
       level = stubbed_trust_levels[user.hackatime_uid]
       raise Unavailable, "stubbed failure" if level == :unavailable
+      raise Expired if level == :expired
       user.update_column(:hackatime_trust_level, level) if level
       return user.hackatime_trust_level
     end
